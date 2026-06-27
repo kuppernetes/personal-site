@@ -1,0 +1,3826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mitchell Kuppersmith — Design Engineer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100%;height:100vh;overflow:hidden;font-family:'Courier New',monospace;
+  background:
+    /* clouds */
+    radial-gradient(ellipse 18vw 3vh at 16% 18%, rgba(255,255,255,0.88), rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 12vw 2.2vh at 22% 26%, rgba(255,255,255,0.7),  rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 22vw 3vh at 58% 12%, rgba(255,255,255,0.82), rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 14vw 2.5vh at 82% 22%, rgba(255,255,255,0.75), rgba(255,255,255,0) 70%),
+    radial-gradient(ellipse 10vw 2vh at 40% 30%, rgba(255,255,255,0.55), rgba(255,255,255,0) 70%),
+    /* rolling green hill — ellipse anchored below the viewport, its top arc is the horizon */
+    radial-gradient(ellipse 130% 62% at 38% 128%, #7fae3a 0%, #5d9128 55%, #3f6a18 100%, rgba(0,0,0,0) 100%),
+    /* sky */
+    linear-gradient(180deg, #2c6cb8 0%, #5a9ddc 35%, #9ec9ea 60%, #d6e7f1 72%, #d6e7f1 100%);
+}
+#stage{position:relative;width:100%;height:100vh}
+#simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
+#birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
+#uiLayer{position:absolute;inset:0;pointer-events:none}
+
+/* ── Win95 window chrome ── */
+.win95{
+  background:#c0c0c0;
+  border:2px solid;
+  border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  color:#000;
+  pointer-events:all;
+}
+.win95-title{
+  background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
+  color:#fff;font-weight:700;font-size:11px;
+  padding:2px 3px 2px 5px;
+  display:flex;align-items:center;justify-content:space-between;
+  user-select:none;
+}
+.win95-title .tbtns{display:flex;gap:2px}
+.win95-title .tbtn{
+  width:15px;height:13px;background:#c0c0c0;color:#000;
+  border:1px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-size:9px;font-weight:700;line-height:9px;text-align:center;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  padding-bottom:2px;
+}
+.win95-body{padding:6px 7px}
+
+#hud{
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+  z-index:10;
+}
+#hud .win95-body{
+  display:flex;gap:5px;align-items:center;
+}
+.hud-btn{
+  background:#c0c0c0;color:#000;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:11px;padding:2px 10px;min-height:22px;
+  cursor:pointer;white-space:nowrap;
+}
+.hud-btn:active,.hud-btn.on{
+  border-color:#000000 #ffffff #ffffff #000000;
+  box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+  padding:3px 9px 1px 11px;
+}
+.hud-btn.on{background:#a8a8a8}
+.hud-sep{width:2px;height:18px;border-left:1px solid #808080;border-right:1px solid #ffffff;margin:0 2px}
+.hud-label{font-size:11px;color:#000;font-family:'Tahoma','MS Sans Serif',sans-serif}
+
+/* Win95-style slider */
+#hud input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  background:transparent;height:22px;margin:0;
+}
+#hud input[type=range]::-webkit-slider-runnable-track{
+  height:4px;background:#808080;
+  border:1px solid;border-color:#000 #fff #fff #000;
+}
+#hud input[type=range]::-moz-range-track{
+  height:4px;background:#808080;
+  border:1px solid;border-color:#000 #fff #fff #000;
+}
+#hud input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:10px;height:18px;background:#c0c0c0;margin-top:-8px;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  cursor:pointer;
+}
+#hud input[type=range]::-moz-range-thumb{
+  width:10px;height:18px;background:#c0c0c0;border-radius:0;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  cursor:pointer;
+}
+
+#matPicker{
+  position:absolute;top:14px;right:14px;
+  z-index:10;width:154px;
+}
+#matPicker .win95-title{cursor:move}
+#matPicker.is-min .win95-body{display:none}
+#matPicker .win95-body{
+  padding:3px;
+}
+#matPicker .mat-list{
+  display:flex;flex-direction:column;gap:0;
+  background:#fff;
+  border:2px solid;border-color:#808080 #ffffff #ffffff #808080;
+  box-shadow:inset 1px 1px 0 #000;
+  padding:2px;
+}
+.mat-opt{
+  display:flex;align-items:center;gap:6px;cursor:pointer;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;font-size:11px;color:#000;
+  padding:1px 4px;
+}
+.mat-opt:hover{background:#000080;color:#fff}
+.mat-opt.active{background:#000080;color:#fff}
+.mat-dot{width:9px;height:9px;flex-shrink:0;border:1px solid #000;image-rendering:pixelated}
+
+#infoPanel{position:absolute;top:14px;left:14px;pointer-events:none;z-index:10}
+.site-hint{font-size:8px;color:#303030;letter-spacing:0.08em}
+
+#stats{
+  position:absolute;bottom:38px;right:14px;font-size:8px;color:#222;
+  letter-spacing:0.08em;font-family:'Courier New',monospace;pointer-events:none;
+  text-align:right;line-height:1.8;z-index:10;
+}
+#freezeRing{
+  position:absolute;border:1px solid rgba(184,224,0,0.18);border-radius:50%;
+  width:60px;height:60px;pointer-events:none;transform:translate(-50%,-50%);
+  transition:opacity 0.3s;opacity:0;z-index:5;
+}
+/* ── Resume overlay: real DOM content that particles collide with via [data-collide] ── */
+#resume{
+  position:absolute;inset:0;pointer-events:none;z-index:6;
+  font-family:'Courier New',monospace;color:#1c1a22;
+  padding:3.5vh 3.5vw;display:grid;
+  grid-template-columns:1fr 1fr;gap:2vh 3vw;
+  align-content:start;
+}
+#resume *{pointer-events:none} /* paint passes through; cards are purely visual + collision */
+.r-name{
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:clamp(28px,4.2vw,62px);font-weight:700;line-height:1.05;letter-spacing:0.01em;
+  color:#fff;
+  background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
+  padding:10px 16px 12px;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 3px 3px 0 #000;
+  display:inline-block;align-self:flex-start;
+}
+.r-tag{
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:clamp(11px,1.1vw,13px);color:#000;font-weight:700;letter-spacing:0.02em;
+  background:#c0c0c0;display:inline-block;padding:3px 10px;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
+}
+.r-block{
+  background:#c0c0c0;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  color:#000;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 3px 3px 0 #000;
+  font-size:clamp(11px,1.05vw,13px);line-height:1.45;
+  padding:0 0 10px 0;
+  overflow:hidden;
+}
+.r-block h3{
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:clamp(11px,1.0vw,13px);font-weight:700;letter-spacing:0.02em;
+  color:#fff;
+  background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
+  padding:2px 4px 2px 6px;margin:2px 2px 8px 2px;
+  border:none;
+}
+.r-block h3::after{
+  content:"_ □ ✕";
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:9px;font-weight:700;color:#000;
+  background:#c0c0c0;padding:1px 4px;letter-spacing:3px;line-height:1;
+  border:1px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  margin-left:8px;
+}
+.r-block h3.no-deco::after{content:none}
+.r-block h3{pointer-events:auto;cursor:default}
+.r-block h3 .r-tbtns{
+  display:flex;gap:2px;pointer-events:auto;margin-left:8px;
+}
+.r-block h3 .r-tbtns .tbtn{
+  width:15px;height:13px;background:#c0c0c0;color:#000;
+  border:1px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-size:9px;font-weight:700;line-height:9px;text-align:center;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  display:flex;align-items:center;justify-content:center;
+  padding-bottom:2px;cursor:pointer;pointer-events:auto;
+}
+.r-block h3 .r-tbtns .tbtn:active{
+  border-color:#000000 #ffffff #ffffff #000000;
+  box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+}
+.win95-title{cursor:default}
+.win95-title .tbtn{cursor:pointer}
+.win95{cursor:default}
+
+/* ── Win95 taskbar ── */
+#taskbar{
+  position:absolute;bottom:0;left:0;right:0;height:30px;z-index:11;
+  background:#c0c0c0;
+  border-top:2px solid #ffffff;
+  box-shadow:inset 0 1px 0 #dfdfdf;
+  display:flex;align-items:center;gap:3px;padding:3px 3px 3px 3px;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  pointer-events:all;
+}
+.taskbar-start{
+  background:#c0c0c0;color:#000;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:11px;font-weight:700;padding:1px 8px 2px;height:22px;
+  display:flex;align-items:center;gap:5px;cursor:pointer;
+}
+.taskbar-start .ts-logo{
+  display:inline-block;width:14px;height:14px;
+  background:
+    linear-gradient(135deg,#ff3030 50%,#30c030 50%) top left/7px 7px no-repeat,
+    linear-gradient(135deg,#3060ff 50%,#ffcc00 50%) top right/7px 7px no-repeat,
+    linear-gradient(135deg,#3060ff 50%,#ffcc00 50%) bottom left/7px 7px no-repeat,
+    linear-gradient(135deg,#ff3030 50%,#30c030 50%) bottom right/7px 7px no-repeat;
+}
+.taskbar-sep{width:2px;height:22px;border-left:1px solid #808080;border-right:1px solid #ffffff;margin:0 2px;flex-shrink:0}
+.taskbar-tasks{display:flex;align-items:center;gap:3px;flex:1;overflow:hidden}
+.taskbar-btn{
+  background:#c0c0c0;color:#000;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:11px;text-align:left;padding:1px 8px;
+  height:22px;min-width:130px;max-width:170px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  cursor:pointer;display:flex;align-items:center;gap:5px;
+}
+.taskbar-btn:hover{background:#cacaca}
+.taskbar-btn .tb-ico{display:inline-block;width:12px;height:12px;background:#000080;flex-shrink:0;border:1px solid #000}
+.taskbar-clock{
+  margin-left:auto;font-size:11px;color:#000;
+  padding:2px 8px;height:22px;display:flex;align-items:center;
+  border:1px solid;border-color:#808080 #ffffff #ffffff #808080;
+  box-shadow:inset 1px 1px 0 #000;
+  flex-shrink:0;
+}
+.r-block > *:not(h3){padding-left:10px;padding-right:10px}
+.r-block .role{font-weight:700;margin-top:6px;color:#000}
+.r-block .meta{color:#404040;font-size:0.92em;margin-bottom:4px}
+.r-block ul{list-style:none;margin:4px 0 0 0;padding:0 10px}
+.r-block li{padding-left:14px;position:relative;margin:2px 0}
+.r-block li::before{content:"■";position:absolute;left:2px;color:#000080;font-size:0.6em;top:5px}
+.r-left{display:flex;flex-direction:column;gap:1.2vh;align-self:start}
+.r-right{display:flex;flex-direction:column;gap:1.2vh;align-self:start}
+.r-header{grid-column:1 / -1;display:flex;flex-direction:column;gap:8px}
+
+/* ── Start menu ── */
+#startMenu{
+  position:absolute;bottom:30px;left:0;z-index:12;
+  width:240px;background:#c0c0c0;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
+  display:flex;font-family:'Tahoma','MS Sans Serif',sans-serif;
+  pointer-events:all;
+}
+.smenu-side{
+  width:24px;background:#808080;color:#fff;font-weight:700;font-size:18px;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  text-align:right;padding:8px 4px;letter-spacing:2px;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  background:linear-gradient(0deg,#000080 0%,#1084d0 100%);
+  flex-shrink:0;
+}
+.smenu-side span{color:#c0c0c0;font-weight:400}
+.smenu-body{flex:1;padding:2px;display:flex;flex-direction:column}
+.smenu-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 8px;font-size:12px;color:#000;cursor:pointer;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  position:relative;user-select:none;
+}
+.smenu-item:hover{background:#000080;color:#fff}
+.smenu-item .smenu-ico{
+  display:inline-block;width:20px;height:20px;flex-shrink:0;
+  border:1px solid #000;
+  background:#c0c0c0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#000080;
+}
+.smenu-item:hover .smenu-ico{color:#000080;background:#dfdfdf}
+.smenu-item.smenu-cat::after{
+  content:"▶";margin-left:auto;font-size:9px;
+}
+.smenu-sep{height:0;border-top:1px solid #808080;border-bottom:1px solid #ffffff;margin:2px 4px}
+.smenu-sub{
+  position:fixed;left:240px;bottom:30px;top:auto;
+  width:220px;background:#c0c0c0;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
+  padding:2px;display:none;
+}
+.smenu-item:hover > .smenu-sub{display:block}
+
+/* ── Floating launched windows ── */
+#windowsLayer{position:absolute;inset:0;pointer-events:none;z-index:8}
+.win-app{
+  position:absolute;pointer-events:all;
+  background:#c0c0c0;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;color:#000;
+  display:flex;flex-direction:column;
+  min-width:280px;max-width:560px;
+  width:420px;max-height:70vh;
+}
+.win-app .win-title{
+  background:linear-gradient(90deg,#7e7e7e 0%,#a8a8a8 100%);
+  color:#fff;font-weight:700;font-size:11px;
+  padding:2px 3px 2px 5px;
+  display:flex;align-items:center;justify-content:space-between;
+  user-select:none;cursor:move;flex-shrink:0;
+}
+.win-app.is-focus .win-title{
+  background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
+}
+.win-app .win-title .tbtns{display:flex;gap:2px}
+.win-app .win-title .tbtn{
+  width:15px;height:13px;background:#c0c0c0;color:#000;
+  border:1px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  font-size:9px;font-weight:700;line-height:9px;text-align:center;
+  display:flex;align-items:center;justify-content:center;
+  padding-bottom:2px;cursor:pointer;
+}
+.win-app .win-title .tbtn:active{
+  border-color:#000000 #ffffff #ffffff #000000;
+  box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+}
+.win-app .win-body{
+  padding:10px 12px;overflow-y:auto;font-size:12px;line-height:1.45;
+  background:#c0c0c0;flex:1;
+}
+.win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080}
+.win-app .win-body h3{font-size:12px;margin:10px 0 4px;color:#000;font-weight:700}
+.win-app .win-body .sub{font-size:11px;color:#404040;margin-bottom:2px}
+.win-app .win-body .meta{font-size:11px;color:#606060;margin-bottom:8px;font-style:italic}
+.win-app .win-body p{margin:6px 0}
+.win-app .win-body ul{list-style:none;margin:6px 0;padding-left:14px}
+.win-app .win-body li{position:relative;margin:3px 0;padding-left:10px}
+.win-app .win-body li::before{content:"■";position:absolute;left:-4px;color:#000080;font-size:0.6em;top:5px}
+.win-app .win-body a{color:#000080;text-decoration:underline}
+.win-app .win-body a:hover{color:#1084d0}
+.win-app .win-body blockquote{
+  margin:8px 4px;padding:6px 10px;background:#ffffe1;
+  border:1px solid #000;font-style:italic;font-size:11px;
+}
+.win-app .win-body .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:10px}
+.win-app .win-body .tag{
+  font-size:10px;padding:1px 6px;background:#c0c0c0;
+  border:1px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+}
+.taskbar-start.is-open{
+  border-color:#000000 #ffffff #ffffff #000000;
+  box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+}
+.taskbar-btn.is-active{
+  background:#a8a8a8;
+  border-color:#000000 #ffffff #ffffff #000000;
+  box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
+}
+
+/* ── 90s-flair atoms reused across themes ── */
+@keyframes blink95{50%{opacity:0}}
+.blink{animation:blink95 1s steps(1) infinite}
+@keyframes rainbow95{
+  0%{color:#ff0040}20%{color:#ff8800}40%{color:#ffe600}
+  60%{color:#00cc44}80%{color:#0080ff}100%{color:#aa00ff}
+}
+.rainbow{animation:rainbow95 2s linear infinite;font-weight:700}
+.marquee{
+  overflow:hidden;white-space:nowrap;
+  border:2px inset #808080;background:#000;color:#ffe600;
+  font-family:'Courier New',monospace;font-size:11px;
+  padding:3px 0;margin:6px 0;
+}
+.marquee span{display:inline-block;padding-left:100%;animation:marq 18s linear infinite}
+@keyframes marq{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+.hit-counter{
+  display:inline-block;background:#000;color:#0f0;
+  font-family:'Courier New',monospace;font-size:14px;font-weight:700;
+  padding:2px 6px;border:1px solid #555;letter-spacing:3px;
+}
+.under-const{
+  display:inline-block;background:#ffd700;color:#000;
+  font-family:'Impact','Arial Black',sans-serif;font-size:10px;
+  padding:2px 6px;border:2px dashed #000;letter-spacing:1px;
+}
+.badge90s{
+  display:inline-block;font-size:9px;font-weight:700;
+  padding:2px 6px;border:1px solid #000;background:#fff;color:#000;
+  font-family:'Arial Black','Impact',sans-serif;letter-spacing:0.5px;
+  margin:0 3px 3px 0;
+}
+.shot{
+  display:block;margin:6px 0;max-width:100%;
+  border:2px solid #000;box-shadow:3px 3px 0 #000;
+}
+.shot-vid{
+  position:relative;display:block;margin:6px 0;width:100%;aspect-ratio:16/9;
+  border:2px solid #000;box-shadow:3px 3px 0 #000;background:#000;
+}
+.shot-vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+
+/* ── THEME: vapor (vaporwave — Catiator) ── */
+.win-app.theme-vapor .win-body{
+  background:linear-gradient(180deg,#1a0033 0%,#3b0764 35%,#831843 70%,#fb7185 100%);
+  color:#ffe9ff;font-family:'Courier New',monospace;
+}
+.win-app.theme-vapor .win-title{
+  background:linear-gradient(90deg,#ff00aa 0%,#00e5ff 100%) !important;
+  color:#fff;text-shadow:1px 1px 0 #000;
+}
+.win-app.theme-vapor h2{
+  color:#00e5ff;text-shadow:2px 2px 0 #ff00aa, 4px 4px 0 #000;
+  font-family:'Impact','Arial Black',sans-serif;
+  font-size:22px;letter-spacing:2px;
+}
+.win-app.theme-vapor h3{color:#ffe600;text-shadow:1px 1px 0 #000}
+.win-app.theme-vapor .sub,.win-app.theme-vapor .meta{color:#ffb3ff}
+.win-app.theme-vapor a{color:#00e5ff}
+.win-app.theme-vapor li::before{content:"♦";color:#ff00aa}
+.win-app.theme-vapor blockquote{
+  background:rgba(0,229,255,0.1);border-color:#00e5ff;color:#fff;
+}
+.win-app.theme-vapor .tag{
+  background:linear-gradient(135deg,#ff00aa,#00e5ff);color:#fff;
+  border-color:#fff #000 #000 #fff;
+}
+
+/* ── THEME: forest (mushrooms / lARp) ── */
+.win-app.theme-forest .win-body{
+  background:#fff8dc;color:#3b1f0b;
+  font-family:'Georgia','Times New Roman',serif;
+  background-image:radial-gradient(circle at 10% 90%, rgba(46,90,30,0.18) 0, transparent 40%),
+                   radial-gradient(circle at 90% 10%, rgba(220,80,60,0.16) 0, transparent 40%);
+}
+.win-app.theme-forest .win-title{
+  background:linear-gradient(90deg,#3a5a2e 0%,#86b04e 100%) !important;
+}
+.win-app.theme-forest h2{
+  color:#7a2018;font-family:'Georgia',serif;font-style:italic;
+  font-size:22px;border-bottom:3px double #7a2018;padding-bottom:3px;
+}
+.win-app.theme-forest h3{color:#3a5a2e}
+.win-app.theme-forest li::before{content:"🍄";font-size:0.85em;top:2px}
+.win-app.theme-forest a{color:#7a2018;font-weight:700}
+
+/* ── THEME: terminal (AI samples / dev tools) ── */
+.win-app.theme-terminal .win-body{
+  background:#000;color:#33ff66;
+  font-family:'Courier New','Consolas',monospace;
+  font-size:11px;
+}
+.win-app.theme-terminal .win-title{
+  background:linear-gradient(90deg,#003300 0%,#006600 100%) !important;
+}
+.win-app.theme-terminal h2{
+  color:#33ff66;font-family:'Courier New',monospace;
+  font-size:16px;border-bottom:1px dashed #33ff66;padding-bottom:3px;
+}
+.win-app.theme-terminal h2::before{content:"C:\\> "}
+.win-app.theme-terminal h3{color:#ffcc00}
+.win-app.theme-terminal h3::before{content:"$ "}
+.win-app.theme-terminal .sub{color:#66ff99}
+.win-app.theme-terminal .meta{color:#888}
+.win-app.theme-terminal a{color:#00ffff}
+.win-app.theme-terminal li::before{content:">";color:#ffcc00;font-weight:700}
+.win-app.theme-terminal blockquote{background:#001100;color:#33ff66;border-color:#33ff66}
+.win-app.theme-terminal .tag{background:#001a00;color:#33ff66;border:1px solid #33ff66;box-shadow:none}
+
+/* ── THEME: arcade (Snaptrap / GDC) ── */
+.win-app.theme-arcade .win-body{
+  background:#0a0014;color:#fff;
+  font-family:'Courier New',monospace;
+  background-image:
+    repeating-linear-gradient(0deg,transparent 0,transparent 3px,rgba(255,0,170,0.06) 3px,rgba(255,0,170,0.06) 4px),
+    repeating-linear-gradient(90deg,transparent 0,transparent 3px,rgba(0,255,255,0.05) 3px,rgba(0,255,255,0.05) 4px);
+}
+.win-app.theme-arcade .win-title{
+  background:linear-gradient(90deg,#ff0066 0%,#ffcc00 100%) !important;
+}
+.win-app.theme-arcade h2{
+  color:#ffcc00;font-family:'Impact','Arial Black',sans-serif;
+  font-size:20px;letter-spacing:3px;text-transform:uppercase;
+  text-shadow:2px 0 0 #ff0066, -2px 0 0 #00ffff;
+}
+.win-app.theme-arcade h3{color:#ff66cc;letter-spacing:1px;text-transform:uppercase}
+.win-app.theme-arcade a{color:#00ffff}
+.win-app.theme-arcade li::before{content:"▸";color:#ffcc00}
+.win-app.theme-arcade .tag{background:#ff0066;color:#fff;border-color:#fff #000 #000 #fff}
+.win-app.theme-arcade .award-list{
+  display:flex;flex-direction:column;gap:0;margin-top:10px;
+  border:2px solid #ff0066;background:rgba(0,0,0,.35);
+}
+.win-app.theme-arcade .award-row{
+  display:flex;align-items:center;gap:14px;
+  padding:12px 14px;cursor:pointer;text-decoration:none;color:#fff;
+  border-bottom:1px solid rgba(255,0,102,.4);
+}
+.win-app.theme-arcade .award-row:last-child{border-bottom:none}
+.win-app.theme-arcade .award-row:hover{background:rgba(255,0,102,.18)}
+.win-app.theme-arcade .award-icon{
+  width:44px;height:44px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;border:2px solid #00ffff;background:rgba(0,255,255,.08);
+}
+.win-app.theme-arcade .award-info{
+  display:flex;flex-direction:column;gap:4px;min-width:0;
+}
+.win-app.theme-arcade .award-event{
+  font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#00ffff;
+}
+.win-app.theme-arcade .award-prize{
+  font-size:13px;font-weight:700;color:#ffcc00;
+}
+.win-app.theme-arcade .award-title{
+  font-size:17px;font-weight:700;color:#ff66cc;
+  font-family:'Impact','Arial Black',sans-serif;letter-spacing:1px;
+}
+
+/* ── THEME: spatial (AR projects — IntARnet, flagship lenses) ── */
+.win-app.theme-spatial .win-body{
+  background:#0c1d2e;color:#dceaff;
+  font-family:'Verdana','Tahoma',sans-serif;
+  background-image:
+    linear-gradient(180deg,rgba(255,255,255,0.05) 0,transparent 100%),
+    radial-gradient(circle at 80% 20%, rgba(255,212,0,0.18) 0, transparent 40%);
+}
+.win-app.theme-spatial .win-title{
+  background:linear-gradient(90deg,#001a4d 0%,#0088ff 100%) !important;
+}
+.win-app.theme-spatial h2{
+  color:#ffd400;font-family:'Verdana',sans-serif;font-size:18px;
+  border-bottom:2px solid #ffd400;padding-bottom:3px;
+}
+.win-app.theme-spatial h3{color:#88ddff}
+.win-app.theme-spatial .sub{color:#88ddff}
+.win-app.theme-spatial .meta{color:#aaa}
+.win-app.theme-spatial a{color:#ffd400}
+.win-app.theme-spatial li::before{content:"◆";color:#ffd400}
+.win-app.theme-spatial .tag{background:#001a4d;color:#ffd400;border-color:#88ddff #000 #000 #88ddff}
+
+/* ── THEME: corporate (Snap role overview) ── */
+.win-app.theme-corporate .win-body{
+  background:#f0f0e8;color:#222;
+  font-family:'Verdana','Arial',sans-serif;font-size:11px;
+}
+.win-app.theme-corporate .win-title{
+  background:linear-gradient(90deg,#ffeb3b 0%,#fffae6 100%) !important;
+  color:#000 !important;text-shadow:none;
+}
+.win-app.theme-corporate h2{
+  background:#fffc00;color:#000;display:inline-block;
+  padding:3px 8px;font-family:'Arial Black',sans-serif;
+  border:2px solid #000;font-size:16px;
+}
+.win-app.theme-corporate h3{
+  color:#000;border-left:4px solid #fffc00;padding-left:6px;
+}
+.win-app.theme-corporate a{color:#0000cc}
+.win-app.theme-corporate li::before{content:"★";color:#fffc00;-webkit-text-stroke:0.5px #000}
+.win-app.theme-corporate .tag{background:#fffc00;color:#000;border-color:#fff #000 #000 #fff}
+
+/* ── THEME: academic (Education) ── */
+.win-app.theme-academic .win-body{
+  background:#fffaf0;color:#222;
+  font-family:'Times New Roman','Georgia',serif;font-size:12px;
+}
+.win-app.theme-academic .win-title{
+  background:linear-gradient(90deg,#00274c 0%,#ffcb05 100%) !important;
+}
+.win-app.theme-academic h2{
+  color:#00274c;font-family:'Times New Roman',serif;
+  font-size:20px;border-bottom:2px solid #ffcb05;padding-bottom:3px;
+}
+.win-app.theme-academic h3{color:#00274c;font-family:'Times New Roman',serif}
+.win-app.theme-academic a{color:#00274c;font-weight:700}
+.win-app.theme-academic li::before{content:"§";color:#00274c;font-style:italic}
+.win-app.theme-academic .tag{background:#00274c;color:#ffcb05;border-color:#ffcb05 #000 #000 #ffcb05}
+
+/* ── THEME: personal (GeoCities homepage — About) ── */
+.win-app.theme-personal .win-body{
+  background:#000080;color:#ffff00;
+  font-family:'Comic Sans MS','Marker Felt',cursive;font-size:13px;
+  text-align:center;
+  background-image:
+    linear-gradient(135deg,rgba(255,255,255,0.05) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.05) 50%,rgba(255,255,255,0.05) 75%,transparent 75%);
+  background-size:18px 18px;
+}
+.win-app.theme-personal .win-title{
+  background:linear-gradient(90deg,#ff00ff 0%,#00ffff 100%) !important;
+}
+.win-app.theme-personal h2{
+  color:#ff00ff;text-shadow:2px 2px 0 #00ffff;
+  font-family:'Comic Sans MS',cursive;font-size:24px;
+}
+.win-app.theme-personal h3{color:#00ffff}
+.win-app.theme-personal p{margin:8px auto;max-width:90%}
+.win-app.theme-personal a{color:#00ffff;font-weight:700}
+.win-app.theme-personal .robot-stage{
+  position:relative;width:200px;height:200px;margin:0 auto 4px;
+}
+.win-app.theme-personal .robot-stage::before{
+  content:"";position:absolute;inset:6px;border-radius:50%;z-index:0;
+  background:radial-gradient(ellipse at 50% 42%,rgba(120,170,255,0.35),rgba(60,90,200,0.12) 55%,transparent 72%);
+  pointer-events:none;
+}
+.win-app.theme-personal .robot-canvas{
+  position:relative;z-index:1;display:block;width:100%;height:100%;
+  filter:drop-shadow(0 4px 7px rgba(0,0,0,0.45));
+}
+.win-app.theme-personal .robot-stage::after{
+  content:"";position:absolute;left:50%;bottom:10px;width:58%;height:12px;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0.45),transparent 72%);
+  filter:blur(3px);pointer-events:none;z-index:0;
+}
+
+/* ── THEME: desktop (Overview — My Computer feel, default Win95) ── */
+.win-app.theme-desktop .win-body{
+  background:#c0c0c0;color:#000;
+}
+.win-app.theme-desktop h2{color:#000080}
+.win-app.theme-desktop .icon-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
+  gap:10px;margin-top:8px;padding:8px;
+  background:#fff;border:2px inset #808080;
+}
+.win-app.theme-desktop .ic{
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:4px;cursor:pointer;text-align:center;font-size:10px;
+  color:#000;text-decoration:none;
+}
+.win-app.theme-desktop .ic:hover{background:#000080;color:#fff}
+.win-app.theme-desktop .ic-award{
+  font-size:8px;opacity:.7;line-height:1.2;margin-top:-2px;
+}
+.win-app.theme-desktop .ic:hover .ic-award{opacity:1}
+.win-app.theme-desktop .ic-img{
+  width:32px;height:32px;background:#c0c0c0;
+  border:1px solid #000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:700;color:#000080;
+}
+.win-app.theme-desktop .ic:hover .ic-img{background:#dfdfdf}
+.win-app.theme-desktop .award-list{
+  display:flex;flex-direction:column;gap:0;margin-top:8px;
+  background:#fff;border:2px inset #808080;padding:2px;
+}
+.win-app.theme-desktop .award-row{
+  display:flex;align-items:center;gap:12px;
+  padding:8px 10px;cursor:pointer;text-decoration:none;color:#000;
+  border-bottom:1px solid #d0d0d0;
+}
+.win-app.theme-desktop .award-row:last-child{border-bottom:none}
+.win-app.theme-desktop .award-row:hover{background:#000080;color:#fff}
+.win-app.theme-desktop .award-icon{
+  width:40px;height:40px;background:#c0c0c0;border:1px solid #000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;flex-shrink:0;
+}
+.win-app.theme-desktop .award-row:hover .award-icon{background:#dfdfdf}
+.win-app.theme-desktop .award-info{
+  display:flex;flex-direction:column;gap:3px;min-width:0;
+}
+.win-app.theme-desktop .award-title{
+  font-size:14px;font-weight:700;line-height:1.2;
+}
+.win-app.theme-desktop .award-prize{
+  font-size:12px;font-weight:600;color:#000080;line-height:1.3;
+}
+.win-app.theme-desktop .award-row:hover .award-prize{color:#ffff00}
+.win-app.theme-desktop .award-event{
+  font-size:11px;opacity:.75;line-height:1.3;
+}
+.win-app.theme-desktop .award-row:hover .award-event{opacity:.9}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="simCanvas"></canvas>
+  <canvas id="birdCanvas"></canvas>
+  <div id="uiLayer">
+    <div id="matPicker" class="win95">
+      <div class="win95-title">
+        <span>Materials</span>
+        <div class="tbtns"><div class="tbtn">_</div><div class="tbtn">□</div><div class="tbtn">✕</div></div>
+      </div>
+      <div class="win95-body">
+      <div class="mat-list">
+      <div class="mat-opt active" data-mat="1"><span class="mat-dot" style="background:#cda852"></span>sand [1]</div>
+      <div class="mat-opt" data-mat="2"><span class="mat-dot" style="background:#3076ce"></span>water [2]</div>
+      <div class="mat-opt" data-mat="3"><span class="mat-dot" style="background:#eb460c"></span>fire [3]</div>
+      <div class="mat-opt" data-mat="4"><span class="mat-dot" style="background:#46444a"></span>stone [4]</div>
+      <div class="mat-opt" data-mat="5"><span class="mat-dot" style="background:#2c962e"></span>plant [5]</div>
+      <div class="mat-opt" data-mat="6"><span class="mat-dot" style="background:#aad416"></span>acid [6]</div>
+      <div class="mat-opt" data-mat="7"><span class="mat-dot" style="background:#463a1e"></span>oil [7]</div>
+      <div class="mat-opt" data-mat="14"><span class="mat-dot" style="background:#eecd60"></span>pollen [8]</div>
+      <div class="mat-opt" data-mat="15"><span class="mat-dot" style="background:#4e7c3a"></span>moss [9]</div>
+      <div class="mat-opt" data-mat="16"><span class="mat-dot" style="background:#7e5c2c"></span>seed [g]</div>
+      <div class="mat-opt" data-mat="20"><span class="mat-dot" style="background:#684426"></span>wood [w]</div>
+      <div class="mat-opt" data-mat="21"><span class="mat-dot" style="background:#3c8030"></span>leaf [l]</div>
+      <div class="mat-opt" data-mat="22"><span class="mat-dot" style="background:#a8583e"></span>brick [b]</div>
+      <div class="mat-opt" data-mat="23"><span class="mat-dot" style="background:#d2a856"></span>thatch [t]</div>
+      <div class="mat-opt" data-mat="24"><span class="mat-dot" style="background:#d63444"></span>berry [r]</div>
+      <div class="mat-opt" data-mat="27"><span class="mat-dot" style="background:#6a5230"></span>fuse [f]</div>
+      <div class="mat-opt" data-mat="28"><span class="mat-dot" style="background:#2a2228"></span>bomb [x]</div>
+      <div class="mat-opt" data-mat="26"><span class="mat-dot" style="background:#1c1a22"></span>birds [i]</div>
+      <div class="mat-opt" data-mat="0"><span class="mat-dot" style="background:#111;outline:1px solid #222"></span>erase [0]</div>
+      </div>
+      </div>
+    </div>
+
+    <div id="hud" class="win95" style="display:none">
+      <div class="win95-title">
+        <span>Controls</span>
+        <div class="tbtns"><div class="tbtn">_</div><div class="tbtn">□</div><div class="tbtn">✕</div></div>
+      </div>
+      <div class="win95-body">
+      <button class="hud-btn" id="btnPhysics">▶ physics</button>
+      <div class="hud-sep"></div>
+      <button class="hud-btn" id="btnReset">↺ reset</button>
+      <div class="hud-sep"></div>
+      <div class="hud-label">brush</div>
+      <input type="range" id="brushSlider" min="1" max="20" value="5" style="width:55px;accent-color:#b8e000;cursor:pointer">
+      <div class="hud-sep"></div>
+      <div class="hud-label">speed</div>
+      <input type="range" id="speedSlider" min="1" max="4" value="2" style="width:45px;accent-color:#b8e000;cursor:pointer">
+      <div class="hud-sep"></div>
+      <button class="hud-btn" id="btnFreeze" title="freeze particles under cursor">❄ freeze</button>
+      <button class="hud-btn" id="btnRain" title="rain sand from the top">⋮ rain</button>
+      </div>
+    </div>
+
+    <div id="resume"></div>
+
+    <div id="windowsLayer"></div>
+
+    <div id="startMenu" style="display:none">
+      <div class="smenu-side">Mitchell K<span></span></div>
+      <div class="smenu-body" id="startMenuBody"></div>
+    </div>
+
+    <div id="freezeRing"></div>
+    <div id="stats"></div>
+
+    <div id="taskbar">
+      <div class="taskbar-start"><span class="ts-logo"></span>Mitchell Kuppersmith</div>
+      <div class="taskbar-sep"></div>
+      <div class="taskbar-tasks" id="taskbarTasks"></div>
+      <div class="taskbar-clock" id="taskbarClock">--:--</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   SETUP
+═══════════════════════════════════════════════════════ */
+const canvas = document.getElementById('simCanvas');
+const gl = canvas.getContext('webgl2');
+if(!gl){document.body.innerHTML='<p style="color:#e05a1a;padding:2rem;font-family:monospace">WebGL2 required. Open in Chrome or Firefox.</p>';throw 0;}
+
+// material ids
+const EMPTY=0,SAND=1,WATER=2,FIRE=3,STONE=4,PLANT=5,ACID=6,OIL=7,SMOKE=8,ASH=9,
+      TITLE=10,ACCENT=11,BODY=12,RIGID=13,
+      POLLEN=14,MOSS=15,SEED=16,DIRT=17,GRASS=18,
+      MASK=19, // invisible solid — stamped under HTML content so particles collide with it
+      // ─── authored-sprite materials ───
+      // Stamped as part of a sprite with frozen[i]=1 so the shape holds.
+      // Decomposes back into the sim when fire/acid touches the cell, its
+      // support vanishes, or something heavy lands on it.
+      WOOD=20,LEAF=21,BRICK=22,THATCH=23,BERRY=24,GLASS=25,
+      BIRD=26, // agent, not a grid cell — boids flock above the meadow
+      // Drawable reactive cord and charge. FUSE crawls cell-to-cell once any
+      // adjacent fire / lit fuse touches it. BOMB sizzles a few frames after
+      // ignition then radial-blasts. variant bit 0x80 = "lit"; for BOMB bits
+      // 4–6 carry the fuse-in countdown.
+      FUSE=27,BOMB=28;
+const BOUND=255;
+const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS;
+const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
+
+let W,H,SCALE;
+function computeDims(){
+  const vw=window.innerWidth,vh=window.innerHeight;
+  // SCALE=1 gives the crispest text, but the grid grows with the viewport.
+  // Cap total sim cells so huge/4K monitors step up to 2–3 without choking.
+  // larger SCALE = chunkier pixels. 3+ reads as pixel art instead of fine grit.
+  const CELL_BUDGET=1300000;
+  // SCALE=4 reads as deliberate pixel-art chunk size; sprites stay legible
+  // and the cell budget keeps 4K monitors stepping up to 5–6 without choking.
+  SCALE=4;
+  while((vw/SCALE)*(vh/SCALE)>CELL_BUDGET&&SCALE<7)SCALE++;
+  W=Math.floor(vw/SCALE);H=Math.floor(vh/SCALE);
+  canvas.width=W;canvas.height=H;
+  canvas.style.width=vw+'px';canvas.style.height=vh+'px';
+  const bc=document.getElementById('birdCanvas');
+  if(bc){bc.width=W;bc.height=H;bc.style.width=vw+'px';bc.style.height=vh+'px';}
+}
+computeDims();
+
+let grid,variant,frozen,updated;
+function allocArrays(){
+  grid=new Uint8Array(W*H);
+  variant=new Uint8Array(W*H);
+  frozen=new Uint8Array(W*H);
+  updated=new Int32Array(W*H); // last frame this cell was written
+}
+allocArrays();
+
+const idx=(x,y)=>y*W+x;
+const mat=(x,y)=>(x<0||x>=W||y<0||y>=H)?BOUND:grid[idx(x,y)];
+const isLiq=m=>m===WATER||m===OIL||m===ACID;
+const isStatic=m=>m===STONE||m===TITLE||m===ACCENT||m===BODY||m===RIGID||m===DIRT||m===GRASS||m===MASK;
+
+/* ═══════════════════════════════════════════════════════
+   CHUNK DIRTY-RECTANGLES (Noita-style)
+   Each chunk tracks a bounding box of cells that need work.
+   Sleeping chunks (empty rect) are skipped entirely.
+═══════════════════════════════════════════════════════ */
+const CW=32; // chunk size in sim cells
+let ncx,ncy;
+// current frame's work rects + next frame's accumulating rects
+let dcMinX,dcMinY,dcMaxX,dcMaxY,dnMinX,dnMinY,dnMaxX,dnMaxY;
+// render-dirty bboxes per chunk (cells whose pixels changed since last upload)
+let rcMinX,rcMinY,rcMaxX,rcMaxY;
+const BIG=1e9;
+
+function allocChunks(){
+  ncx=Math.ceil(W/CW);ncy=Math.ceil(H/CW);
+  const n=ncx*ncy;
+  dcMinX=new Int32Array(n);dcMinY=new Int32Array(n);dcMaxX=new Int32Array(n);dcMaxY=new Int32Array(n);
+  dnMinX=new Int32Array(n);dnMinY=new Int32Array(n);dnMaxX=new Int32Array(n);dnMaxY=new Int32Array(n);
+  rcMinX=new Int32Array(n);rcMinY=new Int32Array(n);rcMaxX=new Int32Array(n);rcMaxY=new Int32Array(n);
+  for(let i=0;i<n;i++){
+    dcMinX[i]=BIG;dcMinY[i]=BIG;dcMaxX[i]=-1;dcMaxY[i]=-1;
+    rcMinX[i]=BIG;rcMinY[i]=BIG;rcMaxX[i]=-1;rcMaxY[i]=-1;
+  }
+  clearNext();
+}
+function clearNext(){
+  for(let i=0;i<dnMinX.length;i++){dnMinX[i]=BIG;dnMinY[i]=BIG;dnMaxX[i]=-1;dnMaxY[i]=-1;}
+}
+
+// wake a single cell for NEXT frame's simulation pass (no pixel side-effect)
+function wake(x,y){
+  if(x<0||x>=W||y<0||y>=H)return;
+  const c=((y/CW)|0)*ncx+((x/CW)|0);
+  if(x<dnMinX[c])dnMinX[c]=x; if(y<dnMinY[c])dnMinY[c]=y;
+  if(x>dnMaxX[c])dnMaxX[c]=x; if(y>dnMaxY[c])dnMaxY[c]=y;
+}
+// wake a 3x3 neighbourhood (used around any changed cell)
+function wake3(x,y){
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)wake(x+dx,y+dy);
+}
+// wake a whole region for sim (used for spawn, resize, hover release, emitters)
+function wakeRect(x0,y0,x1,y1){
+  if(x0<0)x0=0;if(y0<0)y0=0;if(x1>=W)x1=W-1;if(y1>=H)y1=H-1;
+  if(x1<x0||y1<y0)return;
+  const cx0=(x0/CW)|0,cx1=(x1/CW)|0,cy0=(y0/CW)|0,cy1=(y1/CW)|0;
+  for(let cy=cy0;cy<=cy1;cy++)for(let cx=cx0;cx<=cx1;cx++){
+    const c=cy*ncx+cx;
+    const rx0=Math.max(x0,cx*CW),rx1=Math.min(x1,cx*CW+CW-1);
+    const ry0=Math.max(y0,cy*CW),ry1=Math.min(y1,cy*CW+CW-1);
+    if(rx0<dnMinX[c])dnMinX[c]=rx0; if(ry0<dnMinY[c])dnMinY[c]=ry0;
+    if(rx1>dnMaxX[c])dnMaxX[c]=rx1; if(ry1>dnMaxY[c])dnMaxY[c]=ry1;
+  }
+}
+// mark a single cell's pixel as needing re-upload
+function pixDirty(x,y){
+  if(x<0||x>=W||y<0||y>=H)return;
+  const c=((y/CW)|0)*ncx+((x/CW)|0);
+  if(x<rcMinX[c])rcMinX[c]=x; if(y<rcMinY[c])rcMinY[c]=y;
+  if(x>rcMaxX[c])rcMaxX[c]=x; if(y>rcMaxY[c])rcMaxY[c]=y;
+}
+// mark a rectangle of pixels as needing re-upload
+function pixDirtyRect(x0,y0,x1,y1){
+  if(x0<0)x0=0;if(y0<0)y0=0;if(x1>=W)x1=W-1;if(y1>=H)y1=H-1;
+  if(x1<x0||y1<y0)return;
+  const cx0=(x0/CW)|0,cx1=(x1/CW)|0,cy0=(y0/CW)|0,cy1=(y1/CW)|0;
+  for(let cy=cy0;cy<=cy1;cy++)for(let cx=cx0;cx<=cx1;cx++){
+    const c=cy*ncx+cx;
+    const rx0=Math.max(x0,cx*CW),rx1=Math.min(x1,cx*CW+CW-1);
+    const ry0=Math.max(y0,cy*CW),ry1=Math.min(y1,cy*CW+CW-1);
+    if(rx0<rcMinX[c])rcMinX[c]=rx0; if(ry0<rcMinY[c])rcMinY[c]=ry0;
+    if(rx1>rcMaxX[c])rcMaxX[c]=rx1; if(ry1>rcMaxY[c])rcMaxY[c]=ry1;
+  }
+}
+allocChunks();
+
+/* ═══════════════════════════════════════════════════════
+   SIMULATION (in-place)
+═══════════════════════════════════════════════════════ */
+let simSpeed=2;
+let frameId=1;
+let stepDir=1;
+
+// movement target tests (exclude frozen so hover-freeze pins matter)
+function eFree(x,y){return x>=0&&x<W&&y>=0&&y<H&&grid[idx(x,y)]===EMPTY&&!frozen[idx(x,y)];}
+function lFree(x,y){if(x<0||x>=W||y<0||y>=H)return false;const i=idx(x,y);return !frozen[i]&&isLiq(grid[i]);}
+
+function moveSwap(x,y,nx,ny){
+  const i=idx(x,y),j=idx(nx,ny);
+  const gm=grid[j],gv=variant[j];
+  grid[j]=grid[i];variant[j]=variant[i];
+  grid[i]=gm;variant[i]=gv;
+  updated[i]=frameId;updated[j]=frameId;
+  wake3(x,y);wake3(nx,ny);
+  pixDirty(x,y);pixDirty(nx,ny);
+}
+function setMat(x,y,m,v){
+  if(x<0||x>=W||y<0||y>=H)return;
+  const i=idx(x,y);
+  grid[i]=m;variant[i]=(v===undefined?(Math.random()*8|0):v);
+  updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+}
+
+// A frozen sprite cell wakes when: fire/acid touches it, an upper neighbour
+// just shed support, or all of its potential supports below have vanished.
+// Once unfrozen it falls through the normal debris path below.
+function tryDecompose(x,y,i,m){
+  // fire / acid adjacency
+  const up=mat(x,y-1),dn=mat(x,y+1),lf=mat(x-1,y),rt=mat(x+1,y);
+  if(up===ACID||dn===ACID||lf===ACID||rt===ACID)return true;
+  if((isFlamSprite(m)||m===GLASS)&&(up===FIRE||dn===FIRE||lf===FIRE||rt===FIRE))return true;
+  // support: a frozen neighbour, terrain, or the floor underneath us is enough
+  if(y+1>=H)return false;
+  const bi=idx(x,y+1),bm=grid[bi];
+  if(frozen[bi]||isStatic(bm)||bm===STONE||bm===DIRT||bm===GRASS)return false;
+  // diagonal frozen support — pixel arches still hold
+  if(x>0&&frozen[idx(x-1,y+1)])return false;
+  if(x+1<W&&frozen[idx(x+1,y+1)])return false;
+  return true;
+}
+
+function step(x,y){
+  const i=idx(x,y);
+  if(updated[i]===frameId)return;
+  const m=grid[i];
+  if(frozen[i]){
+    if(isDebris(m)&&tryDecompose(x,y,i,m)){
+      frozen[i]=0;
+      wake3(x,y);pixDirty(x,y);
+      // fall through into the falling-debris path below
+    } else { return; }
+  }
+  if(m===EMPTY||isStatic(m))return;
+  const d=stepDir;
+
+  if(m===SAND||m===ASH){
+    const thru=(m===SAND); // sand sinks through liquids, ash rests on them
+    if(eFree(x,y+1)||(thru&&lFree(x,y+1))){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y+1)||(thru&&lFree(x+d,y+1))){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)||(thru&&lFree(x-d,y+1))){moveSwap(x,y,x-d,y+1);return;}
+    // settled, but if we're piling on top of a fragile frozen sprite cell,
+    // sometimes shake it loose — pixel art crumbles under weight.
+    if(y+1<H){
+      const bi=idx(x,y+1);
+      if(frozen[bi]){
+        const bm=grid[bi];
+        if((bm===LEAF||bm===THATCH||bm===BERRY)&&Math.random()<0.06){
+          frozen[bi]=0;wake3(x,y+1);pixDirty(x,y+1);
+        }
+      }
+    }
+    return; // settled → sleeps
+  }
+
+  // ─── sprite debris: behaves like sand once unfrozen, but each kind has its
+  // own personality. WOOD and BRICK pile heavily; LEAF/THATCH drift down;
+  // BERRY rolls easily; GLASS shatters into smaller motion than it falls.
+  if(isDebris(m)){
+    const light=(m===LEAF||m===THATCH);
+    // light materials skip a third of frames so they look like they flutter
+    if(light&&Math.random()<0.35){updated[i]=frameId;wake3(x,y);return;}
+    if(eFree(x,y+1)||lFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y+1)||lFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)||lFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    // leaves drift sideways when blocked
+    if(light){
+      if(eFree(x+d,y)&&Math.random()<0.18){moveSwap(x,y,x+d,y);return;}
+    }
+    // catch fire from a neighbour
+    if(isFlamSprite(m)){
+      const burn=m===THATCH?0.28:m===LEAF?0.18:m===BERRY?0.12:0.05; // WOOD smolders
+      for(const[ax,ay] of [[0,-1],[1,0],[-1,0],[0,1]]){
+        if(mat(x+ax,y+ay)===FIRE&&Math.random()<burn){setMat(x,y,FIRE);return;}
+      }
+    }
+    return;
+  }
+
+  if(m===WATER||m===OIL||m===ACID){
+    if(m===ACID){
+      // dissolve structural/granular neighbours (text is acid-proof for readability)
+      const ns=[[0,1],[d,0],[-d,0],[0,-1]];
+      for(const[ax,ay]of ns){
+        const t=mat(x+ax,y+ay);
+        if((t===STONE||t===SAND||t===PLANT||t===ASH||t===MOSS||t===SEED||t===DIRT||t===GRASS||t===WOOD||t===LEAF||t===THATCH||t===BERRY||t===BRICK||t===GLASS)&&Math.random()<0.10){
+          setMat(x+ax,y+ay,EMPTY);
+          if(Math.random()<0.4){setMat(x,y,EMPTY);return;}
+          break;
+        }
+      }
+    }
+    if(eFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y)){moveSwap(x,y,x+d,y);return;}
+    if(eFree(x-d,y)){moveSwap(x,y,x-d,y);return;}
+    if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    return; // settled
+  }
+
+  if(m===FIRE){
+    if(Math.random()<0.03){setMat(x,y,SMOKE);return;}
+    for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+      const t=mat(x+ax,y+ay);
+      if((t===PLANT||t===MOSS||t===SEED||t===LEAF||t===THATCH||t===BERRY)&&Math.random()<0.18)setMat(x+ax,y+ay,FIRE);
+      else if(t===WOOD&&Math.random()<0.05)setMat(x+ax,y+ay,FIRE);
+      else if(t===OIL&&Math.random()<0.20)setMat(x+ax,y+ay,FIRE);
+      else if(t===SAND&&Math.random()<0.0015)setMat(x+ax,y+ay,ASH);
+      else if(t===WATER&&Math.random()<0.06){setMat(x,y,SMOKE);return;}
+    }
+    if(eFree(x,y-1)&&Math.random()<0.4){moveSwap(x,y,x,y-1);return;}
+    updated[i]=frameId;wake3(x,y);pixDirty(x,y);return; // keep flickering & awake
+  }
+
+  if(m===SMOKE){
+    if(Math.random()<0.02){setMat(x,y,EMPTY);return;}
+    if(eFree(x,y-1)){moveSwap(x,y,x,y-1);return;}
+    if(eFree(x+d,y-1)){moveSwap(x,y,x+d,y-1);return;}
+    if(eFree(x-d,y-1)){moveSwap(x,y,x-d,y-1);return;}
+    if(eFree(x+d,y)){moveSwap(x,y,x+d,y);return;}
+    updated[i]=frameId;wake3(x,y);return;
+  }
+
+  if(m===PLANT){
+    if(Math.random()<0.004){
+      const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
+      const t=mat(x+ax,y+ay);
+      if(t===EMPTY||t===WATER||(t===GRASS&&Math.random()<0.25))setMat(x+ax,y+ay,PLANT);
+    }
+    updated[i]=frameId;wake3(x,y);return; // stays awake to keep growing
+  }
+
+  if(m===POLLEN){
+    // drifting motes: rise slowly with a sideways wander, fade over time,
+    // and occasionally pollinate plant/moss into a fresh sprout
+    if(Math.random()<0.006){setMat(x,y,EMPTY);return;}
+    for(const[ax,ay]of [[0,-1],[d,0],[-d,0],[0,1]]){
+      const t=mat(x+ax,y+ay);
+      if((t===PLANT||t===MOSS)&&Math.random()<0.004){
+        if(eFree(x,y-1))setMat(x,y-1,SEED);
+        setMat(x,y,EMPTY);return;
+      }
+    }
+    if(Math.random()<0.6&&eFree(x,y-1)){moveSwap(x,y,x,y-1);return;}
+    if(eFree(x+d,y-1)){moveSwap(x,y,x+d,y-1);return;}
+    if(eFree(x+d,y)){moveSwap(x,y,x+d,y);return;}
+    if(eFree(x-d,y)){moveSwap(x,y,x-d,y);return;}
+    updated[i]=frameId;wake3(x,y);return; // hang in the air, stay awake
+  }
+
+  if(m===MOSS){
+    // nature reclaiming the structure: creeps slowly over adjacent stone
+    if(Math.random()<0.012){
+      const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
+      if(mat(x+ax,y+ay)===STONE&&Math.random()<0.5){setMat(x+ax,y+ay,MOSS);}
+      else if(mat(x+ax,y+ay)===DIRT&&Math.random()<0.08)setMat(x+ax,y+ay,MOSS);
+    }
+    updated[i]=frameId;wake3(x,y);return;
+  }
+
+  if(m===SEED){
+    // falls like a grain, then sprouts into a plant on fertile ground
+    if(eFree(x,y+1)||lFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    const below=mat(x,y+1);
+    if((below===STONE||below===SAND||below===MOSS||below===PLANT||below===DIRT||below===GRASS)&&Math.random()<0.05){
+      setMat(x,y,PLANT);return;
+    }
+    return; // settled → sleeps
+  }
+
+  if(m===FUSE){
+    // bit 0x80 = lit. Unlit cells wait for fire/lit-fuse to touch them.
+    if(!(variant[i]&0x80)){
+      for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
+        const nx=x+ax,ny=y+ay;
+        if(nx<0||nx>=W||ny<0||ny>=H)continue;
+        const ni=idx(nx,ny),t=grid[ni];
+        if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
+          variant[i]|=0x80;pixDirty(x,y);
+          updated[i]=frameId;wake3(x,y);
+          return;
+        }
+      }
+      return;
+    }
+    for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
+      const nx=x+ax,ny=y+ay;
+      if(nx<0||nx>=W||ny<0||ny>=H)continue;
+      const ni=idx(nx,ny),t=grid[ni];
+      if(t===FUSE&&!(variant[ni]&0x80)&&Math.random()<0.45){
+        variant[ni]|=0x80;wake3(nx,ny);pixDirty(nx,ny);updated[ni]=frameId;
+      } else if(t===BOMB&&!(variant[ni]&0x80)){
+        variant[ni]=0x80|(7<<4);
+        wake3(nx,ny);pixDirty(nx,ny);updated[ni]=frameId;
+      } else if(t===OIL&&Math.random()<0.35){setMat(nx,ny,FIRE);}
+    }
+    if(Math.random()<0.35&&eFree(x,y-1))setMat(x,y-1,SMOKE);
+    if(Math.random()<0.10){setMat(x,y,SMOKE);return;}
+    updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+    return;
+  }
+
+  if(m===BOMB){
+    if(!(variant[i]&0x80)){
+      for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
+        const nx=x+ax,ny=y+ay;
+        if(nx<0||nx>=W||ny<0||ny>=H)continue;
+        const ni=idx(nx,ny),t=grid[ni];
+        if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
+          variant[i]=0x80|(7<<4);
+          pixDirty(x,y);updated[i]=frameId;wake3(x,y);
+          return;
+        }
+      }
+      return;
+    }
+    const ct=(variant[i]>>4)&7;
+    if(ct===0){
+      // detonate: snapshot every destructible cell in the blast disc, clear
+      // it, then re-emit. Inner core → FIRE; everything else gets FLUNG
+      // radially outward (with an upward bias) keeping its original material —
+      // sand sprays as sand, dirt as chunks, wood as splinters.
+      // Text/MASK survive so the page stays intact.
+      const R_kill=10, R_push=22;
+      const snap=[];
+      for(let by=-R_push;by<=R_push;by++)for(let bx=-R_push;bx<=R_push;bx++){
+        const d2=bx*bx+by*by;
+        if(d2>R_push*R_push)continue;
+        const nx=x+bx,ny=y+by;
+        if(nx<0||nx>=W||ny<0||ny>=H)continue;
+        const ni=idx(nx,ny),tm=grid[ni];
+        if(tm===TITLE||tm===ACCENT||tm===BODY||tm===MASK||tm===RIGID)continue;
+        snap.push({x:nx,y:ny,d2,m:tm,v:variant[ni]});
+        grid[ni]=EMPTY;variant[ni]=0;frozen[ni]=0;
+        updated[ni]=frameId;pixDirty(nx,ny);wake3(nx,ny);
+      }
+      // farthest cells settle first so closer flung pixels land into vacated air
+      snap.sort((a,b)=>b.d2-a.d2);
+      for(const c of snap){
+        const d2=c.d2, srcM=c.m;
+        if(d2<R_kill*R_kill){
+          setMat(c.x,c.y,FIRE);continue;
+        }
+        // empty/smoke: dust the air so the shockwave reads even where there
+        // was nothing to fling
+        if(srcM===EMPTY||srcM===SMOKE){
+          if(d2<R_push*R_push*0.45){
+            setMat(c.x,c.y,Math.random()<0.55?FIRE:SMOKE);
+          } else if(Math.random()<0.35){
+            setMat(c.x,c.y,SMOKE);
+          }
+          continue;
+        }
+        if(srcM===FUSE||srcM===BOMB)continue; // consumed by the blast
+        // fling: project outward along the radial with an upward bias so
+        // debris arcs up before gravity takes over
+        const d=Math.sqrt(d2)||1;
+        const dirX=(c.x-x)/d, dirY=(c.y-y)/d;
+        const push=2+((R_push-d)*0.85|0)+(Math.random()*3|0);
+        const tx=c.x+Math.round(dirX*push);
+        const ty=c.y+Math.round(dirY*push)-((push*0.35)|0);
+        let placed=false;
+        for(let k=0;k<6;k++){
+          const ox=k?((Math.random()*5|0)-2):0;
+          const oy=k?((Math.random()*5|0)-2):0;
+          const px=tx+ox, py=ty+oy;
+          if(px<0||px>=W||py<0||py>=H)continue;
+          const pi=idx(px,py);
+          const pm=grid[pi];
+          if(pm===EMPTY||pm===SMOKE){
+            grid[pi]=srcM;
+            variant[pi]=c.v&7; // strip lit/countdown bits
+            frozen[pi]=0;
+            updated[pi]=frameId;pixDirty(px,py);wake3(px,py);
+            placed=true;break;
+          }
+        }
+        if(!placed&&Math.random()<0.5)setMat(c.x,c.y,SMOKE);
+      }
+      return;
+    }
+    variant[i]=0x80|((ct-1)<<4);
+    updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+    return;
+  }
+}
+
+function simulate(){
+  frameId++;
+  stepDir=(frameId&1)?1:-1;
+  // promote next→current, clear next
+  let t;
+  t=dcMinX;dcMinX=dnMinX;dnMinX=t;
+  t=dcMinY;dcMinY=dnMinY;dnMinY=t;
+  t=dcMaxX;dcMaxX=dnMaxX;dnMaxX=t;
+  t=dcMaxY;dcMaxY=dnMaxY;dnMaxY=t;
+  clearNext();
+
+  // iterate chunk rows bottom→top so gravity propagates naturally
+  for(let cyi=ncy-1;cyi>=0;cyi--){
+    for(let cxi=0;cxi<ncx;cxi++){
+      const c=cyi*ncx+cxi;
+      let x0=dcMinX[c],y0=dcMinY[c],x1=dcMaxX[c],y1=dcMaxY[c];
+      if(x1<x0)continue; // sleeping chunk
+      if(x0<0)x0=0; if(y0<0)y0=0; if(x1>=W)x1=W-1; if(y1>=H)y1=H-1;
+      for(let y=y1;y>=y0;y--){
+        if(stepDir>0){for(let x=x0;x<=x1;x++)step(x,y);}
+        else{for(let x=x1;x>=x0;x--)step(x,y);}
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   COLORS
+═══════════════════════════════════════════════════════ */
+// flatter palette — pixel art wants flat color fields, not per-pixel noise
+// Flatter than before — pixel art wants deliberate color, not noise.
+// Variants 0–3 are used for "shade levels" by sprite cells; 4–7 are zero so
+// random sand/water/grass cells stay close to their base palette.
+const JITTER=[0,-3,0,3,0,0,0,0];
+// SHADE: for sprite materials we use variant as an explicit shade index.
+// 0=base, 1=shadow, 2=highlight, 3=deep shadow. Values are RGB deltas.
+const SHADE=[[0,0,0],[-22,-22,-18],[14,14,10],[-38,-36,-30]];
+function matColor(m,v){
+  const j=JITTER[v&7];
+  switch(m){
+    case EMPTY: return[0,0,0,0];
+    case SAND:  return[205+j,170+j,82+j,255];
+    case WATER: return[40+j,132+j,168+j,205];
+    case FIRE:  return[235+j,70+(j>0?j*2:0),12,255];
+    case STONE: return[66+j,64+j,70+j,255];
+    case PLANT: return[44+j,150+j,46+j,255];
+    case ACID:  return[170+j,212+j,22+j,235];
+    case OIL:   return[70+j,58+j,30+j,240];
+    case SMOKE: return[60+j,60+j,68+j,105];
+    case ASH:   return[96+j,88+j,82+j,255];
+    case POLLEN:return[238+(j>0?j:0),205+j,96+j,210];  // glowing warm motes
+    case MOSS:  return[78+j,124+j,58+j,255];            // soft reclaiming green
+    case SEED:  return[126+j,92+j,44+j,255];            // amber seed
+    case DIRT:  return[98+j,72+j,46+j,255];              // warm topsoil
+    case GRASS: {                                        // meadow turf — variant picks the hue
+      const s=v&3;
+      if(s===0)return[68+j,138+j,50+j,255];
+      if(s===1)return[54+j,122+j,42+j,255];
+      if(s===2)return[82+j,152+j,56+j,255];
+      return[46+j,104+j,36+j,255];
+    }
+    case TITLE: return[238,235,228,255];   // bright — name
+    case ACCENT:return[184,224,0,255];     // lime — section labels
+    case BODY:  return[28,26,34,255];       // near-black — readable against the bright sky
+    case RIGID: return[0,0,0,0];           // drawn as a textured quad on top
+    // ─── sprite materials ───
+    case WOOD:  return[104+j,68+j,38+j,255];  // warm trunk brown
+    case LEAF: {                              // canopy — variant picks shade
+      const s=v&3;
+      if(s===0)return[60+j,128+j,48+j,255];
+      if(s===1)return[44+j,108+j,40+j,255];
+      if(s===2)return[88+j,148+j,56+j,255];
+      return[36+j,90+j,32+j,255];
+    }
+    case BRICK: return[168+j,88+j,62+j,255];  // terracotta
+    case THATCH:return[210+j,168+j,86+j,255]; // straw roof
+    case BERRY: return[214+j,52+j,68+j,255];  // ripe red
+    case GLASS: return[178+j,206+j,222+j,200]; // pale sky-blue, slight transparency
+    case FUSE:  {
+      // lit cells glow a sizzling orange; unlit reads as a tarry cord
+      if(v&0x80)return[238+j,140+j,40+j,255];
+      return[106+j,82+j,48+j,255];
+    }
+    case BOMB:  {
+      if(v&0x80)return[212+j,52+j,40+j,255];  // armed: angry red
+      return[42+j,36+j,44+j,255];              // dormant: dark charge
+    }
+    default:    return[0,0,0,0];
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   WEBGL RENDERER — atmospheric bg + dirty-rect texture upload
+═══════════════════════════════════════════════════════ */
+let texData=new Uint8Array(W*H*4);
+function mkSh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
+const prog=gl.createProgram();
+gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
+  `#version 300 es\nin vec2 a;out vec2 uv;\nvoid main(){uv=a*.5+.5;gl_Position=vec4(a,0,1);}`));
+gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
+  `#version 300 es
+   precision mediump float;in vec2 uv;uniform sampler2D t;uniform float uT;uniform vec2 uGrid;out vec4 c;
+   float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
+   float noise(vec2 p){
+     vec2 i=floor(p),f=fract(p);
+     float a=hash(i),b=hash(i+vec2(1,0)),cc=hash(i+vec2(0,1)),d=hash(i+vec2(1,1));
+     vec2 u=f*f*(3.0-2.0*f);
+     return mix(mix(a,b,u.x),mix(cc,d,u.x),u.y);
+   }
+   float fbm(vec2 p){float s=0.0,a=0.5;for(int k=0;k<4;k++){s+=a*noise(p);p*=2.03;a*=0.5;}return s;}
+   // 4x4 ordered (Bayer) dither thresholds, normalised to [0,1)
+   const float bayer[16]=float[16](
+     0.0,    0.5,    0.125,  0.625,
+     0.75,   0.25,   0.875,  0.375,
+     0.1875, 0.6875, 0.0625, 0.5625,
+     0.9375, 0.4375, 0.8125, 0.3125);
+   float dither(vec2 cell){
+     int bx=int(mod(cell.x,4.0)), by=int(mod(cell.y,4.0));
+     return bayer[by*4+bx];
+   }
+   void main(){
+     // particles sample at full resolution so they stay crisp
+     vec4 tx=texture(t,uv);
+     // snap the sky to the sim cell grid so it reads as pixel art
+     vec2 cell=floor(uv*uGrid);
+     vec2 cuv=(cell+0.5)/uGrid;
+     float y=cuv.y;                         // 0 = bottom, 1 = top of screen
+
+     // ── Bliss-style sky: pale horizon → daylight blue → deep crown ──
+     vec3 horizon=vec3(0.86,0.92,0.97);     // washed pale blue at the skyline
+     vec3 mid    =vec3(0.45,0.68,0.90);     // clean daylight blue
+     vec3 crown  =vec3(0.18,0.42,0.78);     // deeper blue overhead
+     vec3 sky=mix(horizon,mid,smoothstep(0.22,0.62,y));
+     sky=mix(sky,crown,smoothstep(0.60,1.0,y));
+
+     // ── puffy white cumulus clouds, drifting horizontally ──
+     // two layers: bigger lazy crowns on top, smaller wisps lower down
+     float c1=fbm(vec2(cuv.x*2.4 - uT*0.012, cuv.y*4.2));
+     float band1=smoothstep(0.42,0.78,y)*smoothstep(0.98,0.70,y);
+     float lit1=smoothstep(0.0,0.20,c1-0.55);
+     vec3 cloud1=mix(vec3(0.84,0.88,0.94),vec3(1.0,1.0,1.0),lit1);
+     sky=mix(sky,cloud1,smoothstep(0.54,0.74,c1)*band1);
+     float c2=fbm(vec2(cuv.x*4.5 - uT*0.028 + 9.0, cuv.y*7.0));
+     float band2=smoothstep(0.30,0.55,y)*smoothstep(0.74,0.46,y);
+     sky=mix(sky,vec3(0.97,0.99,1.0),smoothstep(0.62,0.80,c2)*band2*0.55);
+
+     // ── distinct round cumulus puffs: jittered grid of soft circles, parallax layers ──
+     float puffs=0.0;
+     for(int k=0;k<3;k++){
+       float fk=float(k);
+       float speed=0.020+0.012*fk;
+       float scale=3.2+1.6*fk;
+       vec2 q=vec2(cuv.x*scale - uT*speed + fk*4.7, (cuv.y-0.58)*scale*2.4 + fk*1.3);
+       vec2 cell=floor(q), f=fract(q);
+       for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++){
+         vec2 g=vec2(float(dx),float(dy));
+         vec2 ci=cell+g+vec2(fk*17.3);
+         vec2 ctr=g+vec2(hash(ci), 0.35+0.30*hash(ci+vec2(7.1)));
+         float r=0.30+0.22*hash(ci+vec2(3.7));
+         float d=length(f-ctr);
+         puffs=max(puffs, smoothstep(r, r*0.42, d));
+       }
+     }
+     float puffBand=smoothstep(0.40,0.58,y)*smoothstep(0.88,0.66,y);
+     vec3 puffShade=vec3(0.80,0.85,0.93);
+     vec3 puffLit  =vec3(1.00,1.00,1.00);
+     vec3 puffCol=mix(puffShade, puffLit, smoothstep(0.05,0.75,puffs));
+     sky=mix(sky, puffCol, puffs*puffBand*0.90);
+
+     // ── two gentle background hills: low on the horizon, never dominant ──
+     // two offset gaussian bumps so distinct crests rise out of a flat skyline
+     float baseLine=0.14;
+     float hillA=0.070*exp(-pow((cuv.x-0.30)*2.6,2.0));
+     float hillB=0.055*exp(-pow((cuv.x-0.72)*2.9,2.0));
+     float crest=baseLine + hillA + hillB
+                +0.008*fbm(vec2(cuv.x*3.0+7.0,1.5));
+     if(y<crest){
+       // grass shading: vivid lime at the crest, deeper olive at the bottom
+       float gT=clamp((crest-y)/crest,0.0,1.0); // 0 at crest, 1 at frame bottom
+       vec3 grassTop =vec3(0.56,0.74,0.26);
+       vec3 grassMid =vec3(0.42,0.62,0.18);
+       vec3 grassDeep=vec3(0.26,0.46,0.12);
+       vec3 grass=mix(grassTop,grassMid,smoothstep(0.0,0.35,gT));
+       grass=mix(grass,grassDeep,smoothstep(0.40,1.0,gT));
+       // subtle wind-streak striations along the slope
+       grass+=0.025*sin(cuv.x*38.0 + cuv.y*12.0);
+       sky=grass;
+     }
+
+     // ── ordered-dither posterize → smooth gradients become pixel bands ──
+     // more levels + softer dither = banded pixel-art feel without checkerboard noise
+     float L=10.0;
+     float dAmt=0.45;                       // dither strength (1.0 = full Bayer)
+     float d=(dither(cell)-0.5)*dAmt+0.5;
+     sky=floor(sky*(L-1.0)+d)/(L-1.0);
+     sky=clamp(sky,0.0,1.0);
+
+     // posterize particles to 8 levels/channel to match the sky's wider palette
+     vec3 part=floor(tx.rgb*7.99)/7.0;
+     vec3 col=mix(sky,part,tx.a);
+     c=vec4(col,1.0);
+   }`));
+gl.linkProgram(prog);gl.useProgram(prog);
+const vbuf=gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER,vbuf);
+gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+const aloc=gl.getAttribLocation(prog,'a');
+gl.enableVertexAttribArray(aloc);gl.vertexAttribPointer(aloc,2,gl.FLOAT,false,0,0);
+const tex=gl.createTexture();
+gl.bindTexture(gl.TEXTURE_2D,tex);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+gl.uniform1i(gl.getUniformLocation(prog,'t'),0);
+const uTimeLoc=gl.getUniformLocation(prog,'uT');
+const uGridLoc=gl.getUniformLocation(prog,'uGrid');
+let gTime=0;
+
+function allocTexture(){
+  texData=new Uint8Array(W*H*4);
+  gl.viewport(0,0,W,H);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,texData);
+}
+allocTexture();
+
+// inline pixel fill — writes RGBA directly to texData, no array allocations
+function fillTexel(x,y){
+  const fy=H-1-y; // texture is y-flipped
+  const dst=(fy*W+x)*4;
+  const gi=y*W+x;
+  const m=grid[gi],v=variant[gi];
+  const j=JITTER[v&7];
+  let r=0,g=0,b=0,a=0;
+  switch(m){
+    case EMPTY: break;
+    case SAND:  r=205+j; g=170+j; b=82+j;  a=255; break;
+    case WATER: r=40+j;  g=132+j; b=168+j; a=205; break;
+    case FIRE: {
+      const f=Math.random();
+      const rr=235+j+(f>0.6?40:0);
+      const gg=70+(j>0?j*2:0)+(f>0.78?12:-20);
+      r=rr>255?255:(rr<0?0:rr);
+      g=gg>255?255:(gg<0?0:gg);
+      b=12; a=255; break;
+    }
+    case STONE: r=66+j;  g=64+j;  b=70+j;  a=255; break;
+    case PLANT: r=44+j;  g=150+j; b=46+j;  a=255; break;
+    case ACID:  r=170+j; g=212+j; b=22+j;  a=235; break;
+    case OIL:   r=70+j;  g=58+j;  b=30+j;  a=240; break;
+    case SMOKE: r=60+j;  g=60+j;  b=68+j;  a=105; break;
+    case ASH:   r=96+j;  g=88+j;  b=82+j;  a=255; break;
+    case POLLEN:r=238+(j>0?j:0); g=205+j; b=96+j; a=210; break;
+    case MOSS:  r=78+j;  g=124+j; b=58+j;  a=255; break;
+    case SEED:  r=126+j; g=92+j;  b=44+j;  a=255; break;
+    case DIRT:  r=98+j;  g=72+j;  b=46+j;  a=255; break;
+    case GRASS: {
+      const s=v&3;
+      if(s===0){r=68+j;g=138+j;b=50+j;}
+      else if(s===1){r=54+j;g=122+j;b=42+j;}
+      else if(s===2){r=82+j;g=152+j;b=56+j;}
+      else{r=46+j;g=104+j;b=36+j;}
+      a=255; break;
+    }
+    case TITLE: r=238;g=235;b=228;a=255; break;
+    case ACCENT:r=184;g=224;b=0;  a=255; break;
+    case BODY:  r=28; g=26; b=34; a=255; break;
+    // ─── sprite materials: variant is a SHADE index (0=base..3=deep) ───
+    case WOOD:  { const sh=SHADE[v&3]; r=104+sh[0]; g=68+sh[1]; b=38+sh[2]; a=255; break; }
+    case LEAF:  { const sh=SHADE[v&3]; r=60+sh[0]; g=128+sh[1]; b=48+sh[2]; a=255; break; }
+    case BRICK: { const sh=SHADE[v&3]; r=168+sh[0]; g=88+sh[1]; b=62+sh[2]; a=255; break; }
+    case THATCH:{ const sh=SHADE[v&3]; r=210+sh[0]; g=168+sh[1]; b=86+sh[2]; a=255; break; }
+    case BERRY: { const sh=SHADE[v&3]; r=214+sh[0]; g=52+sh[1]; b=68+sh[2]; a=255; break; }
+    case GLASS: { const sh=SHADE[v&3]; r=178+sh[0]; g=206+sh[1]; b=222+sh[2]; a=210; break; }
+    case FUSE:
+      if(v&0x80){ // lit: orange ember that flickers
+        const f=Math.random();
+        r=232+(f>0.6?20:0); g=120+j+(f>0.7?30:-10); b=36; a=255;
+      } else {
+        r=106+j; g=82+j; b=48+j; a=255;
+      }
+      break;
+    case BOMB:
+      if(v&0x80){
+        // pulse brightness with the countdown so it feels urgent
+        const ct=(v>>4)&7, pulse=(7-ct)*10;
+        r=200+pulse+j; g=48+j; b=40+j; a=255;
+      } else {
+        r=42+j; g=36+j; b=44+j; a=255;
+      }
+      break;
+    // RIGID/default: transparent (rigid body is drawn as a textured quad on top)
+  }
+  // micro-texture: tiny per-material patterns tiled by world position.
+  // This is the "sprite" equivalent for a 1-pixel-per-cell sim — patterns
+  // emerge from neighbouring cells rather than per-particle bitmaps.
+  if(a){
+    let tj=0;
+    if(m===STONE){
+      const h=((x*7)^(y*13))&7;
+      if(h===0)tj=-16; else if(h===3)tj=8;
+    } else if(m===GRASS){
+      tj=(((x+y)&1)===0)?6:-5;
+      if(((x*5)^y)%13===0)tj=14;       // bright tip
+    } else if(m===WATER){
+      const r4=y%4;
+      if(r4===0)tj=12; else if(r4===2)tj=-8;
+    } else if(m===DIRT){
+      const h=((x*11)^(y*7))%13;
+      if(h===0)tj=-14; else if(h===5)tj=7;
+    } else if(m===SAND){
+      if(((x*3)^(y*5))%9===0)tj=-10;
+      else if(((x*13)^(y*3))%17===0)tj=8;
+    } else if(m===MOSS){
+      if(((x*7)^(y*11))%6===0)tj=12;
+      else if(((x*5)^(y*9))%9===0)tj=-8;
+    } else if(m===OIL){
+      if(y%3===0)tj=6;
+    } else if(m===ACID){
+      if(((x*3)+(y*5))%7===0)tj=10;
+    } else if(m===PLANT){
+      if((y&1)===0)tj=8;
+    } else if(m===WOOD){
+      // gentle vertical grain — variant already supplies the shade band
+      if(((x>>1)&1)===0)tj=-3;
+    } else if(m===BRICK){
+      // mortar grout only — staggered courses every 4 rows
+      if(y%4===3)tj=-22;
+      else if((x+((y/4)|0)*2)%9===0)tj=-18;
+    } else if(m===THATCH){
+      // single diagonal streak — keep it pixel-clean
+      if(((x+y)%4)===0)tj=8;
+    }
+    if(tj){
+      let rr=r+tj,gg=g+tj,bb=b+tj;
+      r=rr<0?0:(rr>255?255:rr);
+      g=gg<0?0:(gg>255?255:gg);
+      b=bb<0?0:(bb>255?255:bb);
+    }
+  }
+  texData[dst]=r;texData[dst+1]=g;texData[dst+2]=b;texData[dst+3]=a;
+}
+
+function render(){
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbuf);
+  gl.enableVertexAttribArray(aloc);
+  gl.vertexAttribPointer(aloc,2,gl.FLOAT,false,0,0);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.uniform1f(uTimeLoc,gTime);
+  gl.uniform2f(uGridLoc,W,H);
+  gl.disable(gl.BLEND);
+  // iterate dirty chunks: only re-fill+upload pixels that actually changed
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH,W);
+  for(let c=0;c<rcMinX.length;c++){
+    const x0=rcMinX[c];
+    if(x0===BIG)continue;
+    const y0=rcMinY[c],x1=rcMaxX[c],y1=rcMaxY[c];
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)fillTexel(x,y);
+    const fy0=H-1-y1;
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,x0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS,fy0);
+    gl.texSubImage2D(gl.TEXTURE_2D,0,x0,fy0,(x1-x0+1),(y1-y0+1),gl.RGBA,gl.UNSIGNED_BYTE,texData);
+    rcMinX[c]=BIG;rcMinY[c]=BIG;rcMaxX[c]=-1;rcMaxY[c]=-1;
+  }
+  gl.pixelStorei(gl.UNPACK_ROW_LENGTH,0);
+  gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,0);
+  gl.pixelStorei(gl.UNPACK_SKIP_ROWS,0);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+}
+
+/* ═══════════════════════════════════════════════════════
+   RIGID BODIES — oriented boxes with impulse dynamics.
+   Bodies collide with stone terrain + walls + each other,
+   stamp a solid footprint into the grid so sand rests on
+   them, and can be grabbed & thrown with the mouse.
+═══════════════════════════════════════════════════════ */
+let WORK_REGION=null;
+const bodies=[];
+const GRAV=0.16;
+const VMAX=22;
+
+// textured-quad shader (rotated, nearest-sampled, drawn over the sand)
+const prog2=gl.createProgram();
+gl.attachShader(prog2,mkSh(gl.VERTEX_SHADER,
+  `#version 300 es
+   in vec2 a;out vec2 uv;
+   uniform vec2 uCenter;uniform vec2 uHalf;uniform float uAngle;uniform vec2 uRes;
+   void main(){
+     uv=a*0.5+0.5;
+     float c=cos(uAngle),s=sin(uAngle);
+     vec2 p=vec2(a.x*uHalf.x,a.y*uHalf.y);
+     vec2 r=vec2(p.x*c-p.y*s,p.x*s+p.y*c);
+     vec2 w=uCenter+r;
+     vec2 clip=vec2(w.x/uRes.x*2.0-1.0, 1.0-w.y/uRes.y*2.0);
+     gl_Position=vec4(clip,0,1);
+   }`));
+gl.attachShader(prog2,mkSh(gl.FRAGMENT_SHADER,
+  `#version 300 es
+   precision mediump float;in vec2 uv;uniform sampler2D uTex;out vec4 c;
+   void main(){ c=texture(uTex,uv); }`));
+gl.linkProgram(prog2);
+const aloc2=gl.getAttribLocation(prog2,'a');
+const u2center=gl.getUniformLocation(prog2,'uCenter');
+const u2half=gl.getUniformLocation(prog2,'uHalf');
+const u2angle=gl.getUniformLocation(prog2,'uAngle');
+const u2res=gl.getUniformLocation(prog2,'uRes');
+const u2tex=gl.getUniformLocation(prog2,'uTex');
+
+// build a small pixel-art preview texture for a media panel
+function makePanelTexture(label,sub,scheme){
+  const cw=128,ch=88;
+  const cv=Object.assign(document.createElement('canvas'),{width:cw,height:ch});
+  const c=cv.getContext('2d');
+  c.fillStyle='#101015';c.fillRect(0,0,cw,ch);
+  // motif area
+  const motifH=ch-26;
+  c.save();c.beginPath();c.rect(0,0,cw,motifH);c.clip();
+  if(scheme===0){ // wireframe cube
+    c.strokeStyle='#b8e000';c.lineWidth=1;
+    const P=[[-.5,-.5,-.5],[.5,-.5,-.5],[.5,.5,-.5],[-.5,.5,-.5],[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]];
+    const E=[[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+    const pr=([x,y,z])=>{const s=1/(z+2.2);return[cw/2+x*s*cw*0.6,motifH/2+y*s*motifH*0.7];};
+    const R=P.map(([x,y,z])=>{const c1=Math.cos(.7),s1=Math.sin(.7),c2=Math.cos(.5),s2=Math.sin(.5);const x1=c1*x-s1*z,z1=s1*x+c1*z;const y2=c2*y-s2*z1,z2=s2*y+c2*z1;return[x1,y2,z2];});
+    E.forEach(([a,b])=>{const[ax,ay]=pr(R[a]),[bx,by]=pr(R[b]);c.beginPath();c.moveTo(ax,ay);c.lineTo(bx,by);c.stroke();});
+  } else if(scheme===1){ // particles
+    for(let i=0;i<90;i++){c.fillStyle=`hsla(${30+Math.random()*40},70%,55%,${0.4+Math.random()*0.5})`;c.beginPath();c.arc(Math.random()*cw,Math.random()*motifH,Math.random()*2+0.5,0,7);c.fill();}
+  } else if(scheme===2){ // waveform
+    c.fillStyle='#0a1a0a';c.fillRect(0,0,cw,motifH);
+    ['#b8e000','#3076ce','#eb460c'].forEach((col,k)=>{c.strokeStyle=col;c.globalAlpha=.8-k*.15;c.beginPath();for(let x=0;x<cw;x++){const y=motifH/2+Math.sin(x*(0.05+k*0.02)+k)*motifH*(0.18+k*0.05);x?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();});c.globalAlpha=1;
+  } else { // dithered glow
+    const g=c.createRadialGradient(cw*.45,motifH*.45,2,cw*.5,motifH*.5,cw*.5);
+    g.addColorStop(0,'#c86a14');g.addColorStop(1,'#101015');c.fillStyle=g;c.fillRect(0,0,cw,motifH);
+  }
+  c.restore();
+  // label bar
+  c.fillStyle='#0b0b0e';c.fillRect(0,motifH,cw,26);
+  c.fillStyle='#b8e000';c.fillRect(0,motifH,3,26);
+  c.fillStyle='#f0ece4';c.font='700 11px "Courier New",monospace';c.textBaseline='middle';
+  c.fillText(label.length>16?label.slice(0,16):label,8,motifH+9);
+  c.fillStyle='#555';c.font='400 8px "Courier New",monospace';
+  c.fillText(sub,8,motifH+19);
+  // frame border
+  c.strokeStyle='#3a3a3a';c.lineWidth=2;c.strokeRect(1,1,cw-2,ch-2);
+
+  const t=gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return t;
+}
+
+function makeBody(x,y,hw,hh,tex){
+  const m=Math.max(1,hw*hh*0.0009); // mass ∝ area
+  return {x,y,a:0,vx:0,vy:0,va:0,hw,hh,tex,
+    invM:1/m, invI:1/(m*((2*hw)*(2*hw)+(2*hh)*(2*hh))/12),
+    e:0.12, fric:0.5, sleeping:true, stamped:false, sleepT:0, dragging:false,
+    prevCells:[]};
+}
+
+function buildBodies(){
+  bodies.length=0;
+  return; // projects moved to DOM — no rigid-body panels
+  if(!WORK_REGION)return;
+  const r=WORK_REGION;
+  const projects=[
+    ['IMAGINE TOGETHER','multiplayer 3D',0],
+    ['TRANSLATION','live cross-lang',2],
+    ['AGENT CENTER','spatial agent UI',1],
+    ['AI PLAYGROUND','LLM + image gen',3],
+    ['AI MUSIC GEN','Lyria 3D UI',2],
+    ['RemoteServiceGW','GenAI library',1],
+  ];
+  const hw=Math.floor(r.colW*0.46), hh=Math.floor(r.rowH*0.46);
+  for(let i=0;i<projects.length;i++){
+    const col=i%2,row=(i/2)|0;
+    const cx=r.x+col*(r.colW+r.gap)+r.colW/2;
+    const cy=r.y+row*(r.rowH+r.gap)+r.rowH/2;
+    const b=makeBody(cx,cy,hw,hh,makePanelTexture(projects[i][0],projects[i][1],projects[i][2]));
+    bodies.push(b);
+  }
+}
+
+const isTerrain=m=>m===STONE||m===DIRT||m===GRASS;
+const solidT=(x,y)=>(x>=0&&x<W&&y>=0&&y<H)&&isTerrain(grid[idx(x,y)]);
+
+function clampVel(b){
+  if(b.vx>VMAX)b.vx=VMAX; if(b.vx<-VMAX)b.vx=-VMAX;
+  if(b.vy>VMAX)b.vy=VMAX; if(b.vy<-VMAX)b.vy=-VMAX;
+  if(b.va>0.5)b.va=0.5; if(b.va<-0.5)b.va=-0.5;
+}
+function bodyVerts(b){
+  const c=Math.cos(b.a),s=Math.sin(b.a),hw=b.hw,hh=b.hh;
+  return[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([lx,ly])=>({x:b.x+lx*c-ly*s,y:b.y+lx*s+ly*c}));
+}
+function pointInBody(b,px,py){
+  const dx=px-b.x,dy=py-b.y,c=Math.cos(-b.a),s=Math.sin(-b.a);
+  const lx=dx*c-dy*s,ly=dx*s+dy*c;
+  return Math.abs(lx)<=b.hw&&Math.abs(ly)<=b.hh;
+}
+
+function contact(b,px,py,nx,ny,pen){
+  const rx=px-b.x,ry=py-b.y;
+  const rvx=b.vx-b.va*ry, rvy=b.vy+b.va*rx;
+  const vn=rvx*nx+rvy*ny;
+  if(vn<0){
+    const rn=rx*ny-ry*nx;
+    const denom=b.invM+b.invI*rn*rn;
+    const j=-(1+b.e)*vn/denom;
+    const jx=j*nx,jy=j*ny;
+    b.vx+=jx*b.invM;b.vy+=jy*b.invM;b.va+=b.invI*(rx*jy-ry*jx);
+    // friction
+    const tx=-ny,ty=nx;
+    const vt=rvx*tx+rvy*ty;
+    let jt=-vt/denom; const mx=b.fric*Math.abs(j);
+    if(jt>mx)jt=mx; if(jt<-mx)jt=-mx;
+    const fx=jt*tx,fy=jt*ty;
+    b.vx+=fx*b.invM;b.vy+=fy*b.invM;b.va+=b.invI*(rx*fy-ry*fx);
+  }
+  b.x+=nx*pen*0.4;b.y+=ny*pen*0.4;
+}
+
+function resolveWorld(b){
+  const vs=bodyVerts(b);
+  // sample vertices + edge midpoints
+  const pts=vs.slice();
+  for(let k=0;k<4;k++){const a=vs[k],c=vs[(k+1)%4];pts.push({x:(a.x+c.x)/2,y:(a.y+c.y)/2});}
+  const floorY=H-5;
+  for(const p of pts){
+    const px=p.x,py=p.y;
+    if(px<1){contact(b,px,py,1,0,1-px);}
+    else if(px>W-2){contact(b,px,py,-1,0,px-(W-2));}
+    if(py>floorY){contact(b,px,py,0,-1,py-floorY);}
+    else if(solidT(px|0,py|0)){
+      let sy=py|0,steps=0;
+      while(sy>0&&solidT(px|0,sy)&&steps<48){sy--;steps++;}
+      contact(b,px,py,0,-1,(py-sy));
+    }
+  }
+}
+
+function aabb(b){
+  const vs=bodyVerts(b);let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const p of vs){if(p.x<x0)x0=p.x;if(p.y<y0)y0=p.y;if(p.x>x1)x1=p.x;if(p.y>y1)y1=p.y;}
+  return[x0,y0,x1,y1];
+}
+function resolveBodies(){
+  for(let i=0;i<bodies.length;i++)for(let j=i+1;j<bodies.length;j++){
+    const a=bodies[i],b=bodies[j];
+    const A=aabb(a),B=aabb(b);
+    const ox=Math.min(A[2],B[2])-Math.max(A[0],B[0]);
+    const oy=Math.min(A[3],B[3])-Math.max(A[1],B[1]);
+    if(ox<=0||oy<=0)continue;
+    if(a.sleeping&&b.sleeping)continue; // resting pair — leave undisturbed
+    // separate along the axis of least penetration
+    let nx=0,ny=0,pen;
+    if(ox<oy){pen=ox;nx=(a.x<b.x)?-1:1;}
+    else{pen=oy;ny=(a.y<b.y)?-1:1;}
+    const rvx=b.vx-a.vx,rvy=b.vy-a.vy,vn=rvx*(-nx)+rvy*(-ny);
+    const impact=vn<-0.4;
+    if(impact){a.sleeping=false;b.sleeping=false;a.sleepT=0;b.sleepT=0;}
+    // a sleeping (un-impacted) or dragged body acts as immovable ground
+    const ia=((a.sleeping&&!impact)||a.dragging)?0:a.invM;
+    const ib=((b.sleeping&&!impact)||b.dragging)?0:b.invM;
+    const tot=ia+ib;if(tot===0)continue;
+    a.x+=nx*pen*(ia/tot);a.y+=ny*pen*(ia/tot);
+    b.x-=nx*pen*(ib/tot);b.y-=ny*pen*(ib/tot);
+    if(vn<0){const jj=-(1.05)*vn/tot,jx=jj*(-nx),jy=jj*(-ny);
+      a.vx-=jx*ia;a.vy-=jy*ia;
+      b.vx+=jx*ib;b.vy+=jy*ib;
+    }
+  }
+}
+
+function updateBodies(){
+  for(const b of bodies){
+    if(b.dragging||b.sleeping)continue;
+    b.vy+=GRAV;b.x+=b.vx;b.y+=b.vy;b.a+=b.va;b.vx*=0.99;b.va*=0.92;
+    clampVel(b);
+  }
+  for(let it=0;it<3;it++){
+    for(const b of bodies){if(b.sleeping||b.dragging)continue;resolveWorld(b);}
+    resolveBodies();
+  }
+  for(const b of bodies){
+    if(b.dragging){b.sleeping=false;b.sleepT=0;continue;}
+    if(b.sleeping)continue;
+    // a body counts as "calm" once linear+angular motion are within a deadzone;
+    // gravity adds a small downward residual each frame, hence the asymmetric vy bound
+    const calm=Math.abs(b.vx)<0.2&&Math.abs(b.vy)<0.45&&Math.abs(b.va)<0.02;
+    if(calm){if(++b.sleepT>25){b.sleeping=true;b.vx=b.vy=b.va=0;}}else b.sleepT=0;
+  }
+}
+
+function displace(x,y){
+  const i=idx(x,y),m=grid[i],v=variant[i];
+  const cand=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[0,-2]];
+  for(const[dx,dy]of cand){
+    const nx=x+dx,ny=y+dy;
+    if(nx>=0&&nx<W&&ny>=0&&ny<H&&grid[idx(nx,ny)]===EMPTY){
+      grid[idx(nx,ny)]=m;variant[idx(nx,ny)]=v;wake3(nx,ny);pixDirty(nx,ny);return;
+    }
+  }
+}
+
+function restampBodies(){
+  let ax0=BIG,ay0=BIG,ax1=-1,ay1=-1;
+  const expand=(x,y)=>{if(x<ax0)ax0=x;if(y<ay0)ay0=y;if(x>ax1)ax1=x;if(y>ay1)ay1=y;};
+  for(const b of bodies){
+    if(b.sleeping&&b.stamped)continue; // resting body: leave its footprint in place
+    // clear previous footprint
+    for(const i of b.prevCells){if(grid[i]===RIGID)grid[i]=EMPTY;expand(i%W,(i/W)|0);}
+    b.prevCells.length=0;
+    // stamp current oriented box
+    const vs=bodyVerts(b);
+    let minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
+    for(const p of vs){if(p.x<minx)minx=p.x;if(p.y<miny)miny=p.y;if(p.x>maxx)maxx=p.x;if(p.y>maxy)maxy=p.y;}
+    minx=Math.max(0,minx|0);miny=Math.max(0,miny|0);maxx=Math.min(W-1,maxx|0);maxy=Math.min(H-1,maxy|0);
+    const c=Math.cos(-b.a),s=Math.sin(-b.a);
+    for(let y=miny;y<=maxy;y++)for(let x=minx;x<=maxx;x++){
+      const dx=x-b.x,dy=y-b.y,lx=dx*c-dy*s,ly=dx*s+dy*c;
+      if(Math.abs(lx)<=b.hw&&Math.abs(ly)<=b.hh){
+        const gi=idx(x,y),g=grid[gi];
+        if(isStatic(g)||g===RIGID)continue; // never overwrite terrain/text/other bodies
+        if(g!==EMPTY)displace(x,y);
+        grid[gi]=RIGID;b.prevCells.push(gi);expand(x,y);
+      }
+    }
+    b.stamped=true;
+  }
+  if(ax1>=ax0){wakeRect(ax0,ay0,ax1,ay1);pixDirtyRect(ax0,ay0,ax1,ay1);}
+}
+
+function drawBodies(){
+  if(!bodies.length)return;
+  gl.useProgram(prog2);
+  gl.bindBuffer(gl.ARRAY_BUFFER,vbuf);
+  gl.enableVertexAttribArray(aloc2);
+  gl.vertexAttribPointer(aloc2,2,gl.FLOAT,false,0,0);
+  gl.uniform2f(u2res,W,H);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  gl.activeTexture(gl.TEXTURE0);
+  for(const b of bodies){
+    gl.bindTexture(gl.TEXTURE_2D,b.tex);
+    gl.uniform1i(u2tex,0);
+    gl.uniform2f(u2center,b.x,b.y);
+    gl.uniform2f(u2half,b.hw,b.hh);
+    gl.uniform1f(u2angle,b.a);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  }
+  gl.disable(gl.BLEND);
+}
+
+function renderAll(){render();drawBodies();}
+
+/* ═══════════════════════════════════════════════════════
+   TEXT → PARTICLES (threshold raster, crisp at small sizes)
+═══════════════════════════════════════════════════════ */
+function stampText(text,m,gx,gy,gw,gh,fs0,opts){
+  opts=opts||{};
+  const bold=opts.bold?'900':'900';
+  const oc=Object.assign(document.createElement('canvas'),{width:gw,height:gh}).getContext('2d');
+  oc.fillStyle='#fff';oc.fillRect(0,0,gw,gh);
+  oc.fillStyle='#000';
+  let fs=fs0||Math.floor(gh*0.7);
+  oc.font=`${bold} ${fs}px 'Courier New',monospace`;
+  while(oc.measureText(text).width>gw*0.98&&fs>9){fs--;oc.font=`${bold} ${fs}px 'Courier New',monospace`;}
+  oc.fillText(text,2,gh*0.5+fs*0.35);
+  const px=oc.getImageData(0,0,gw,gh).data;
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
+    if(px[(y*gw+x)*4]<140){
+      const nx=gx+x,ny=gy+y;
+      if(nx>=0&&nx<W&&ny>=0&&ny<H){grid[idx(nx,ny)]=m;variant[idx(nx,ny)]=Math.random()*8|0;}
+    }
+  }
+}
+function shelf(x0,y0,w){ // a stone ledge with slightly rough texture
+  for(let x=x0;x<x0+w;x++) if(x>=0&&x<W&&y0>=0&&y0<H&&Math.random()>0.12){grid[idx(x,y0)]=STONE;variant[idx(x,y0)]=Math.random()*4|0;}
+}
+function box(x0,y0,bw,bh){ // stone rectangle outline
+  for(let x=x0;x<x0+bw;x++){if(x>=0&&x<W){if(y0>=0&&y0<H){grid[idx(x,y0)]=STONE;}const yb=y0+bh-1;if(yb>=0&&yb<H){grid[idx(x,yb)]=STONE;}}}
+  for(let y=y0;y<y0+bh;y++){if(y>=0&&y<H){if(x0>=0&&x0<W){grid[idx(x0,y)]=STONE;}const xr=x0+bw-1;if(xr>=0&&xr<W){grid[idx(xr,y)]=STONE;}}}
+}
+function fillBlock(m,x0,y0,bw,bh){
+  for(let y=y0;y<y0+bh;y++)for(let x=x0;x<x0+bw;x++) if(x>=0&&x<W&&y>=0&&y<H){grid[idx(x,y)]=m;variant[idx(x,y)]=Math.random()*4|0;}
+}
+function sprinkleSand(x0,y0,bw,density){ // settled decorative sand
+  for(let x=x0;x<x0+bw;x++) if(Math.random()<density){const y=y0;if(x>=0&&x<W&&y>=0&&y<H){grid[idx(x,y)]=SAND;variant[idx(x,y)]=Math.random()*8|0;}}
+}
+
+/* ═══════════════════════════════════════════════════════
+   MEADOW + POND — rolling grass, dell pond, reeds
+═══════════════════════════════════════════════════════ */
+function hillNoise(x){
+  return Math.sin(x*0.014+0.6)*0.34+Math.sin(x*0.0055+2.2)*0.44+Math.sin(x*0.039+4.1)*0.14+Math.sin(x*0.0012+1.3)*0.18;
+}
+function putCell(x,y,m,v){
+  if(x<0||x>=W||y<0||y>=H)return;
+  grid[idx(x,y)]=m;variant[idx(x,y)]=(v===undefined?(Math.random()*8|0):v);
+}
+/* ═══════════════════════════════════════════════════════
+   SPRITE LIBRARY — hand-authored pixel art, stamped frozen.
+   Each pixel keeps its material so when something disturbs
+   the sprite (fire, acid, weight, support loss) it crumbles
+   back into the running simulation cleanly.
+═══════════════════════════════════════════════════════ */
+// Each entry maps a char → {m: material, v: shade variant (0=base, 1=shadow,
+// 2=highlight, 3=deep shadow)}. Uppercase = base shade, lowercase = shadow,
+// special chars carry highlights. This lets ASCII art carry pixel-art-style
+// shading without an external sprite tool.
+const SPRITE_MATS={
+  '.':null,
+  T:{m:WOOD,v:0},   t:{m:WOOD,v:1},   '!':{m:WOOD,v:3},     // wood: base, shadow, deep
+  L:{m:LEAF,v:0},   l:{m:LEAF,v:1},   H:{m:LEAF,v:2},  '%':{m:LEAF,v:3}, // leaf: base, shadow, highlight, deep
+  R:{m:THATCH,v:0}, r:{m:THATCH,v:1},                       // thatch: base, shadow
+  K:{m:BRICK,v:0},  k:{m:BRICK,v:1},                        // brick: base, mortar
+  B:{m:BERRY,v:0},  b:{m:BERRY,v:1},                        // berry: base, shadow
+  G:{m:GLASS,v:0},  P:{m:PLANT,v:0},  M:{m:MOSS,v:0},
+  W:{m:WATER,v:0},  S:{m:STONE,v:0},  F:{m:FIRE,v:0},
+};
+
+// ─── SPRITES ───
+// 1 char = 1 sim cell. Rows can have differing lengths (ragged-right is OK).
+// Designed at ~2× the original size so silhouettes read as deliberate pixel
+// art at the new chunkier SCALE.
+const SPRITES={
+  // a broad asymmetric oak. shadows hang on right/bottom side, berries dot the
+  // canopy, the highlighted ! is a darker knot in the trunk.
+  oak:[
+    ".......HHLLLLL.......",
+    ".....HHLLLLLLLl......",
+    "....HHLLLBLLLLll.....",
+    "...HHLHLLLLLLLLll....",
+    "..HHLBLHLLLLLBLLll...",
+    ".HHLLLLLLLLLLLLLLll..",
+    "HHLHLLLLLLLLLLLLLLll.",
+    "HLLLBLLLLHLLLLLLBLll.",
+    "HLLLLLLLLLLLLBLLLLll.",
+    ".LLHLLBLLLLLLLLLll%..",
+    ".lLLLLLLLLLLLLLll%%..",
+    "..lLLLLLLLLLLLll%%...",
+    "...llLLLLHLLLll%%....",
+    "....lllLLLLLLll%%....",
+    "........tTT!t........",
+    "........tTTTt........",
+    "........tTTTt........",
+    "........tTTTt........",
+    "........tTTTt........",
+    "........tTTTt........",
+    ".......tTTTTTt.......",
+    "......tTTTTTTTt......",
+    ".....tttTTTTTttt.....",
+  ],
+  // tall conical pine with stacked branches and a hint of shading on right side
+  pine:[
+    ".......H.......",
+    "......LHL......",
+    "......LLL......",
+    ".....LHLLL.....",
+    "....LLLLLLl....",
+    "....LHLLLLl....",
+    "...LLLLLLLLL...",
+    "...LHLLLLLLl...",
+    "..LLLLLLLLLLL..",
+    "..LHLLLLLLLLl..",
+    ".LLLLLLLLLLLLL.",
+    ".LLHLLLLLLLLLl.",
+    "LLLLLLLLLLLLLLL",
+    "LHLLLLLLLLLLLLl",
+    ".LLLLLLLLLLLLl.",
+    "..lLLLLLLLLLl..",
+    "......TTT......",
+    "......TTT......",
+    "......TTT......",
+    ".....tTTTt.....",
+    "....tTTTTTt....",
+  ],
+  // shorter foreground pine, useful as scatter and for tight spots
+  smallpine:[
+    "....H....",
+    "...LHL...",
+    "..LLLLL..",
+    "..LHLLl..",
+    ".LLLLLLL.",
+    ".LHLLLLl.",
+    "LLLLLLLLL",
+    ".LLLLLLl.",
+    "....T....",
+    "....T....",
+    "...tTTt..",
+  ],
+  // toadstool with a domed cap, white spots, and a banded stem
+  mushroom:[
+    "....BBBBBBB....",
+    "..BBGBBBGBBBBB.",
+    ".BBBBBBBBBBBBBB",
+    "BBBGBBBBBBBBBGB",
+    "BBBBBBBBBBBBBBB",
+    "BBBBBBGBBBBBBBB",
+    "BBBBBBBBBBBBBBB",
+    ".bbbbbbbbbbbbb.",
+    "..bbbbbbbbbbb..",
+    ".....TTTTT.....",
+    "....tTTTTTt....",
+    "....tTTTTTt....",
+    "....tTTTTTt....",
+    "...tTTTTTTTt...",
+    "..tttTTTTTttt..",
+  ],
+  // dense bush with a few berries — easy fuel for fire experiments
+  bush:[
+    "...LLLLLLL...",
+    "..LHLLBLLLL..",
+    ".LLLLLLLHLLLl",
+    "LLBLLLLLLLBLLl",
+    "LLHLLLBLLLLLLl",
+    "LLLLLLLLLLLLLl",
+    ".lLLLLLLLLLll",
+    "..llllLLllll.",
+  ],
+  // small flower cluster on a leaf-stem so it falls cleanly when disturbed
+  flower:[
+    ".B.B.B.",
+    "BBBBBBB",
+    "BHBBBHB",
+    ".BBBBB.",
+    "..BBB..",
+    "...L...",
+    "...L...",
+    "..LLL..",
+    "...L...",
+    "...L...",
+  ],
+  // a small cottage: thatch roof with a shaded eave, two glass windows,
+  // a wooden door, brick foundation. plenty of surface area for fire,
+  // acid, and impact tests to crumble it apart.
+  cottage:[
+    "............RR............",
+    "...........RRRR..kKK......",
+    "..........RRRRRR..kK......",
+    ".........RRRRRRRRRkK......",
+    "........RRRRRRRRRRkK......",
+    ".......RRRRRRRRRRRkK......",
+    "......RRRRRRRRRRRRRR......",
+    ".....RRRRRRRRRRRRRRRR.....",
+    "....RRRRRRRRRRRRRRRRRR....",
+    "...RRRRRRRRRRRRRRRRRRRR...",
+    "..rrRRRRRRRRRRRRRRRRRRrr..",
+    ".RRRRRRRRRRRRRRRRRRRRRRRR.",
+    "..TTTTTTTTTTTTTTTTTTTTTT..",
+    "..TTTGtGTTTTTTTTTTGtGTTT..",
+    "..TTTtttTTTTTTTTTTtttTTT..",
+    "..TTTGtGTTTTTTTTTTGtGTTT..",
+    "..TTTTTTTTTTTTTTTTTTTTTT..",
+    "..TTTTTTTTTtttttTTTTTTTT..",
+    "..TTTTTTTTTtttttTTTTTTTT..",
+    "..TTTTTTTTTtttt!TTTTTTTT..",
+    "..TTTTTTTTTtttttTTTTTTTT..",
+    "..KKKKKKKKKtttttKKKKKKKK..",
+    "..kkKKKKKKKtttttKKKKKKkk..",
+  ],
+  // a longer picket fence — five pickets
+  fence:[
+    "..T.....T.....T.....T.....T..",
+    "..T.....T.....T.....T.....T..",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "..T.....T.....T.....T.....T..",
+    "..T.....T.....T.....T.....T..",
+    "..T.....T.....T.....T.....T..",
+    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+  ],
+  // a chunky stone well with a peaked roof, water in the basin
+  well:[
+    ".....T...T.....",
+    ".....T...T.....",
+    "....TTTTTTT....",
+    "...tTTTTTTTt...",
+    "..tttTTTTTttt..",
+    "KKKKKKKKKKKKKKK",
+    "KkKKKKKKKKKKKkK",
+    "KkWWWWWWWWWWWkK",
+    "KkWWWWWWWWWWWkK",
+    "KkWWWWWWWWWWWkK",
+    "KkKKKKKKKKKKKkK",
+    "KKKKKKKKKKKKKKK",
+    "kkKKKKKKKKKKKkk",
+  ],
+  // a wooden signpost with a shaded post — landmark / fence-end accent
+  signpost:[
+    "TTTTTTTT",
+    "TttttttT",
+    "TTTTTTTT",
+    "...T....",
+    "...T....",
+    "...T....",
+    "...T....",
+    "...T....",
+    "...T....",
+    "..ttt...",
+  ],
+  // a mossy boulder — a moss cap crowns weathered stone. sits as solid
+  // terrain that sand drifts against and moss can creep from.
+  rock:[
+    "...MMMM..",
+    "..MMMMMM.",
+    ".MSSSSSMM",
+    ".SSSSSSSS",
+    "SSSSSSSSS",
+    "SSSSSSSSS",
+    ".SSSSSSS.",
+  ],
+  // a slim cattail reed — brown seed-head on a leaf stalk, for the pond rim
+  cattail:[
+    "..t..",
+    "..!..",
+    "..!..",
+    "..!..",
+    "..t..",
+    "L.P..",
+    ".LP.L",
+    ".PPP.",
+    "..P..",
+    "..P..",
+    "..P..",
+  ],
+};
+
+// Stamp a sprite anchored so its bottom-left lands at (gx, gy_bottom).
+// Pixels are written FROZEN (the sprite holds its pixel-art shape) except
+// for FIRE/WATER cells which need to keep behaving normally.
+// Largest row width in a sprite — used for centered placement.
+function spriteW(name){
+  const art=SPRITES[name];if(!art)return 0;
+  let w=0;for(let i=0;i<art.length;i++)if(art[i].length>w)w=art[i].length;
+  return w;
+}
+function spriteH(name){const a=SPRITES[name];return a?a.length:0;}
+
+function stampSprite(name,gx,gyBottom){
+  const art=SPRITES[name];
+  if(!art)return;
+  const h=art.length;
+  const gy=gyBottom-h+1;
+  for(let dy=0;dy<h;dy++){
+    const row=art[dy];
+    for(let dx=0;dx<row.length;dx++){
+      const spec=SPRITE_MATS[row[dx]];
+      if(!spec)continue;
+      const nx=gx+dx,ny=gy+dy;
+      if(nx<0||nx>=W||ny<0||ny>=H)continue;
+      const gi=idx(nx,ny);
+      // never overwrite bedrock, terrain text, or another sprite already stamped
+      const cur=grid[gi];
+      if(cur===STONE||frozen[gi])continue;
+      grid[gi]=spec.m;
+      variant[gi]=spec.v;
+      if(spec.m!==FIRE&&spec.m!==WATER)frozen[gi]=1;
+    }
+  }
+}
+
+function spawnNaturalLandscape(){
+  const soilDepth=Math.max(4,Math.floor(H*0.02));
+  // gentler rolling hills — sprites now carry the visual rhythm,
+  // so the meadow itself reads as a calm stage rather than a noisy ground.
+  const hillAmp=Math.floor(H*0.045);
+  const baseLine=H-Math.max(4,Math.floor(H*0.014));
+  const surf=new Int16Array(W);
+
+  for(let x=0;x<W;x++){
+    const n=hillNoise(x)*0.5+0.5;
+    // quantise the surface to 2-cell steps so the horizon reads as
+    // deliberate pixel-art stairs instead of an analog curve.
+    let s=baseLine-Math.floor(n*hillAmp);
+    s=s-(s&1);
+    surf[x]=s;
+  }
+
+  const pondCX=Math.floor(W*0.70);
+  const pondRX=Math.max(14,Math.floor(W*0.095));
+  const pondRY=Math.max(6,Math.floor(H*0.042));
+  const pondRefX=Math.max(0,Math.min(W-1,pondCX));
+  const pondMidY=surf[pondRefX];
+  const bowlFloor=pondMidY+Math.floor(pondRY*0.55);
+  const waterY=bowlFloor-Math.floor(pondRY*0.35);
+
+  // carve a soft dell for the pond
+  for(let x=Math.max(0,pondCX-pondRX-4);x<Math.min(W,pondCX+pondRX+4);x++){
+    const dx=(x-pondCX)/pondRX;
+    if(Math.abs(dx)>=1)continue;
+    const drop=Math.floor((1-dx*dx)*pondRY*1.05);
+    surf[x]=Math.max(surf[x],bowlFloor-drop);
+  }
+
+  function pondEl(x,y){
+    const dx=(x-pondCX)/pondRX,dy=(y-(bowlFloor-pondRY*0.15))/pondRY;
+    return dx*dx+dy*dy;
+  }
+
+  // pass 1 — earth and bedrock
+  for(let x=0;x<W;x++){
+    for(let y=surf[x];y<H;y++){
+      const d=y-surf[x];
+      if(d===0)putCell(x,y,GRASS);
+      else if(d<soilDepth)putCell(x,y,DIRT);
+      else putCell(x,y,STONE);
+    }
+  }
+
+  // pass 2 — pond bowl, banks, water
+  const px0=Math.max(0,pondCX-pondRX-5.5|0),px1=Math.min(W-1,pondCX+pondRX+2.5|0);
+  const py0=Math.max(0,waterY-pondRY-2),py1=Math.min(H-1,bowlFloor+pondRY);
+  for(let y=py0;y<=py1;y++)for(let x=px0;x<=px1;x++){
+    const el=pondEl(x,y),dist=Math.sqrt(el);
+    if(dist>1.12)continue;
+    if(dist>0.84&&dist<1.10){
+      putCell(x,y,Math.random()<0.42?MOSS:STONE,Math.random()*6|0);
+    }else if(y>=waterY&&dist<0.88){
+      putCell(x,y,WATER);
+    }else if(y>=surf[x]&&dist<0.95){
+      putCell(x,y,DIRT,Math.random()*5|0);
+    }
+  }
+
+  // ── packed-dirt foot path: a bare-earth trail worn across the meadow from
+  // the cottage clearing toward the pond, giving the eye a route to follow.
+  // tufts & seeds steer clear of it; sprites stamp over it.
+  const pathX0=(W*0.18)|0,pathX1=(W*0.56)|0;
+  for(let x=pathX0;x<pathX1;x++){
+    if(x<1||x>=W-1)continue;
+    const sy=surf[x];
+    if(Math.sqrt(pondEl(x,sy))<1.15)continue;        // never pave the pond banks
+    putCell(x,sy,DIRT,Math.random()*5|0);
+    if(sy+1<H)putCell(x,sy+1,DIRT,Math.random()*5|0);
+    if(Math.random()<0.05)putCell(x,sy,STONE,Math.random()*4|0); // a worn pebble
+  }
+
+  // pass 3 — sparse grass tufts. The authored sprites carry the visual rhythm
+  // now, so we keep the meadow surface mostly clean and only occasionally
+  // poke a single-cell blade above the turf.
+  for(let x=0;x<W;x++){
+    const sy=surf[x];
+    if(sy<=2)continue;
+    const pd=Math.sqrt(pondEl(x,sy));
+    if(pd<0.92)continue;
+    if(grid[idx(x,sy)]!==GRASS)continue;   // leave the bare-earth path clear
+    if(Math.random()<0.06){
+      const h=1+(Math.random()*2|0);
+      for(let i=1;i<=h;i++){
+        const ty=sy-i;
+        if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT);
+      }
+    }
+  }
+
+  // cattails & reeds around the pond rim
+  for(let x=px0;x<=px1;x++){
+    if(Math.random()>0.28)continue;
+    const sy=surf[Math.max(0,Math.min(W-1,x))];
+    const d=Math.sqrt(pondEl(x,sy));
+    if(d<0.78||d>1.18||sy<3)continue;
+    const h=3+(Math.random()*6|0);
+    for(let i=1;i<=h;i++){
+      const ty=sy-i;
+      if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT);
+    }
+  }
+
+  // lily pads drifting on the surface
+  for(let i=0;i<14;i++){
+    const lx=pondCX+((Math.random()*2-1)*pondRX*0.62|0);
+    const ly=waterY+(Math.random()*2-1|0);
+    if(Math.sqrt(pondEl(lx,ly))<0.72)putCell(lx,ly,MOSS,Math.random()*8|0);
+  }
+
+  // seeds waiting to sprout when physics runs
+  for(let x=0;x<W;x+=2){
+    if(Math.random()>0.10)continue;
+    const sy=surf[x],ty=sy-1;
+    if(ty<0||Math.sqrt(pondEl(x,sy))<0.95)continue;
+    if(grid[idx(x,sy)]!==GRASS)continue;   // not on the bare path
+    if(grid[idx(x,ty)]===EMPTY)putCell(x,ty,SEED);
+  }
+
+  // mossy stones peeking through the turf on slopes
+  for(let x=1;x<W-1;x++){
+    const slope=Math.abs(surf[x]-surf[x-1])+Math.abs(surf[x+1]-surf[x]);
+    if(slope<2||Math.random()>0.07)continue;
+    const sy=surf[x];
+    if(Math.sqrt(pondEl(x,sy))<1.05)continue;
+    if(grid[idx(x,sy)]===GRASS){grid[idx(x,sy)]=MOSS;variant[idx(x,sy)]=Math.random()*8|0;}
+  }
+
+  // ─── authored pixel-art sprites composed across the meadow ───
+  // Anchor each sprite so its bottom row rests one cell above the local
+  // grass. The scene reads left-to-right: cottage village on the left,
+  // a fence path leading to a focal oak on the rise, the pond on the
+  // right with its well, and a pine grove on the far right edge.
+  function place(name,cx,opts){
+    opts=opts||{};
+    const w=spriteW(name),h=spriteH(name);
+    if(!w||!h)return false;
+    const gx=cx-(w>>1);
+    if(gx<1||gx+w>=W-1)return false;
+    // sample surface across the footprint
+    let lowest=0,highest=H;
+    for(let i=0;i<w;i++){
+      const sx=Math.max(0,Math.min(W-1,gx+i));
+      if(surf[sx]>lowest)lowest=surf[sx];
+      if(surf[sx]<highest)highest=surf[sx];
+      // refuse to plant inside the pond or its mossy rim
+      if(!opts.allowPond&&Math.sqrt(pondEl(sx,surf[sx]))<1.18)return false;
+    }
+    // sit on the lowest local surface point so the trunk plants in dirt
+    // rather than floating above a dip
+    const gyBottom=lowest-1+(opts.sinkY||0);
+    // clear grass directly under the footprint so the sprite reads
+    // as deliberately placed, not collaged
+    for(let i=0;i<w;i++){
+      const sx=Math.max(0,Math.min(W-1,gx+i));
+      const sy=surf[sx];
+      if(sy>=0&&sy<H&&grid[idx(sx,sy)]===PLANT)grid[idx(sx,sy)]=GRASS;
+    }
+    stampSprite(name,gx,gyBottom);
+    return true;
+  }
+
+  // ── focal: a single big oak on the rise, set off-center to anchor the view
+  place('oak',(W*0.42)|0);
+
+  // ── cottage village on the left, with a fence path leading toward it
+  place('cottage',(W*0.16)|0);
+  place('signpost',(W*0.07)|0);
+  place('fence',(W*0.29)|0);
+
+  // ── pine grove sweeping along the far-right horizon, past the pond.
+  // A loose grove of four reads as "treeline" without walling off the edge;
+  // staggering tall/short and leaving gaps keeps it airy.
+  place('pine',(W*0.87)|0);
+  place('pine',(W*0.96)|0);
+  place('smallpine',(W*0.82)|0);
+  place('smallpine',(W*0.92)|0);
+
+  // ── boulders punctuating the meadow + cattail reeds at the pond's edge.
+  // Two well-separated rocks anchor the turf without cluttering it.
+  for(const f of [0.20,0.52]){ place('rock',(W*f)|0); }
+  place('cattail',(W*0.61)|0,{allowPond:true});
+  place('cattail',(W*0.81)|0,{allowPond:true});
+
+  // ── ground details: kept deliberately sparse so the hero silhouettes
+  // (cottage, oak, well, pond) carry the composition and the meadow breathes.
+  // Mushrooms tuck into cool spots near the bigger sprites; bushes and
+  // flowers are spread wide with real gaps between them.
+  for(const f of [0.34,0.50]){
+    place('mushroom',(W*f)|0);
+  }
+  for(const f of [0.24,0.46]){
+    place('bush',(W*f)|0);
+  }
+  // a handful of flowers, jittered along the open meadow but never clustered
+  const flowerCount=4;
+  for(let i=0;i<flowerCount;i++){
+    const fx=((W*0.06)+(i/(flowerCount-1))*(W*0.46)+(Math.random()*W*0.03-W*0.015))|0;
+    place('flower',fx);
+  }
+
+  // ── venus flytraps: pondside on the meadow flank, away from the pines
+  for(const f of [0.585, 0.835]){
+    const fx=Math.max(1,Math.min(W-2,(W*f)|0));
+    const sy=surf[fx];
+    // skip if pond rim or no clearance overhead
+    if(Math.sqrt(pondEl(fx,sy))<1.05)continue;
+    if(sy<14)continue;
+    spawnFlytrap(fx,sy);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   PORTFOLIO LAYOUT — everything below is particles
+═══════════════════════════════════════════════════════ */
+function spawnContent(){
+  grid.fill(0);variant.fill(0);frozen.fill(0);
+  birds.length=0;
+  cats.length=0;
+  flytraps.length=0;
+
+  // ─── meadow & pond landscape ───
+  spawnNaturalLandscape();
+
+  // a small black cat patrolling the village (signpost → fence)
+  {
+    const homeMin=Math.max(2,(W*0.05)|0);
+    const homeMax=Math.min(W-3,(W*0.30)|0);
+    const cx=(W*0.16)|0;
+    spawnCat(cx,catGround(cx)-1,{homeMin,homeMax});
+  }
+
+  // projects are now DOM content — no rigid-body region
+  WORK_REGION=null;
+
+  // stamp invisible MASK cells under the HTML content so particles collide with it
+  stampDOMMasks();
+
+  // wake the whole world for the first sim pass + full first render
+  wakeRect(0,0,W-1,H-1);
+  pixDirtyRect(0,0,W-1,H-1);
+}
+
+// Walk every element with data-collide and stamp it into the sim grid as MASK.
+//   data-collide="text"  → per-glyph raster (sand falls into letter cavities)
+//   data-collide  (any)  → bounding-box rectangle (for cards with backgrounds)
+function stampDOMMasks(){
+  const cr=canvas.getBoundingClientRect();
+  document.querySelectorAll('[data-collide]').forEach(el=>{
+    if(el.getAttribute('data-collide')==='text') stampGlyphMask(el,cr);
+    else stampRectMask(el,cr);
+  });
+}
+function stampRectMask(el,cr){
+  const r=el.getBoundingClientRect();
+  const x0=Math.max(0,Math.floor((r.left-cr.left)/SCALE));
+  const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE));
+  const x1=Math.min(W-1,Math.ceil((r.right-cr.left)/SCALE));
+  const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+    const i=idx(x,y);
+    if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
+  }
+}
+// Rasterize an element's text into an offscreen canvas matching the live
+// computed style, then stamp dark pixels as MASK — so sand piles inside the
+// curves of letters instead of just on the bounding rectangle.
+function stampGlyphMask(el,cr){
+  const r=el.getBoundingClientRect();
+  if(r.width<=0||r.height<=0)return;
+  const cs=getComputedStyle(el);
+  const cw=Math.ceil(r.width),ch=Math.ceil(r.height);
+  const can=document.createElement('canvas');can.width=cw;can.height=ch;
+  const oc=can.getContext('2d');
+  oc.fillStyle='#fff';oc.fillRect(0,0,cw,ch);
+  oc.fillStyle='#000';
+  const fs=parseFloat(cs.fontSize);
+  oc.font=`${cs.fontStyle} ${cs.fontWeight} ${fs}px ${cs.fontFamily}`;
+  oc.textBaseline='top';
+  const lh=cs.lineHeight==='normal'?fs*1.2:parseFloat(cs.lineHeight);
+  let lines=el.innerHTML.split(/<br\s*\/?>/i).map(s=>{
+    const tmp=document.createElement('div');tmp.innerHTML=s;return (tmp.textContent||'').trim();
+  });
+  if(cs.textTransform==='uppercase')lines=lines.map(l=>l.toUpperCase());
+  let y=(lh-fs)*0.5;
+  for(const line of lines){oc.fillText(line,0,y);y+=lh;}
+  const data=oc.getImageData(0,0,cw,ch).data;
+  const x0=Math.floor((r.left-cr.left)/SCALE);
+  const y0=Math.floor((r.top-cr.top)/SCALE);
+  const sxN=Math.ceil(cw/SCALE),syN=Math.ceil(ch/SCALE);
+  for(let sy=0;sy<syN;sy++)for(let sx=0;sx<sxN;sx++){
+    const px=Math.min(cw-1,(sx*SCALE+(SCALE>>1)));
+    const py=Math.min(ch-1,(sy*SCALE+(SCALE>>1)));
+    if(data[(py*cw+px)*4]<140){
+      const gx=x0+sx,gy=y0+sy;
+      if(gx>=0&&gx<W&&gy>=0&&gy<H){
+        const i=idx(gx,gy);
+        if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   FLOATING-WINDOW COLLISION MASKS
+   Each .win-app rectangle is stamped as MASK cells so sand piles
+   on its title bar, water pools on its top edge, etc. Re-stamped
+   only when a window moves/opens/closes/resizes.
+═══════════════════════════════════════════════════════ */
+let _winMaskCells=[];
+let _winMaskHash='';
+function _winsHash(){
+  let s='';
+  document.querySelectorAll('.win-app').forEach(el=>{
+    if(el.style.display==='none'||el.dataset.minimized==='1')return;
+    const r=el.getBoundingClientRect();
+    s+=(r.left|0)+','+(r.top|0)+','+(r.width|0)+','+(r.height|0)+';';
+  });
+  return s+W+'x'+H;
+}
+function updateWindowMasks(){
+  const h=_winsHash();
+  if(h===_winMaskHash)return;
+  _winMaskHash=h;
+  for(const i of _winMaskCells){
+    if(grid[i]===MASK){
+      grid[i]=EMPTY;variant[i]=0;
+      const x=i%W,y=(i/W)|0;
+      pixDirty(x,y);wake3(x,y);
+    }
+  }
+  _winMaskCells.length=0;
+  const cr=canvas.getBoundingClientRect();
+  document.querySelectorAll('.win-app').forEach(el=>{
+    if(el.style.display==='none'||el.dataset.minimized==='1')return;
+    const r=el.getBoundingClientRect();
+    const x0=Math.max(0,Math.floor((r.left-cr.left)/SCALE));
+    const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE));
+    const x1=Math.min(W-1,Math.ceil((r.right-cr.left)/SCALE));
+    const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE));
+    for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
+      const i=idx(x,y);
+      if(grid[i]===EMPTY){
+        grid[i]=MASK;variant[i]=0;
+        _winMaskCells.push(i);
+        pixDirty(x,y);wake3(x,y);
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════
+   HOVER FREEZE
+═══════════════════════════════════════════════════════ */
+let mouseSimX=0,mouseSimY=0,hoverEnabled=false,hoverCells=[];
+const HOVER_R=20;
+const freezeRing=document.getElementById('freezeRing');
+
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  mouseSimX=Math.floor((e.clientX-r.left)/SCALE);
+  mouseSimY=Math.floor((e.clientY-r.top)/SCALE);
+  freezeRing.style.left=e.clientX+'px';freezeRing.style.top=e.clientY+'px';
+  freezeRing.style.opacity=hoverEnabled&&physicsOn?'1':'0';
+});
+canvas.addEventListener('mouseleave',()=>{
+  freezeRing.style.opacity='0';
+  releaseHover();
+});
+function releaseHover(){
+  if(!hoverCells.length)return;
+  let x0=BIG,y0=BIG,x1=-1,y1=-1;
+  for(const i of hoverCells){frozen[i]=0;const x=i%W,y=(i/W)|0;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}
+  wakeRect(x0,y0,x1,y1);
+  hoverCells=[];
+}
+function applyHoverFreeze(){
+  releaseHover();
+  if(!hoverEnabled||!physicsOn)return;
+  for(let dy=-HOVER_R;dy<=HOVER_R;dy++)for(let dx=-HOVER_R;dx<=HOVER_R;dx++){
+    if(dx*dx+dy*dy>HOVER_R*HOVER_R)continue;
+    const x=mouseSimX+dx,y=mouseSimY+dy;
+    if(x<0||x>=W||y<0||y>=H)continue;
+    const i=idx(x,y);
+    if(!frozen[i]){frozen[i]=1;hoverCells.push(i);}
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   PAINTING
+═══════════════════════════════════════════════════════ */
+let painting=false,curMat=1;
+function simXY(e){
+  const r=canvas.getBoundingClientRect();
+  return[Math.max(0,Math.min(W-1,Math.floor((e.clientX-r.left)/SCALE))),
+         Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)/SCALE)))];
+}
+function paint(cx,cy){
+  const b=+document.getElementById('brushSlider').value;
+  if(curMat===BIRD){
+    // throttle: don't carpet-bomb on every mousemove event
+    const want=Math.max(1,Math.floor(b*0.4));
+    for(let k=0;k<want;k++){
+      if(Math.random()>0.45)continue;
+      const a=Math.random()*Math.PI*2,r=Math.random()*b;
+      spawnBird(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    }
+    return;
+  }
+  // structural / drawable-static materials paint densely AND pin themselves
+  // (WOOD/BRICK with frozen=1; FUSE/BOMB stay unfrozen so their step runs).
+  const pinned=(curMat===WOOD||curMat===BRICK||curMat===FUSE||curMat===BOMB);
+  const solid=isStatic(curMat)||curMat===EMPTY||pinned;
+  for(let dy=-b;dy<=b;dy++)for(let dx=-b;dx<=b;dx++){
+    if(dx*dx+dy*dy>b*b)continue;
+    if(!solid&&Math.random()>.78)continue;
+    const nx=cx+dx,ny=cy+dy;
+    if(nx>=0&&nx<W&&ny>=0&&ny<H){
+      const pi=idx(nx,ny);
+      grid[pi]=curMat;variant[pi]=Math.random()*8|0;
+      frozen[pi]=(curMat===WOOD||curMat===BRICK)?1:0;
+      wake3(nx,ny);pixDirty(nx,ny);
+    }
+  }
+}
+let dragBody=null,dragOffX=0,dragOffY=0;
+function grabAt(sx,sy){
+  for(let k=bodies.length-1;k>=0;k--){
+    if(pointInBody(bodies[k],sx,sy)){
+      dragBody=bodies[k];dragBody.dragging=true;dragBody.sleeping=false;
+      dragOffX=dragBody.x-sx;dragOffY=dragBody.y-sy;return true;
+    }
+  }
+  return false;
+}
+function dragTo(sx,sy){
+  const nx=sx+dragOffX,ny=sy+dragOffY;
+  dragBody.vx=nx-dragBody.x;dragBody.vy=ny-dragBody.y;clampVel(dragBody);
+  dragBody.x=nx;dragBody.y=ny;
+}
+function release(){if(dragBody){dragBody.dragging=false;dragBody=null;}painting=false;}
+
+canvas.addEventListener('mousedown',e=>{const p=simXY(e);if(grabAt(...p))return;painting=true;paint(...p);});
+canvas.addEventListener('mousemove',e=>{const p=simXY(e);if(dragBody){dragTo(...p);return;}if(painting)paint(...p);});
+canvas.addEventListener('mouseup',release);
+canvas.addEventListener('mouseleave',release);
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(grabAt(...p))return;painting=true;paint(...p);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(dragBody){dragTo(...p);return;}if(painting)paint(...p);},{passive:false});
+canvas.addEventListener('touchend',release);
+
+/* ═══════════════════════════════════════════════════════
+   MATERIAL PICKER + KEYS
+═══════════════════════════════════════════════════════ */
+function selectMat(m){
+  curMat=m;
+  document.querySelectorAll('.mat-opt').forEach(o=>o.classList.remove('active'));
+  const t=document.querySelector(`.mat-opt[data-mat="${m}"]`);if(t)t.classList.add('active');
+}
+document.querySelectorAll('.mat-opt').forEach(el=>el.addEventListener('click',()=>selectMat(+el.dataset.mat)));
+document.addEventListener('keydown',e=>{
+  const k={'1':SAND,'2':WATER,'3':FIRE,'4':STONE,'5':PLANT,'6':ACID,'7':OIL,
+           '8':POLLEN,'9':MOSS,'g':SEED,'0':EMPTY,
+           'w':WOOD,'l':LEAF,'b':BRICK,'t':THATCH,'r':BERRY,'i':BIRD,
+           'f':FUSE,'x':BOMB};
+  if(k[e.key]!==undefined)selectMat(k[e.key]);
+  if(e.key===' '){e.preventDefault();togglePhysics();}
+});
+
+/* ═══════════════════════════════════════════════════════
+   HUD
+═══════════════════════════════════════════════════════ */
+let physicsOn=false;
+const btnP=document.getElementById('btnPhysics');
+function togglePhysics(){
+  physicsOn=!physicsOn;
+  btnP.textContent=physicsOn?'⏸ physics':'▶ physics';
+  btnP.classList.toggle('on',physicsOn);
+  if(!physicsOn)releaseHover();
+}
+btnP.addEventListener('click',togglePhysics);
+document.getElementById('btnReset').addEventListener('click',()=>{spawnContent();buildBodies();});
+document.getElementById('speedSlider').addEventListener('input',e=>simSpeed=+e.target.value);
+document.getElementById('btnFreeze').addEventListener('click',()=>{
+  hoverEnabled=!hoverEnabled;
+  document.getElementById('btnFreeze').classList.toggle('on',hoverEnabled);
+  freezeRing.style.opacity='0';
+  if(!hoverEnabled)releaseHover();
+});
+let raining=false;
+document.getElementById('btnRain').addEventListener('click',()=>{
+  raining=!raining;document.getElementById('btnRain').classList.toggle('on',raining);
+});
+function doRain(){
+  if(!raining)return;
+  for(let i=0;i<6;i++){
+    const x=Math.floor(Math.random()*W);
+    if(grid[idx(x,0)]===EMPTY){grid[idx(x,0)]=SAND;variant[idx(x,0)]=Math.random()*8|0;wake3(x,0);pixDirty(x,0);}
+  }
+}
+// ambient drift: a few motes of pollen rising from the ground, always on,
+// so the place feels alive even before anyone touches it
+function doAmbient(){
+  if(Math.random()<0.45){
+    const x=Math.floor(Math.random()*W);
+    for(let d=0;d<8;d++){
+      const y=H-4-d;
+      if(y<0)break;
+      const m=grid[idx(x,y)];
+      if(m===GRASS||m===PLANT||m===MOSS||m===DIRT){
+        const ty=y-1;
+        if(ty>=0&&grid[idx(x,ty)]===EMPTY){grid[idx(x,ty)]=POLLEN;variant[idx(x,ty)]=Math.random()*8|0;wake3(x,ty);pixDirty(x,ty);break;}
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   BIRDS — boids flocking (separation / alignment / cohesion).
+   Birds aren't grid cells: they're free-flying agents drawn
+   on a 2D overlay canvas above the sim, so they don't fight
+   the cellular automaton's dirty-rect/upload pipeline.
+═══════════════════════════════════════════════════════ */
+const birds=[];
+const BIRD_MAX=350;
+const birdCanvas=document.getElementById('birdCanvas');
+const bctx=birdCanvas.getContext('2d');
+
+function spawnBird(x,y){
+  if(birds.length>=BIRD_MAX)return;
+  const a=Math.random()*Math.PI*2;
+  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0});
+}
+
+// terrain birds avoid colliding with — any solid stamp counts
+function isSolidForBird(x,y){
+  if(x<0||x>=W||y<0||y>=H)return true; // walls
+  const m=grid[idx(x,y)];
+  return m===STONE||m===DIRT||m===GRASS||m===WOOD||m===BRICK||m===THATCH||
+         m===LEAF||m===BERRY||m===GLASS||m===MASK||m===RIGID||m===FUSE||m===BOMB;
+}
+
+function updateBoids(){
+  if(!birds.length)return;
+  const perc=18,perc2=perc*perc,sepR=5,sep2=sepR*sepR;
+  const maxSpeed=1.15,maxForce=0.045;
+  for(let i=0;i<birds.length;i++){
+    const b=birds[i];
+    let alX=0,alY=0,coX=0,coY=0,sepX=0,sepY=0,nA=0,nS=0;
+    for(let j=0;j<birds.length;j++){
+      if(i===j)continue;
+      const o=birds[j];
+      const dx=o.x-b.x,dy=o.y-b.y,d2=dx*dx+dy*dy;
+      if(d2<perc2){
+        alX+=o.vx;alY+=o.vy;
+        coX+=o.x;coY+=o.y;
+        nA++;
+        if(d2<sep2&&d2>0.01){
+          const d=Math.sqrt(d2);
+          sepX-=dx/d;sepY-=dy/d;nS++;
+        }
+      }
+    }
+    let ax=0,ay=0;
+    if(nA>0){
+      alX/=nA;alY/=nA;
+      let m=Math.hypot(alX,alY);
+      if(m>0){alX=alX/m*maxSpeed-b.vx;alY=alY/m*maxSpeed-b.vy;}
+      coX=coX/nA-b.x;coY=coY/nA-b.y;
+      let cm=Math.hypot(coX,coY);
+      if(cm>0){coX=coX/cm*maxSpeed-b.vx;coY=coY/cm*maxSpeed-b.vy;}
+      ax+=alX*0.9+coX*0.55;
+      ay+=alY*0.9+coY*0.55;
+    }
+    if(nS>0){
+      let m=Math.hypot(sepX,sepY);
+      if(m>0){sepX=sepX/m*maxSpeed-b.vx;sepY=sepY/m*maxSpeed-b.vy;}
+      ax+=sepX*1.7;ay+=sepY*1.7;
+    }
+    // terrain avoidance: look ahead, pull away from solid + bias upward
+    const lookX=(b.x+b.vx*8)|0,lookY=(b.y+b.vy*8)|0;
+    if(isSolidForBird(lookX,lookY)){
+      ax-=b.vx*0.4;ay-=b.vy*0.4;ay-=0.35;
+    }
+    // also avoid fire below
+    if(grid[idx(Math.max(0,Math.min(W-1,b.x|0)),Math.max(0,Math.min(H-1,(b.y+3)|0)))]===FIRE){
+      ay-=0.6;
+    }
+    // soft bounds — keep birds in the upper two-thirds and away from walls
+    if(b.x<8)ax+=0.12;
+    if(b.x>W-8)ax-=0.12;
+    if(b.y<6)ay+=0.12;
+    const floorPref=H*0.72;
+    if(b.y>floorPref)ay-=0.10;
+    if(b.y>H-8)ay-=0.4;
+    // clamp + integrate
+    const fm=Math.hypot(ax,ay);
+    if(fm>maxForce){ax=ax/fm*maxForce;ay=ay/fm*maxForce;}
+    b.vx+=ax;b.vy+=ay;
+    const sm=Math.hypot(b.vx,b.vy);
+    if(sm>maxSpeed){b.vx=b.vx/sm*maxSpeed;b.vy=b.vy/sm*maxSpeed;}
+    if(sm<0.25){b.vx*=1.4;b.vy*=1.4;} // don't stall
+    b.x+=b.vx;b.y+=b.vy;
+    b.flap++;
+    // hard bounds
+    if(b.x<1){b.x=1;b.vx=Math.abs(b.vx);}
+    if(b.x>W-2){b.x=W-2;b.vx=-Math.abs(b.vx);}
+    if(b.y<1){b.y=1;b.vy=Math.abs(b.vy);}
+    if(b.y>H-2){b.y=H-2;b.vy=-Math.abs(b.vy);}
+  }
+}
+
+function drawBirds(){
+  if(birdCanvas.width!==W)return; // skip mid-resize
+  bctx.clearRect(0,0,W,H);
+  if(!birds.length)return;
+  bctx.fillStyle='#1c1a22';
+  for(const b of birds){
+    const x=b.x|0,y=b.y|0;
+    // pick a shape based on flight direction + flap phase
+    const dirRight=b.vx>=0;
+    const up=((b.flap>>2)&1)===0;
+    // tiny chevron: ▴ (wings up) or ◜◝ (wings down). 1px scale.
+    if(up){
+      // wings raised: a peak
+      bctx.fillRect(x,   y,   1,1);
+      bctx.fillRect(x-1, y-1, 1,1);
+      bctx.fillRect(x+1, y-1, 1,1);
+      bctx.fillRect(x-2, y,   1,1);
+      bctx.fillRect(x+2, y,   1,1);
+    } else {
+      // wings lowered: a flat M
+      bctx.fillRect(x-2, y-1, 1,1);
+      bctx.fillRect(x-1, y,   1,1);
+      bctx.fillRect(x,   y-1, 1,1);
+      bctx.fillRect(x+1, y,   1,1);
+      bctx.fillRect(x+2, y-1, 1,1);
+    }
+    // direction tick — a single pixel ahead of the bird
+    if(dirRight)bctx.fillRect(x+3,y,1,1); else bctx.fillRect(x-3,y,1,1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   CATS — small ground-roaming critters. They walk on top of
+   whatever terrain is currently there (sand/grass/dirt/sprite
+   debris all count), avoid liquids and fire, and pick wandering
+   targets within a "home" range so they hang around the village.
+═══════════════════════════════════════════════════════ */
+const cats=[];
+function isAvoidForCat(m){return m===WATER||m===OIL||m===ACID||m===FIRE||m===SMOKE;}
+// MASK is invisible HTML-collision — cats shouldn't stand on the title letters
+function isSupportForCat(m){return m!==EMPTY&&m!==MASK&&!isAvoidForCat(m);}
+// surface y at column x: first cell from the top whose contents would
+// support a paw. Returns H if there's no ground (column is all sky/liquid).
+function catGround(x,fromY){
+  if(x<0||x>=W)return H;
+  // start a few cells above the cat's current head so material painted
+  // up in the sky doesn't yank the cat upward; default to top for spawn
+  const y0=Math.max(0,(fromY===undefined?0:(fromY|0)-3));
+  for(let y=y0;y<H;y++){
+    if(isSupportForCat(grid[idx(x,y)]))return y;
+  }
+  return H;
+}
+function spawnCat(x,y,opts){
+  opts=opts||{};
+  cats.push({
+    x:x, y:y,
+    vx:0, dir:Math.random()<0.5?-1:1,
+    homeMin:opts.homeMin!==undefined?opts.homeMin:Math.max(2,x-60),
+    homeMax:opts.homeMax!==undefined?opts.homeMax:Math.min(W-3,x+60),
+    target:x,
+    state:'pause', stateT:30+Math.random()*60|0,
+    step:0, // walk-cycle phase
+  });
+}
+function updateCats(){
+  for(const c of cats){
+    // settle to the ground under our nose
+    const gy=catGround(c.x|0,c.y);
+    if(gy>=H){ // nothing to stand on, drift down till we find something
+      c.y+=0.5;
+      if(c.y>H-1){c.y=H-1;}
+      continue;
+    }
+    // glue paws to the surface; small jumps are absorbed by stepping
+    c.y+=(gy-1-c.y)*0.5;
+
+    c.step++;
+    if(c.stateT>0)c.stateT--;
+
+    if(c.state==='pause'){
+      c.vx=0;
+      if(c.stateT<=0){
+        // pick a new target somewhere in home range, biased away from current pos
+        const span=c.homeMax-c.homeMin;
+        const t=c.homeMin+(Math.random()*span)|0;
+        c.target=t;
+        c.dir=t>c.x?1:-1;
+        c.state=Math.random()<0.7?'run':'walk';
+        c.stateT=120+Math.random()*240|0;
+      }
+      continue;
+    }
+
+    // walk/run toward target
+    const speed=c.state==='run'?0.55:0.28;
+    c.vx=c.dir*speed;
+
+    // obstacle check: a column or two ahead, is the ground rising sharply
+    // or is there a liquid/fire pit?
+    const ahead=(c.x+c.dir*2)|0;
+    const ahead2=(c.x+c.dir*4)|0;
+    const aheadGround=catGround(ahead,c.y);
+    const ahead2Ground=catGround(ahead2,c.y);
+    const myGround=gy;
+    // bail-out: stepping into deep liquid/fire — turn around
+    let blocked=false;
+    if(ahead>=0&&ahead<W){
+      const am=grid[idx(ahead,Math.max(0,aheadGround))];
+      if(isAvoidForCat(am)||aheadGround>=H){blocked=true;}
+    }
+    if(ahead<0||ahead>=W)blocked=true;
+    // also turn if a wall is too tall to step up (>2 cells)
+    if(!blocked&&aheadGround<myGround-2)blocked=true;
+
+    if(blocked){
+      c.dir=-c.dir;
+      c.target=c.dir>0?c.homeMax:c.homeMin;
+      // small pause to look around
+      c.state='pause';c.stateT=20+Math.random()*40|0;
+      continue;
+    }
+
+    c.x+=c.vx;
+    // clamp to home range with a turnaround
+    if(c.x<c.homeMin){c.x=c.homeMin;c.dir=1;}
+    if(c.x>c.homeMax){c.x=c.homeMax;c.dir=-1;}
+
+    // arrived?
+    if(Math.abs(c.x-c.target)<1.5){
+      c.state='pause';
+      c.stateT=40+Math.random()*120|0;
+    }
+  }
+}
+function drawCats(){
+  if(!cats.length)return;
+  bctx.fillStyle='#0a0a0e';
+  const eyeOn=((performance.now()*0.001)|0)%6!==0; // blink every ~6s
+  for(const c of cats){
+    const x=c.x|0,y=c.y|0,d=c.dir;
+    const moving=c.state!=='pause';
+    // walk cycle: legs alternate every few frames; faster when running
+    const phaseRate=c.state==='run'?3:5;
+    const ph=((c.step/phaseRate)|0)&1;
+    // body (4 wide, 2 tall), head (1px forward, 1 up), tail (up-curve behind)
+    // origin (x,y) = head/shoulder cell; body extends behind
+    // facing right: body is to the LEFT of head; tail further left
+    // facing left:  body is to the RIGHT of head
+    const px=(dx,dy)=>{const xx=x+dx*d,yy=y+dy;if(xx>=0&&xx<W&&yy>=0&&yy<H)bctx.fillRect(xx,yy,1,1);};
+    // body block
+    px(0,0); px(-1,0); px(-2,0); px(-3,0);
+    px(0,-1); px(-1,-1); px(-2,-1); px(-3,-1);
+    // head — one cell forward of shoulder, one up
+    px(1,-1); px(1,-2);
+    // ears (two tiny tufts on top of head)
+    px(0,-2); px(2,-2);
+    // tail curls up behind
+    if(moving){
+      // wag: tail tip swings with step phase
+      px(-4,-1); px(-4,-2); px(ph?-3:-5,-2);
+    } else {
+      px(-4,-1); px(-4,-2); px(-4,-3);
+    }
+    // legs — alternate; when paused both legs down
+    if(moving){
+      if(ph){
+        px(0,1); px(-3,1); // front-right + back-left forward
+      } else {
+        px(-1,1); px(-2,1);
+      }
+    } else {
+      px(0,1); px(-1,1); px(-2,1); px(-3,1);
+    }
+    // eye — a single yellow-green pixel on the head, blinks
+    if(eyeOn){
+      bctx.fillStyle='#c8e000';
+      bctx.fillRect(x+1*d,y-1,1,1);
+      bctx.fillStyle='#0a0a0e';
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   VENUS FLYTRAPS — overlay-drawn pixel-art critters with a
+   slow open / quick snap / hold-shut / slow reopen cycle.
+   Stem is stamped into the sim grid as PLANT so particles
+   collide with it; the animated head lives on the overlay
+   canvas alongside the birds and cats.
+═══════════════════════════════════════════════════════ */
+const flytraps=[];
+// Two head frames, drawn anchored so the bulb sits at (cx, cy) and the
+// jaws bloom upward. 11 wide × 8 tall. The lobes are RED (the real "Akai Ryu"
+// red flytrap cultivar) rather than green — red against the green meadow is
+// complementary contrast, so the trap pops instead of camouflaging. A dark
+// outline (O) and bone-white teeth (W) sharpen it further; only the hinge (B)
+// stays green to tie the head to its plant stem.
+//   O outline · G/g red lobe + shadow · R/r dark throat · W tooth · B green hinge
+const FLYTRAP_FRAMES={
+  open:[
+    "O.O.....O.O",
+    "OWO.....OWO",
+    ".OGWO.OWGO.",
+    ".OGRWWWRGO.",
+    ".OGRRRRRGO.",
+    "..OGRRRGO..",
+    "...OgRgO...",
+    "....OBO....",
+  ],
+  shut:[
+    ".....W.....",
+    "....OWO....",
+    "...OGWGO...",
+    "..OGGWGGO..",
+    "..OGRWRGO..",
+    "..OgGWGgO..",
+    "...OgGgO...",
+    "....OBO....",
+  ],
+};
+const FLYTRAP_COLORS={
+  O:'#3a0d14',                 // near-black outline — hard edge against the grass
+  G:'#e23450', g:'#a8243a',    // red lobes (Akai Ryu cultivar) — pops on green
+  R:'#6e1622', r:'#4a0e18',    // dark red throat behind the teeth
+  W:'#fbf7e6',                 // bone-white teeth
+  B:'#8fae33',                 // green hinge ties the head to the stem
+  t:'#2c962e', l:'#1f6e22',
+};
+function spawnFlytrap(cx,gy){
+  const stemH=8+(Math.random()*3|0);
+  // stamp the stem into the grid as PLANT so it interacts with the sim
+  for(let i=1;i<=stemH;i++){
+    const sy=gy-i;
+    if(sy<0||sy>=H)break;
+    const gi=idx(cx,sy);
+    if(grid[gi]===EMPTY){grid[gi]=PLANT;variant[gi]=0;frozen[gi]=1;}
+    // a little leaf bump every few cells, alternating sides
+    if(i%3===2){
+      const side=(i&2)?1:-1, nx=cx+side;
+      if(nx>=0&&nx<W){
+        const gj=idx(nx,sy);
+        if(grid[gj]===EMPTY){grid[gj]=PLANT;variant[gj]=0;frozen[gj]=1;}
+      }
+    }
+  }
+  flytraps.push({
+    x:cx|0, gy:gy|0,
+    stemH:stemH,
+    phase:Math.random()*1000|0,
+    period:280+(Math.random()*180|0),
+  });
+}
+function updateFlytraps(){
+  for(const f of flytraps)f.phase++;
+}
+function drawFlytraps(){
+  if(!flytraps.length)return;
+  for(const f of flytraps){
+    const t=(f.phase%f.period)/f.period;
+    // long open · brisk close · brief shut · slow reopen
+    let openAmt;
+    if(t<0.62)openAmt=1;
+    else if(t<0.66)openAmt=1-(t-0.62)/0.04;
+    else if(t<0.74)openAmt=0;
+    else openAmt=(t-0.74)/0.26;
+    const frame=openAmt>0.45?FLYTRAP_FRAMES.open:FLYTRAP_FRAMES.shut;
+    // head sits above the stem; bulb (B row) aligns with stem top
+    const hx=f.x-5, hy=f.gy-f.stemH-(frame.length-1); // 11 wide so -5 centers; bulb on bottom row aligns to stem top
+    for(let dy=0;dy<frame.length;dy++){
+      const row=frame[dy];
+      for(let dx=0;dx<row.length;dx++){
+        const ch=row[dx];
+        const col=FLYTRAP_COLORS[ch];
+        if(!col)continue;
+        const px=hx+dx, py=hy+dy;
+        if(px<0||px>=W||py<0||py>=H)continue;
+        bctx.fillStyle=col;
+        bctx.fillRect(px,py,1,1);
+      }
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════════════ */
+const statsEl=document.getElementById('stats');
+let frameCount=0,lastStatTime=0,fps=0;
+function updateStats(ts){
+  frameCount++;
+  if(ts-lastStatTime>800){
+    fps=Math.round(frameCount*1000/(ts-lastStatTime));
+    frameCount=0;lastStatTime=ts;
+    let awake=0;for(let i=0;i<dcMinX.length;i++)if(dcMaxX[i]>=dcMinX[i])awake++;
+    statsEl.textContent=`${fps} fps · ${awake}/${ncx*ncy} chunks awake · ${W}×${H}`;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   RESIZE
+═══════════════════════════════════════════════════════ */
+let resizeTimer=null;
+window.addEventListener('resize',()=>{
+  clearTimeout(resizeTimer);
+  resizeTimer=setTimeout(()=>{
+    computeDims();allocArrays();allocChunks();allocTexture();
+    spawnContent();buildBodies();
+  },200);
+});
+
+/* ═══════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════ */
+// wait one frame so the DOM resume has been laid out before we measure & stamp
+requestAnimationFrame(()=>{
+  spawnContent();
+  buildBodies();
+  physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
+});
+
+let lastSim=0,simAcc=0;
+function loop(ts){
+  gTime=ts*0.001; // sky clock keeps clouds & sun drifting even when paused
+  if(physicsOn){
+    updateWindowMasks();
+    updateBodies();
+    restampBodies();
+    simAcc+=ts-lastSim;
+    const stepMs=14/simSpeed;
+    let n=0;
+    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateBoids();updateCats();updateFlytraps();simAcc-=stepMs;n++;}
+    if(simAcc>stepMs*4)simAcc=0;
+    applyHoverFreeze();
+  }
+  lastSim=ts;
+  renderAll();
+  drawBirds();
+  drawCats();
+  drawFlytraps();
+  updateStats(ts);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ═══════════════════════════════════════════════════════
+   WINDOW MINIMIZE / TASKBAR
+═══════════════════════════════════════════════════════ */
+(function(){
+  const tasksEl = document.getElementById('taskbarTasks');
+  const clockEl = document.getElementById('taskbarClock');
+  const tasks = new Map(); // window el -> taskbar btn
+
+  function titleOf(win){
+    if(win.classList.contains('r-block')){
+      const h3 = win.querySelector('h3');
+      if(h3){
+        // h3's first text node is the section title (e.g. "EXPERIENCE")
+        for(const n of h3.childNodes){
+          if(n.nodeType===3 && n.textContent.trim()) return n.textContent.trim();
+        }
+      }
+      return 'Window';
+    }
+    const t = win.querySelector('.win95-title > span');
+    return t ? t.textContent : 'Window';
+  }
+
+  function minimize(win){
+    if(win.dataset.minimized==='1') return;
+    win.dataset.prevDisplay = win.style.display || '';
+    win.dataset.minimized = '1';
+    win.style.display = 'none';
+    let btn = tasks.get(win);
+    if(!btn){
+      btn = document.createElement('button');
+      btn.className = 'taskbar-btn';
+      btn.innerHTML = '<span class="tb-ico"></span><span></span>';
+      btn.lastChild.textContent = titleOf(win);
+      btn.addEventListener('click', ()=> restore(win));
+      tasksEl.appendChild(btn);
+      tasks.set(win, btn);
+    }
+  }
+  function restore(win){
+    win.style.display = win.dataset.prevDisplay || '';
+    win.dataset.minimized = '';
+    const btn = tasks.get(win);
+    if(btn){ btn.remove(); tasks.delete(win); }
+  }
+
+  function wireMinBtn(win, btnEl){
+    btnEl.addEventListener('click', e=>{
+      e.stopPropagation();
+      minimize(win);
+    });
+  }
+
+  // window-chrome panels (matPicker, hud)
+  function wireWin95Drag(win, handle){
+    let dragging=false, ox=0, oy=0;
+    handle.addEventListener('mousedown', e=>{
+      if(e.target.closest('.tbtn')) return;
+      const r=win.getBoundingClientRect();
+      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      win.style.left=r.left+'px'; win.style.top=r.top+'px';
+      win.style.right='auto'; win.style.bottom='auto';
+      win.style.transform='none';
+      dragging=true;
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e=>{
+      if(!dragging) return;
+      const nx=Math.max(0, Math.min(window.innerWidth-40, e.clientX-ox));
+      const ny=Math.max(0, Math.min(window.innerHeight-40, e.clientY-oy));
+      win.style.left=nx+'px'; win.style.top=ny+'px';
+    });
+    document.addEventListener('mouseup', ()=>dragging=false);
+  }
+  document.querySelectorAll('.win95').forEach(win=>{
+    win.addEventListener('mousedown', e=>e.stopPropagation());
+    const title = win.querySelector('.win95-title');
+    if(title) wireWin95Drag(win, title);
+    const tbtns = win.querySelectorAll('.win95-title .tbtns .tbtn');
+    const [minBtn, maxBtn, closeBtn] = tbtns;
+    if(minBtn) wireMinBtn(win, minBtn);
+    if(maxBtn) maxBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      win.classList.toggle('is-min');
+    });
+    if(closeBtn) closeBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      minimize(win);
+    });
+  });
+
+  // resume blocks: inject real tbtns into the h3 (replaces the ::after deco)
+  document.querySelectorAll('.r-block').forEach(win=>{
+    const h3 = win.querySelector('h3');
+    if(!h3) return;
+    h3.classList.add('no-deco');
+    h3.addEventListener('mousedown', e=>e.stopPropagation());
+    const tbtns = document.createElement('span');
+    tbtns.className = 'r-tbtns';
+    tbtns.innerHTML = '<span class="tbtn" data-act="min">_</span><span class="tbtn">□</span><span class="tbtn">✕</span>';
+    h3.appendChild(tbtns);
+    wireMinBtn(win, tbtns.querySelector('[data-act="min"]'));
+  });
+
+  // taskbar clock
+  function tickClock(){
+    const d=new Date();
+    const h=d.getHours(), m=d.getMinutes();
+    const hh=((h+11)%12)+1;
+    clockEl.textContent = hh+':'+(m<10?'0':'')+m+' '+(h<12?'AM':'PM');
+  }
+  tickClock(); setInterval(tickClock, 15000);
+
+  /* ═════════════════════════════════════════════════════
+     START MENU + LAUNCHABLE WINDOWS
+     The bottom taskbar acts as a directory: Start opens a
+     categorized menu; each entry launches a draggable Win95
+     window with content sourced from "my site".
+  ═════════════════════════════════════════════════════ */
+  const PANELS = {
+    overview: { title:'My Computer — Overview', icon:'i', theme:'desktop', html:`
+      <h2>Mitchell Kuppersmith</h2>
+      <div class="sub">Design Engineer · Snap Inc.</div>
+      <div class="meta">Santa Monica, CA</div>
+      <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses. My work spans flagship lens experiences, system UI and core OS interfaces, and open-source developer tooling.</p>
+      <p><b>Double-click an icon below to launch — or use the Start menu.</b></p>
+      <div class="icon-grid">
+        <a class="ic" data-launch="snap"><span class="ic-img">💼</span><span>Snap Role</span></a>
+        <a class="ic" data-launch="snap-projects"><span class="ic-img">📁</span><span>Snap Projects</span></a>
+        <a class="ic" data-launch="awards"><span class="ic-img">📁</span><span>Awards</span></a>
+        <a class="ic" data-launch="education"><span class="ic-img">🎓</span><span>Education</span></a>
+        <a class="ic" data-launch="games"><span class="ic-img">📁</span><span>Games</span></a>
+        <a class="ic" data-launch="about"><span class="ic-img">?</span><span>About Me</span></a>
+        <a class="ic" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener"><span class="ic-img">✉</span><span>Contact</span></a>
+      </div>
+    `},
+    'snap-projects': { title:'Snap Projects', icon:'📁', theme:'corporate', html:`
+      <h2>📁 Snap Projects</h2>
+      <p>Flagship lens experiences and developer tooling I've shipped on Spectacles.</p>
+      <div class="icon-grid">
+        <a class="ic" data-launch="imagine-together"><span class="ic-img">★</span><span>Imagine Together</span></a>
+        <a class="ic" data-launch="translation"><span class="ic-img">★</span><span>Translation</span></a>
+        <a class="ic" data-launch="agent-center"><span class="ic-img">⚙</span><span>Agent Center</span></a>
+        <a class="ic" data-launch="ai-playground"><span class="ic-img">⚙</span><span>AI Playground</span></a>
+        <a class="ic" data-launch="ai-music-gen"><span class="ic-img">♪</span><span>AI Music Gen</span></a>
+        <a class="ic" data-launch="rsg"><span class="ic-img">⚙</span><span>RemoteSvcGW</span></a>
+      </div>
+    `},
+    awards: { title:'Awards', icon:'📁', theme:'arcade', html:`
+      <h2>📁 Awards</h2>
+      <p>Hackathon-winning prototypes and a GDC-finalist installation.</p>
+      <div class="award-list">
+        <a class="award-row" data-launch="catiator"><span class="award-icon">🐱</span><span class="award-info"><span class="award-event">Stanford TreeHacks 2021</span><span class="award-prize">🏆 Moonshot Prize · Best Hackathon Project</span><span class="award-title">Catiator</span></span></a>
+        <a class="award-row" data-launch="intarnet"><span class="award-icon">🌐</span><span class="award-info"><span class="award-event">CMU TartanHacks 2021</span><span class="award-prize">🏆 Scott Krulcik Grand Prize</span><span class="award-title">IntARnet</span></span></a>
+        <a class="award-row" data-launch="larp"><span class="award-icon">🍄</span><span class="award-info"><span class="award-event">HooHacks 2021</span><span class="award-prize">🏆 Best Art &amp; Gaming Hack</span><span class="award-title">lARp</span></span></a>
+        <a class="award-row" data-launch="snaptrap"><span class="award-icon">🪤</span><span class="award-info"><span class="award-event">Game Developers Conference 2026</span><span class="award-prize">🏆 Alt.Ctrl.GDC Finalist</span><span class="award-title">Snaptrap</span></span></a>
+      </div>
+    `},
+    games: { title:'Games', icon:'🎮', theme:'arcade', html:`
+      <h2>🎮 Games</h2>
+      <p>Jam games and student projects. Double-click to explore.</p>
+      <div class="award-list">
+        <a class="award-row" data-launch="retrovirus-vr"><span class="award-icon">💾</span><span class="award-info"><span class="award-title">RetroVirus VR</span><span class="award-event">VR Jam 2020</span></span></a>
+        <a class="award-row" data-launch="songbird"><span class="award-icon">🎷</span><span class="award-info"><span class="award-title">Songbird</span><span class="award-event">GMTK Jam 2020</span></span></a>
+        <a class="award-row" data-launch="nira"><span class="award-icon">🪄</span><span class="award-info"><span class="award-title">Nira</span><span class="award-event">EECS 494 · UMich</span></span></a>
+      </div>
+    `},
+    'retrovirus-vr': { title:'RetroVirus VR', icon:'💾', theme:'arcade', html:`
+      <h2>RetroVirus VR</h2>
+      <div class="sub">Escape the antivirus prison</div>
+      <div class="meta">VR Jam 2020 · Unity · SteamVR 2.0</div>
+      <p>You've been quarantined. Fight your way out of an antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
+      <h3>Features</h3>
+      <ul>
+        <li>Telekinetic combat — pull weapons and bullets out of the air</li>
+        <li>Movement via grappling onto level geometry</li>
+        <li>PSX-era low-poly aesthetic</li>
+      </ul>
+      <h3>Built With</h3>
+      <ul>
+        <li>Unity + SteamVR 2.0</li>
+        <li>HTC Vive · Valve Index · Oculus (via SteamVR)</li>
+        <li>Custom assets — modeling, animation, FX (music excepted)</li>
+      </ul>
+      <p><a href="https://trisol.itch.io/retrovirus-vr" target="_blank" rel="noopener">Play on itch.io →</a></p>
+      <div class="tags"><span class="tag">VR</span><span class="tag">Unity</span><span class="tag">Action</span><span class="tag">PSX</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
+    `},
+    songbird: { title:'Songbird', icon:'🎷', theme:'arcade', html:`
+      <h2>Songbird</h2>
+      <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
+      <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
+      <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit. Take too much damage and rage takes over: harder to aim, easier to break your own instrument.</p>
+      <h3>Modes</h3>
+      <ul>
+        <li>Story mode</li>
+        <li>Endless mode</li>
+      </ul>
+      <h3>Credits</h3>
+      <ul>
+        <li>Programming &amp; art — Trisol (me)</li>
+        <li>Music — Latona</li>
+      </ul>
+      <p><a href="https://trisol.itch.io/songbird" target="_blank" rel="noopener">Play on itch.io →</a></p>
+      <div class="tags"><span class="tag">Bullet Hell</span><span class="tag">Music</span><span class="tag">Unity</span><span class="tag">Isometric</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
+    `},
+    nira: { title:'Nira', icon:'🪄', theme:'arcade', html:`
+      <h2>Nira</h2>
+      <div class="sub">A short 3D action-adventure about a girl and her hoverstaff</div>
+      <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
+      <p>Your grandfather left something for you at the observatory. Guide Nira through an atmospheric low-poly world using <b>Kane</b>, a magical hoverstaff, and uncover the mystery of what he left behind.</p>
+      <h3>Highlights</h3>
+      <ul>
+        <li>Hoverstaff traversal — platforming built around a single signature verb</li>
+        <li>Atmospheric low-poly fantasy world</li>
+        <li>Short, narrative-driven loop</li>
+      </ul>
+      <h3>Team</h3>
+      <ul>
+        <li>Ahmad Faiyaz · Adris Jautakas · Mitchell Kuppersmith · Nikhil Ghosh</li>
+        <li>With support from Dilan Huang, Kaavya Ramachandran, Lucas Tittle, Amber Renton</li>
+      </ul>
+      <p><a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">Play on itch.io →</a></p>
+      <div class="tags"><span class="tag">Action-Adventure</span><span class="tag">Platformer</span><span class="tag">Unity</span><span class="tag">Atmospheric</span><span class="tag">Low-poly</span><span class="tag">Student Project</span></div>
+    `},
+    snap: { title:'Snap Inc — Spectacles', icon:'S', theme:'corporate', html:`
+      <h2>SNAP INC. — SPECS / SnapLabs</h2>
+      <div class="sub">Santa Monica, CA · May 2022 – Present</div>
+      <p>I work on <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — designing and building immersive, AI-native lens experiences and helping shape how people navigate the device.</p>
+      <div class="marquee"><span>★ NOW SHIPPING ON SPECTACLES ★ AI-NATIVE LENS EXPERIENCES ★ GENERATIVE 3D ★ LIVE TRANSLATION ★ AGENT CENTER ★</span></div>
+      <h3>Career Path</h3>
+      <ul>
+        <li><b>Senior Design Engineer</b> — Apr 2026 – Present</li>
+        <li><b>Design Engineer</b> — Feb 2023 – Apr 2026</li>
+        <li><b>Software Engineering Intern</b> — May 2022 – Aug 2022</li>
+      </ul>
+      <h3>What I Do</h3>
+      <ul>
+        <li>Present designs and prototypes to the CEO roughly twice monthly, shaping product direction for Spectacles.</li>
+        <li>Design and ship immersive AR lens experiences focused on AI-native interactions — generative UIs balancing model capability with real-time responsiveness on wearable hardware.</li>
+        <li>Prototype system UI and core OS interfaces, helping shape how users navigate the device.</li>
+        <li>Build tailored demos for prospective partners, helping secure commitments to ship experiences on Spectacles.</li>
+        <li>Support the developer community — leading tutorials and mentoring at hackathons (MIT Reality Hacks, HackJunction, Immerse the Bay) and speaking at Google Cloud Next.</li>
+      </ul>
+      <div class="tags"><span class="tag">Lens Studio</span><span class="tag">TypeScript</span><span class="tag">AR / XR</span><span class="tag">Generative AI</span></div>
+    `},
+    'imagine-together': { title:'★ Imagine Together ★', icon:'★', theme:'spatial', html:`
+      <h2>Imagine Together</h2>
+      <div class="sub">Flagship experience · Spectacles</div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/Od-_nZpmU9Q?rel=0&start=101" title="Imagine Together demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <p>Co-located multiplayer 3D generation for real-time creation and sharing — people in the same space generate and manipulate 3D content together.</p>
+      <blockquote>"Featured in a live on-stage demo at Snap Partner Summit."</blockquote>
+      <h3>What's Inside</h3>
+      <ul>
+        <li>Co-located multiplayer (shared spatial coordinates between Spectacles)</li>
+        <li>On-device 3D asset generation from text + voice</li>
+        <li>Two-handed direct manipulation: grab, scale, throw</li>
+        <li>Persistence between sessions</li>
+      </ul>
+      <div class="tags"><span class="tag">Multiplayer</span><span class="tag">3D generation</span><span class="tag">Lens Studio</span></div>
+    `},
+    translation: { title:'★ Translation ★', icon:'★', theme:'spatial', html:`
+      <h2>Translation</h2>
+      <div class="sub">Flagship experience · Spectacles</div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/hR4W_Qtzij4?rel=0" title="Translation demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <p>Multi-user cross-language conversation with live summarization, plus a single-user mode for seamless interaction with people who aren't wearing Spectacles.</p>
+      <h3>Modes</h3>
+      <ul>
+        <li><b>Multi-user.</b> Each wearer hears the conversation in their own language; live summary keeps thread visible.</li>
+        <li><b>Single-user.</b> Subtitles for what the non-wearer is saying, narrated audio for what the wearer needs to say back.</li>
+      </ul>
+      <div class="tags"><span class="tag">Real-time</span><span class="tag">Speech</span><span class="tag">Multi-user</span></div>
+    `},
+    'agent-center': { title:'agent-center // OSS', icon:'⚙', theme:'terminal', html:`
+      <h2>agent-center</h2>
+      <div class="sub">// open source · Spectacles sample</div>
+      <img class="shot" src="images/projects/agent-center.gif" alt="Agent Center demo">
+      <p>A spatial UI for managing coding agents (Claude Code, Codex, Cursor, OpenClaw) via voice, gesture, and Bluetooth.</p>
+      <h3>features</h3>
+      <ul>
+        <li>multi-agent management from the headset</li>
+        <li>voice + gesture control</li>
+        <li>bluetooth bridge to local dev machine</li>
+        <li>shared session state across devices</li>
+      </ul>
+      <p><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/Agent%20Manager →</a></p>
+      <div class="tags"><span class="tag">Spatial UI</span><span class="tag">Voice/Gesture</span><span class="tag">Bluetooth</span></div>
+    `},
+    'ai-playground': { title:'ai-playground // OSS', icon:'⚙', theme:'terminal', html:`
+      <h2>ai-playground</h2>
+      <div class="sub">// open source · Spectacles sample</div>
+      <img class="shot" src="images/projects/ai-playground.gif" alt="AI Playground demo">
+      <p>Among the most-used Spectacles starter projects — introduces LLM and image-generation workflows for developers building on the platform.</p>
+      <h3>what's inside</h3>
+      <ul>
+        <li>LLM prompt &rarr; response loop</li>
+        <li>image generation pipeline</li>
+        <li>UI primitives for AI surfaces in 3D space</li>
+      </ul>
+      <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Playground" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/AI%20Playground →</a></p>
+      <div class="tags"><span class="tag">LLM</span><span class="tag">Image-gen</span><span class="tag">Starter</span></div>
+    `},
+    'ai-music-gen': { title:'ai-music-gen // OSS', icon:'♪', theme:'terminal', html:`
+      <h2>ai-music-gen</h2>
+      <div class="sub">// open source · Spectacles sample</div>
+      <img class="shot" src="images/projects/ai-music-gen.gif" alt="AI Music Gen demo">
+      <p>A 3D UI for Google's Lyria music generation model, running on Spectacles. Shape ambient soundtracks with gesture and gaze.</p>
+      <p><a href="https://github.com/Snapchat/Spectacles-Sample" target="_blank" rel="noopener">github.com/Snapchat/Spectacles-Sample →</a></p>
+      <div class="tags"><span class="tag">Lyria</span><span class="tag">3D UI</span><span class="tag">Audio</span></div>
+    `},
+    rsg: { title:'RemoteServiceGateway // OSS', icon:'⚙', theme:'terminal', html:`
+      <h2>RemoteServiceGateway</h2>
+      <div class="sub">// open source · Lens Studio package</div>
+      <img class="shot" src="images/projects/remote-service-gateway.png" alt="RemoteServiceGateway">
+      <p>A generative-AI library for Lens Studio that integrates OpenAI, Gemini, Lyria, and Snap3D behind a single interface — used by the AI Playground and Music Gen samples.</p>
+      <h3>integrations</h3>
+      <ul>
+        <li>OpenAI (chat + image)</li>
+        <li>Google Gemini</li>
+        <li>Google Lyria (music)</li>
+        <li>Snap3D (3D asset generation)</li>
+      </ul>
+      <div class="tags"><span class="tag">OpenAI</span><span class="tag">Gemini</span><span class="tag">Snap3D</span></div>
+    `},
+    catiator: { title:'★ CATIATOR ★', icon:'🐱', theme:'vapor', html:`
+      <h2>CATIATOR</h2>
+      <div class="sub">★ MOONSHOT PRIZE · BEST HACKATHON PROJECT ★</div>
+      <div class="meta">Stanford TreeHacks 2021</div>
+      <img class="shot" src="images/projects/catiator.jpg" alt="Catiator">
+      <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet 🐱⚔</p>
+      <p>Interactive VR game to learn American Sign Language through finger-tracked gesture combat. Battle waves of fierce-but-chonky catiator warriors by signing the corresponding letters.</p>
+      <blockquote>"Signs are to eyes as words are to ears."</blockquote>
+      <h3>★ INSPIRATION ★</h3>
+      <p>~36 million hard-of-hearing and deaf people live in the US. Learning ASL means you can communicate with 17% more of the population. Inspired by typing-trainer games (TypeRacer, Typing of the Dead), we built one for sign language — wrapped in a Roman-vaporwave cat-gladiator aesthetic.</p>
+      <h3>★ FEATURES ★</h3>
+      <ul>
+        <li><b>Multi-mode gameplay.</b> Duolingo-style ASL lessons before "play mode."</li>
+        <li><b>Custom signs.</b> Define gestures via debug mode — Quizlet flashcards in 3D.</li>
+        <li><b>Hand tracking</b> on Oculus Quest for direct, controller-free play.</li>
+      </ul>
+      <h3>★ BUILT WITH ★</h3>
+      <ul>
+        <li>Oculus Quest · Unity3D · C#</li>
+        <li>Autodesk Maya · Photoshop · Procreate</li>
+        <li>Figma · Unity2D/3D</li>
+      </ul>
+      <h3>★ CHALLENGES ★</h3>
+      <ul>
+        <li>Crossed-finger signs (M vs N) hit the limits of Oculus' finger tracking.</li>
+        <li>ASL uses facial expressions — no face tracking on Quest 1, so we focused on the manual alphabet.</li>
+        <li>Hardware diversity across the team (PC + Quest required to debug live in Unity).</li>
+      </ul>
+      <p><a href="https://devpost.com/software/catiator" target="_blank" rel="noopener">Devpost →</a> · <a href="https://trisol.itch.io/catiators" target="_blank" rel="noopener">itch.io →</a></p>
+      <div class="tags"><span class="tag">VR</span><span class="tag">Hand tracking</span><span class="tag">ASL</span><span class="tag">Unity</span><span class="tag">Oculus</span></div>
+    `},
+    intarnet: { title:'IntARnet', icon:'🌐', theme:'spatial', html:`
+      <h2>IntARnet</h2>
+      <div class="sub">Scott Krulcik Grand Prize</div>
+      <div class="meta">CMU TartanHacks 2021</div>
+      <img class="shot" src="images/projects/Intarnet.png" alt="IntARnet">
+      <p>An AR social media app built around spatial anchors — drop persistent posts at real-world locations and discover what others have left behind.</p>
+      <h3>Concept</h3>
+      <p>Twitter, but the timeline is the city. Each post is anchored to a place; you encounter them by walking past them. Awarded the Scott Krulcik Grand Prize at Carnegie Mellon's TartanHacks.</p>
+      <p><a href="https://devpost.com/software/intarnet" target="_blank" rel="noopener">View on Devpost →</a></p>
+      <div class="tags"><span class="tag">AR</span><span class="tag">Spatial anchors</span><span class="tag">Social</span></div>
+    `},
+    larp: { title:'lARp — mushroom AR', icon:'🍄', theme:'forest', html:`
+      <h2>lARp</h2>
+      <div class="sub">Best Art and Gaming Hack · HooHacks 2021</div>
+      <img class="shot" src="images/projects/larp.gif" alt="lARp demo">
+      <p>A mushroom-themed AR fitness game that promotes physical activity through gamification — battle or befriend procedurally generated mushroom NPCs while GPT-3 powers open-ended dialogue.</p>
+      <blockquote>"The hardest part about exercise is to start doing it. Once you are doing exercise regularly, the hardest part is to stop it." — Erin Grey</blockquote>
+      <p><em>lARp</em> makes it easy to start. Use the outdoors (or a treadmill) as your gym and work toward becoming the buff mushroom of your dreams.</p>
+      <h3>Features</h3>
+      <ul>
+        <li><b>Limitless narrative.</b> GPT-3 lets players say whatever they want. Combined with 9,702 procedural mushroom permutations, every playthrough tells a different story.</li>
+        <li><b>Fight or befriend.</b> Battle for XP or talk your way into friendship.</li>
+        <li><b>Step-count missions.</b> Tracked via pedometer so treadmill players join in — you shouldn't need good weather to level up.</li>
+      </ul>
+      <h3>How We Built It</h3>
+      <p>Unity + ARFoundation for mobile AR, C# for gameplay, OpenAI GPT-3 for NPC dialogue. The novel work was procedural character generation paired with prompt design so mushroom characters stayed in their whimsical lane while handling whatever players threw at them.</p>
+      <ul>
+        <li><b>AR:</b> Unity 3D · C# · ARFoundation</li>
+        <li><b>AI:</b> OpenAI GPT-3</li>
+        <li><b>3D &amp; animation:</b> Autodesk Maya · Photoshop</li>
+        <li><b>UI/UX:</b> Figma · Photoshop</li>
+      </ul>
+      <h3>Accomplishments</h3>
+      <ul>
+        <li>Shipped a fully functional mobile AR app in a weekend</li>
+        <li>Procedural mushroom characters with thousands of permutations</li>
+        <li>Got GPT-3 dialogue running in Unity in 2021 — and had some very questionable conversations</li>
+        <li>Pixel art in AR, plus an animated Devpost thumbnail</li>
+      </ul>
+      <p><a href="https://devpost.com/software/test-yotepg" target="_blank" rel="noopener">Devpost →</a> · <a href="https://github.com/mkuppers/HooHacks-lARp" target="_blank" rel="noopener">GitHub →</a> · <a href="https://docs.google.com/presentation/d/1YYduuRyl2G3aSf83MsG60qYuUdKM0eRYCTBcEizqL-Q/edit?usp=sharing" target="_blank" rel="noopener">Slides →</a></p>
+      <div class="tags"><span class="tag">AR</span><span class="tag">GPT-3</span><span class="tag">Unity</span><span class="tag">Fitness</span><span class="tag">Procedural</span></div>
+    `},
+    snaptrap: { title:'>> SNAPTRAP <<', icon:'🪤', theme:'arcade', html:`
+      <h2>Snaptrap</h2>
+      <div class="sub">ALT.CTRL.GDC FINALIST · GDC 2026</div>
+      <img class="shot" src="images/projects/snaptrap.gif" alt="Snaptrap installation">
+      <p>A giant Venus flytrap alt-control installation that teaches visitors how flytraps actually snap shut on prey.</p>
+      <h3>How It Works</h3>
+      <p>Visitors play the role of a fly. Sensors track motion across trigger hairs on the plant; brush enough of them in fast succession and the giant trap snaps shut around you — exactly the mechanism real flytraps use to filter out false alarms (rain, debris) from genuine prey.</p>
+      <h3>Selected For</h3>
+      <ul>
+        <li>Alt.Ctrl.GDC — finalists exhibit at the Game Developers Conference</li>
+        <li>San Francisco · 2026</li>
+      </ul>
+      <div class="tags"><span class="tag">Alt-control</span><span class="tag">Installation</span><span class="tag">Hardware</span></div>
+    `},
+    education: { title:'University of Michigan', icon:'🎓', theme:'academic', html:`
+      <h2>University of Michigan</h2>
+      <div class="sub">B.S. Computer Science &amp; Cognitive Science</div>
+      <div class="meta">Ann Arbor, MI · 2019–2022 · GPA 3.825 / 4.0</div>
+      <h3>Teaching &amp; Leadership</h3>
+      <ul>
+        <li><b>EECS 498 — Extended Reality &amp; Society, Teaching Assistant</b> (Aug–Dec 2022): helped launch a new course and curriculum for 48 students; held office hours on AR/VR design and development in Unreal Engine 5 and Unity3D.</li>
+        <li><b>Alternate Reality Initiative, Co-President</b> (May 2021 – Dec 2022): led an 81-member AR/VR club; ran Unity3D/Maya workshops and a 312-person national conference.</li>
+      </ul>
+      <h3>Selected Coursework</h3>
+      <ul>
+        <li>EECS 281 — Algorithms and Data Structures</li>
+        <li>EECS 492 — Artificial Intelligence</li>
+        <li>EECS 370 — Computer Architecture</li>
+        <li>EECS 203 — Discrete Math</li>
+        <li>EECS 494 — Game Development</li>
+        <li>SI 388 — Human-Computer Interaction</li>
+        <li>EDUC 333 — Learning and Video Games</li>
+        <li>PHIL 340 — Minds and Machines</li>
+        <li>EECS 481 — Software Engineering</li>
+        <li>EECS 376 — Theory of Computation</li>
+        <li>EECS 493 — User Interface Development</li>
+        <li>EECS 485 — Web Systems</li>
+        <li>Psych 240 — Cognitive Psychology</li>
+        <li>Astro 106 — Aliens</li>
+      </ul>
+      <div class="tags"><span class="tag">HCI</span><span class="tag">Unity3D</span><span class="tag">Unreal Engine 5</span><span class="tag">XR</span></div>
+    `},
+    about: { title:'~ About Me ~', icon:'?', theme:'personal', html:`
+      <div class="robot-stage" aria-hidden="true" title="Hi!">
+        <canvas id="robot-canvas" class="robot-canvas"></canvas>
+      </div>
+      <h2>Hi! I'm Mitchell ~</h2>
+      <p class="blink">★ Welcome to my homepage! ★</p>
+      <p>I'm a <b>Design Engineer at Snap</b> working on Spectacles AR glasses.</p>
+      <p>I sit at the intersection of design and engineering — prototyping new interaction models, building AI-native AR experiences, and shipping developer tooling that helps others create on the platform.</p>
+      <p>Before Snap I studied Computer Science and Cognitive Science at the <b>University of Michigan</b>, where I led an AR/VR club and TA'd a new XR course.</p>
+      <p style="margin-top:14px">★ ☆ ★ ☆ ★ ☆ ★ ☆ ★ ☆ ★</p>
+      <p class="rainbow">THANKS FOR VISITING ~ COME BACK SOON!</p>
+      <p style="margin-top:8px"><span class="under-const">⚠ UNDER CONSTRUCTION ⚠</span></p>
+    `},
+  };
+
+  const DIRECTORY = [
+    { type:'item', id:'overview', label:'Overview', icon:'i' },
+    { type:'sep' },
+    { type:'cat', label:'Experience · Snap Inc.', icon:'S', items:[
+      { type:'item', id:'snap', label:'Role overview', icon:'i' },
+      { type:'item', id:'imagine-together', label:'Imagine Together', icon:'★' },
+      { type:'item', id:'translation', label:'Translation', icon:'★' },
+      { type:'item', id:'agent-center', label:'Agent Center', icon:'⚙' },
+      { type:'item', id:'ai-playground', label:'AI Playground', icon:'⚙' },
+      { type:'item', id:'ai-music-gen', label:'AI Music Gen', icon:'♪' },
+      { type:'item', id:'rsg', label:'RemoteServiceGateway', icon:'⚙' },
+    ]},
+    { type:'cat', label:'Awards · Hackathons', icon:'🏆', items:[
+      { type:'item', id:'catiator', label:'Catiator', icon:'🏆' },
+      { type:'item', id:'intarnet', label:'IntARnet', icon:'🏆' },
+      { type:'item', id:'larp', label:'lARp', icon:'🏆' },
+      { type:'item', id:'snaptrap', label:'Snaptrap', icon:'🏆' },
+    ]},
+    { type:'cat', label:'Games', icon:'🎮', items:[
+      { type:'item', id:'retrovirus-vr', label:'RetroVirus VR', icon:'💾' },
+      { type:'item', id:'songbird', label:'Songbird', icon:'🎷' },
+      { type:'item', id:'nira', label:'Nira', icon:'🪄' },
+    ]},
+    { type:'item', id:'education', label:'Education', icon:'🎓' },
+    { type:'sep' },
+    { type:'item', id:'about', label:'About Me', icon:'?' },
+    { type:'item', id:'contact', label:'Contact', icon:'✉', href:'https://www.linkedin.com/in/mitchell-kuppersmith' },
+  ];
+
+  const startMenu = document.getElementById('startMenu');
+  const startMenuBody = document.getElementById('startMenuBody');
+  const startBtn = document.querySelector('.taskbar-start');
+  const winLayer = document.getElementById('windowsLayer');
+  const openWindows = new Map(); // id -> { el, taskBtn }
+  let zTop = 100;
+
+  function buildMenu(items, container){
+    items.forEach(it=>{
+      if(it.type==='sep'){
+        const s=document.createElement('div'); s.className='smenu-sep'; container.appendChild(s); return;
+      }
+      const row=document.createElement('div');
+      row.className='smenu-item'+(it.type==='cat'?' smenu-cat':'');
+      row.innerHTML = `<span class="smenu-ico">${it.icon||''}</span><span>${it.label}</span>`;
+      if(it.type==='item'){
+        row.addEventListener('click', e=>{
+          e.stopPropagation();
+          if(it.href){
+            window.open(it.href, '_blank', 'noopener');
+          } else {
+            launchPanel(it.id);
+          }
+          closeStartMenu();
+        });
+      } else if(it.type==='cat'){
+        const sub=document.createElement('div'); sub.className='smenu-sub';
+        buildMenu(it.items, sub);
+        row.appendChild(sub);
+      }
+      container.appendChild(row);
+    });
+  }
+  buildMenu(DIRECTORY, startMenuBody);
+
+  function openStartMenu(){
+    startMenu.style.display='flex';
+    startBtn.classList.add('is-open');
+  }
+  function closeStartMenu(){
+    startMenu.style.display='none';
+    startBtn.classList.remove('is-open');
+  }
+  function toggleStartMenu(){
+    if(startMenu.style.display==='none') openStartMenu(); else closeStartMenu();
+  }
+  startBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleStartMenu(); });
+  document.addEventListener('mousedown', e=>{
+    if(startMenu.style.display!=='none' && !startMenu.contains(e.target) && !startBtn.contains(e.target)){
+      closeStartMenu();
+    }
+  });
+
+  function focusWindow(win){
+    document.querySelectorAll('.win-app').forEach(w=>w.classList.remove('is-focus'));
+    win.classList.add('is-focus');
+    win.style.zIndex = ++zTop;
+    // mark taskbar buttons
+    openWindows.forEach((info, id)=>{
+      if(info.taskBtn) info.taskBtn.classList.toggle('is-active', info.el===win);
+    });
+  }
+
+  function makeDraggable(win, handle){
+    let dragging=false, ox=0, oy=0;
+    handle.addEventListener('mousedown', e=>{
+      if(e.target.closest('.tbtn')) return;
+      dragging=true;
+      const r=win.getBoundingClientRect();
+      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      focusWindow(win);
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', e=>{
+      if(!dragging) return;
+      const nx=Math.max(0, Math.min(window.innerWidth-40, e.clientX-ox));
+      const ny=Math.max(0, Math.min(window.innerHeight-60, e.clientY-oy));
+      win.style.left=nx+'px'; win.style.top=ny+'px';
+    });
+    document.addEventListener('mouseup', ()=>dragging=false);
+  }
+
+  function ensureTaskBtn(id, panel, win){
+    let btn = openWindows.get(id)?.taskBtn;
+    if(btn) return btn;
+    btn = document.createElement('button');
+    btn.className='taskbar-btn is-active';
+    btn.innerHTML = `<span class="tb-ico"></span><span>${panel.title}</span>`;
+    btn.addEventListener('click', ()=>{
+      if(win.style.display==='none' || win.dataset.minimized==='1'){
+        win.style.display='flex'; win.dataset.minimized='';
+        focusWindow(win);
+      } else if(win.classList.contains('is-focus')){
+        win.dataset.minimized='1'; win.style.display='none';
+        btn.classList.remove('is-active');
+      } else {
+        focusWindow(win);
+      }
+    });
+    tasksEl.appendChild(btn);
+    return btn;
+  }
+
+  function launchPanel(id){
+    const panel = PANELS[id];
+    if(!panel) return;
+    const existing = openWindows.get(id);
+    if(existing){
+      existing.el.style.display='flex';
+      existing.el.dataset.minimized='';
+      focusWindow(existing.el);
+      return;
+    }
+    const win=document.createElement('div');
+    win.className='win-app is-focus theme-'+(panel.theme||'desktop');
+    win.style.left = (60 + (openWindows.size%6)*32) + 'px';
+    win.style.top  = (50 + (openWindows.size%6)*28) + 'px';
+    win.style.zIndex = ++zTop;
+    win.innerHTML = `
+      <div class="win-title">
+        <span>${panel.title}</span>
+        <div class="tbtns">
+          <div class="tbtn" data-act="min">_</div>
+          <div class="tbtn" data-act="max">□</div>
+          <div class="tbtn" data-act="close">✕</div>
+        </div>
+      </div>
+      <div class="win-body">${panel.html}</div>
+    `;
+    winLayer.appendChild(win);
+    if(id==='about' && typeof window.initRobot==='function') window.initRobot();
+    const titleBar = win.querySelector('.win-title');
+    makeDraggable(win, titleBar);
+    win.addEventListener('mousedown', ()=>focusWindow(win));
+
+    const taskBtn = ensureTaskBtn(id, panel, win);
+    openWindows.set(id, { el:win, taskBtn });
+
+    win.querySelector('[data-act="min"]').addEventListener('click', e=>{
+      e.stopPropagation();
+      win.dataset.minimized='1'; win.style.display='none';
+      taskBtn.classList.remove('is-active');
+    });
+    win.querySelector('[data-act="close"]').addEventListener('click', e=>{
+      e.stopPropagation();
+      win.remove(); taskBtn.remove();
+      openWindows.delete(id);
+    });
+    win.querySelectorAll('[data-launch]').forEach(ic=>{
+      ic.style.cursor='pointer';
+      ic.addEventListener('click', e=>{
+        e.preventDefault(); e.stopPropagation();
+        launchPanel(ic.getAttribute('data-launch'));
+      });
+    });
+    win.querySelector('[data-act="max"]').addEventListener('click', e=>{
+      e.stopPropagation();
+      if(win.dataset.maxed==='1'){
+        win.style.left=win.dataset.preL; win.style.top=win.dataset.preT;
+        win.style.width=win.dataset.preW; win.style.height='';
+        win.style.maxHeight='70vh';
+        win.dataset.maxed='';
+      } else {
+        win.dataset.preL=win.style.left; win.dataset.preT=win.style.top;
+        win.dataset.preW=win.style.width;
+        win.style.left='4px'; win.style.top='4px';
+        win.style.width=(window.innerWidth-12)+'px';
+        win.style.height=(window.innerHeight-40)+'px';
+        win.style.maxHeight='none';
+        win.dataset.maxed='1';
+      }
+    });
+
+    focusWindow(win);
+  }
+
+  // open Overview at boot so people see the directory right away
+  setTimeout(()=>launchPanel('overview'), 200);
+})();
+</script>
+<script src="robot.js" defer></script>
+</body>
+</html>
