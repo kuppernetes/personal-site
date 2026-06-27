@@ -3215,23 +3215,34 @@ requestAnimationFrame(loop);
   // window-chrome panels (matPicker, hud)
   function wireWin95Drag(win, handle){
     let dragging=false, ox=0, oy=0;
-    handle.addEventListener('mousedown', e=>{
+    function start(cx, cy, e){
       if(e.target.closest('.tbtn')) return;
       const r=win.getBoundingClientRect();
-      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      ox=cx-r.left; oy=cy-r.top;
       win.style.left=r.left+'px'; win.style.top=r.top+'px';
       win.style.right='auto'; win.style.bottom='auto';
       win.style.transform='none';
       dragging=true;
       e.preventDefault();
-    });
-    document.addEventListener('mousemove', e=>{
+    }
+    function move(cx, cy){
       if(!dragging) return;
-      const nx=Math.max(0, Math.min(window.innerWidth-40, e.clientX-ox));
-      const ny=Math.max(0, Math.min(window.innerHeight-40, e.clientY-oy));
+      const nx=Math.max(0, Math.min(window.innerWidth-40, cx-ox));
+      const ny=Math.max(0, Math.min(window.innerHeight-40, cy-oy));
       win.style.left=nx+'px'; win.style.top=ny+'px';
-    });
+    }
+    handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
+    document.addEventListener('mousemove', e=>move(e.clientX, e.clientY));
     document.addEventListener('mouseup', ()=>dragging=false);
+    handle.addEventListener('touchstart', e=>{
+      const t=e.touches[0]; start(t.clientX, t.clientY, e);
+    }, {passive:false});
+    document.addEventListener('touchmove', e=>{
+      if(!dragging) return;
+      const t=e.touches[0]; move(t.clientX, t.clientY); e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchend', ()=>dragging=false);
+    document.addEventListener('touchcancel', ()=>dragging=false);
   }
   document.querySelectorAll('.win95').forEach(win=>{
     win.addEventListener('mousedown', e=>e.stopPropagation());
@@ -3706,21 +3717,32 @@ requestAnimationFrame(loop);
 
   function makeDraggable(win, handle){
     let dragging=false, ox=0, oy=0;
-    handle.addEventListener('mousedown', e=>{
+    function start(cx, cy, e){
       if(e.target.closest('.tbtn')) return;
       dragging=true;
       const r=win.getBoundingClientRect();
-      ox=e.clientX-r.left; oy=e.clientY-r.top;
+      ox=cx-r.left; oy=cy-r.top;
       focusWindow(win);
       e.preventDefault();
-    });
-    document.addEventListener('mousemove', e=>{
+    }
+    function move(cx, cy){
       if(!dragging) return;
-      const nx=Math.max(0, Math.min(window.innerWidth-40, e.clientX-ox));
-      const ny=Math.max(0, Math.min(window.innerHeight-60, e.clientY-oy));
+      const nx=Math.max(0, Math.min(window.innerWidth-40, cx-ox));
+      const ny=Math.max(0, Math.min(window.innerHeight-60, cy-oy));
       win.style.left=nx+'px'; win.style.top=ny+'px';
-    });
+    }
+    handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
+    document.addEventListener('mousemove', e=>move(e.clientX, e.clientY));
     document.addEventListener('mouseup', ()=>dragging=false);
+    handle.addEventListener('touchstart', e=>{
+      const t=e.touches[0]; start(t.clientX, t.clientY, e);
+    }, {passive:false});
+    document.addEventListener('touchmove', e=>{
+      if(!dragging) return;
+      const t=e.touches[0]; move(t.clientX, t.clientY); e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchend', ()=>dragging=false);
+    document.addEventListener('touchcancel', ()=>dragging=false);
   }
 
   function ensureTaskBtn(id, panel, win){
