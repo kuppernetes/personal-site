@@ -315,11 +315,22 @@ html,body{
 }
 .smenu-sep{height:0;border-top:1px solid #808080;border-bottom:1px solid #ffffff;margin:2px 4px}
 .smenu-sub{
-  position:fixed;left:240px;bottom:30px;top:auto;
+  position:fixed;left:240px;top:0;
   width:220px;background:#c0c0c0;
   border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
   box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
   padding:2px;display:none;
+}
+/* Hover bridges: a transparent pad on the parent row extending right into the
+   submenu's column, plus a pad on the submenu extending left back over the
+   parent. Lets the cursor travel diagonally without dropping the :hover. */
+.smenu-item.smenu-cat::before{
+  content:"";position:absolute;top:0;left:100%;width:16px;height:100%;
+  pointer-events:auto;background:transparent;
+}
+.smenu-sub::before{
+  content:"";position:absolute;top:-4px;bottom:-4px;left:-16px;width:18px;
+  background:transparent;
 }
 .smenu-item:hover > .smenu-sub{display:block}
 
@@ -3681,6 +3692,24 @@ requestAnimationFrame(loop);
         const sub=document.createElement('div'); sub.className='smenu-sub';
         buildMenu(it.items, sub);
         row.appendChild(sub);
+        // Align submenu's top with parent row so a purely horizontal cursor
+        // move lands on the first submenu item, then clamp into viewport.
+        row.addEventListener('mouseenter', ()=>{
+          const rRect = row.getBoundingClientRect();
+          const menuRect = startMenu.getBoundingClientRect();
+          sub.style.left = menuRect.right + 'px';
+          sub.style.top  = rRect.top + 'px';
+          sub.style.bottom = 'auto';
+          // measure after display via :hover
+          requestAnimationFrame(()=>{
+            const sRect = sub.getBoundingClientRect();
+            const taskbarTop = window.innerHeight - 30;
+            let top = rRect.top;
+            if(top + sRect.height > taskbarTop) top = Math.max(2, taskbarTop - sRect.height);
+            if(top < 2) top = 2;
+            sub.style.top = top + 'px';
+          });
+        });
       }
       container.appendChild(row);
     });
