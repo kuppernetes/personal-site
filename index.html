@@ -844,12 +844,13 @@ function computeDims(){
 }
 computeDims();
 
-let grid,variant,frozen,updated;
+let grid,variant,frozen,updated,inChunk;
 function allocArrays(){
   grid=new Uint8Array(W*H);
   variant=new Uint8Array(W*H);
   frozen=new Uint8Array(W*H);
   updated=new Int32Array(W*H); // last frame this cell was written
+  inChunk=new Uint8Array(W*H); // cell belongs to a falling masonry chunk
 }
 allocArrays();
 
@@ -964,18 +965,100 @@ function setMat(x,y,m,v){
 // just shed support, or all of its potential supports below have vanished.
 // Once unfrozen it falls through the normal debris path below.
 function tryDecompose(x,y,i,m){
-  // fire / acid adjacency
+  // returns 0 = stay frozen, 1 = fire/acid attack, 2 = lost support
   const up=mat(x,y-1),dn=mat(x,y+1),lf=mat(x-1,y),rt=mat(x+1,y);
-  if(up===ACID||dn===ACID||lf===ACID||rt===ACID)return true;
-  if((isFlamSprite(m)||m===GLASS)&&(up===FIRE||dn===FIRE||lf===FIRE||rt===FIRE))return true;
+  if(up===ACID||dn===ACID||lf===ACID||rt===ACID)return 1;
+  if((isFlamSprite(m)||m===GLASS)&&(up===FIRE||dn===FIRE||lf===FIRE||rt===FIRE))return 1;
   // support: a frozen neighbour, terrain, or the floor underneath us is enough
-  if(y+1>=H)return false;
+  if(y+1>=H)return 0;
   const bi=idx(x,y+1),bm=grid[bi];
-  if(frozen[bi]||isStatic(bm)||bm===STONE||bm===DIRT||bm===GRASS)return false;
+  if(frozen[bi]||isStatic(bm)||bm===STONE||bm===DIRT||bm===GRASS)return 0;
   // diagonal frozen support — pixel arches still hold
-  if(x>0&&frozen[idx(x-1,y+1)])return false;
-  if(x+1<W&&frozen[idx(x+1,y+1)])return false;
+  if(x>0&&frozen[idx(x-1,y+1)])return 0;
+  if(x+1<W&&frozen[idx(x+1,y+1)])return 0;
+  return 2;
+}
+
+/* ═══ MASONRY CHUNKS ═══
+   When structural material (BRICK/WOOD) loses support, the connected frozen
+   region either (a) stays standing because some member is still grounded, or
+   (b) detaches and falls as ONE coherent chunk — cells move together, the
+   baked masonry pattern stays intact, and the chunk refreezes on landing.
+   Hard landings crumble the impact row into loose debris. */
+const chunks=[];
+const CHUNK_MAX=2600;
+const isChunkMat=m=>m===BRICK||m===WOOD;
+function tryChunkDetach(sx,sy){
+  const start=idx(sx,sy);
+  const seen=new Set([start]);
+  const stack=[start],cells=[];
+  while(stack.length){
+    const i=stack.pop();cells.push(i);
+    if(cells.length>CHUNK_MAX)return false;      // huge region → legacy crumble
+    const x=i%W,y=(i/W)|0;
+    // grounded through any member? then the whole region stands
+    if(y+1>=H)return true;
+    const bi=i+W,bm=grid[bi];
+    if(!seen.has(bi)&&!inChunk[bi]){
+      if(isStatic(bm)||bm===STONE||bm===DIRT||bm===GRASS)return true;
+      if(frozen[bi]&&!isChunkMat(bm))return true; // resting on a frozen sprite
+    }
+    if(x>0){const ni=i-1;if(!seen.has(ni)&&!inChunk[ni]&&frozen[ni]&&isChunkMat(grid[ni])){seen.add(ni);stack.push(ni);}}
+    if(x+1<W){const ni=i+1;if(!seen.has(ni)&&!inChunk[ni]&&frozen[ni]&&isChunkMat(grid[ni])){seen.add(ni);stack.push(ni);}}
+    if(y>0){const ni=i-W;if(!seen.has(ni)&&!inChunk[ni]&&frozen[ni]&&isChunkMat(grid[ni])){seen.add(ni);stack.push(ni);}}
+    if(y+1<H){const ni=i+W;if(!seen.has(ni)&&!inChunk[ni]&&frozen[ni]&&isChunkMat(grid[ni])){seen.add(ni);stack.push(ni);}}
+  }
+  // truly orphaned: detach as a falling chunk, lowest cells first
+  cells.sort((a,b)=>b-a);
+  for(const i of cells)inChunk[i]=1;
+  chunks.push({cells,set:seen,vy:0,acc:0});
   return true;
+}
+function updateChunks(){
+  for(let k=chunks.length-1;k>=0;k--){
+    const ch=chunks[k];
+    // drop members that were burned/dissolved/erased while falling
+    if(ch.cells.some(i=>!frozen[i]||!isChunkMat(grid[i]))){
+      ch.cells=ch.cells.filter(i=>{
+        if(frozen[i]&&isChunkMat(grid[i]))return true;
+        ch.set.delete(i);inChunk[i]=0;return false;});
+      if(!ch.cells.length){chunks.splice(k,1);continue;}
+    }
+    ch.vy=Math.min(ch.vy+0.18,3);ch.acc+=ch.vy;
+    let steps=ch.acc|0;ch.acc-=steps;
+    let landed=false;
+    while(steps-->0&&!landed){
+      let ok=true;
+      for(const i of ch.cells){
+        const bi=i+W;
+        if(((i/W)|0)+1>=H||(grid[bi]!==EMPTY&&!ch.set.has(bi))){ok=false;break;}
+      }
+      if(!ok){landed=true;break;}
+      // shift every cell down one row (cells sorted bottom-first)
+      for(let n=0;n<ch.cells.length;n++){
+        const i=ch.cells[n],bi=i+W;
+        grid[bi]=grid[i];variant[bi]=variant[i];frozen[bi]=1;inChunk[bi]=1;
+        grid[i]=EMPTY;variant[i]=0;frozen[i]=0;inChunk[i]=0;
+        const x=i%W,y=(i/W)|0;
+        pixDirty(x,y);pixDirty(x,y+1);wake3(x,y);
+        ch.cells[n]=bi;
+      }
+      ch.set=new Set(ch.cells);
+    }
+    if(landed){
+      const hard=ch.vy>1.3;
+      for(const i of ch.cells){
+        inChunk[i]=0;
+        const x=i%W,y=(i/W)|0;
+        // hard impact: contact-row cells shake loose as debris
+        if(hard&&(y+1>=H||(grid[i+W]!==EMPTY&&!ch.set.has(i+W)))&&Math.random()<0.55){
+          frozen[i]=0;
+        }
+        wake3(x,y);pixDirty(x,y);
+      }
+      chunks.splice(k,1);
+    }
+  }
 }
 
 function step(x,y){
@@ -983,11 +1066,16 @@ function step(x,y){
   if(updated[i]===frameId)return;
   const m=grid[i];
   if(frozen[i]){
-    if(isDebris(m)&&tryDecompose(x,y,i,m)){
-      frozen[i]=0;
-      wake3(x,y);pixDirty(x,y);
-      // fall through into the falling-debris path below
-    } else { return; }
+    if(inChunk[i])return;                 // a falling chunk owns this cell
+    const why=isDebris(m)?tryDecompose(x,y,i,m):0;
+    if(why===0)return;
+    // support loss on structural material → try to detach the whole
+    // connected region as one coherent chunk (or discover it's actually
+    // held up elsewhere and leave it standing)
+    if(why===2&&(m===BRICK||m===WOOD)&&tryChunkDetach(x,y))return;
+    frozen[i]=0;
+    wake3(x,y);pixDirty(x,y);
+    // fall through into the falling-debris path below
   }
   if(m===EMPTY||isStatic(m))return;
   const d=stepDir;
@@ -1346,7 +1434,7 @@ gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
   `#version 300 es\nin vec2 a;out vec2 uv;\nvoid main(){uv=a*.5+.5;gl_Position=vec4(a,0,1);}`));
 gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
   `#version 300 es
-   precision mediump float;in vec2 uv;uniform sampler2D t;uniform float uT;uniform vec2 uGrid;out vec4 c;
+   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;out vec4 c;
    float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
    float noise(vec2 p){
      vec2 i=floor(p),f=fract(p);
@@ -1373,23 +1461,35 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      vec2 cuv=(cell+0.5)/uGrid;
      float y=cuv.y;                         // 0 = bottom, 1 = top of screen
 
-     // ── Bliss-style sky: pale horizon → daylight blue → deep crown ──
-     vec3 horizon=vec3(0.86,0.92,0.97);     // washed pale blue at the skyline
-     vec3 mid    =vec3(0.45,0.68,0.90);     // clean daylight blue
-     vec3 crown  =vec3(0.18,0.42,0.78);     // deeper blue overhead
+     // ── Bliss-style sky, cross-faded to a starlit night by uDay ──
+     vec3 horizon=mix(vec3(0.10,0.12,0.22),vec3(0.86,0.92,0.97),uDay);
+     vec3 mid    =mix(vec3(0.05,0.07,0.16),vec3(0.45,0.68,0.90),uDay);
+     vec3 crown  =mix(vec3(0.02,0.03,0.09),vec3(0.18,0.42,0.78),uDay);
      vec3 sky=mix(horizon,mid,smoothstep(0.22,0.62,y));
      sky=mix(sky,crown,smoothstep(0.60,1.0,y));
+     // dusk/dawn: warm band hugging the horizon when the sun is low
+     float duskK=smoothstep(0.15,0.5,uDay)*(1.0-smoothstep(0.5,0.85,uDay));
+     sky=mix(sky,vec3(0.95,0.55,0.30),duskK*(1.0-smoothstep(0.0,0.45,y))*0.55);
+     // stars: sparse hashed twinkle, fading in after dusk
+     float night=1.0-uDay;
+     if(night>0.5){
+       // double-hash: single sin-hash on a lattice leaves diagonal lanes
+       vec2 hp=vec2(hash(cell),hash(cell.yx+vec2(17.7,9.3)));
+       float st=step(0.9965,hash(hp*731.7));
+       float tw=0.6+0.4*sin(uT*2.1+hash(cell.yx)*31.0);
+       sky+=vec3(1.0,1.0,0.92)*st*(night-0.5)*2.0*tw;
+     }
 
      // ── puffy white cumulus clouds, drifting horizontally ──
      // two layers: bigger lazy crowns on top, smaller wisps lower down
      float c1=fbm(vec2(cuv.x*2.4 - uT*0.012, cuv.y*4.2));
      float band1=smoothstep(0.42,0.78,y)*smoothstep(0.98,0.70,y);
      float lit1=smoothstep(0.0,0.20,c1-0.55);
-     vec3 cloud1=mix(vec3(0.84,0.88,0.94),vec3(1.0,1.0,1.0),lit1);
+     vec3 cloud1=mix(vec3(0.84,0.88,0.94),vec3(1.0,1.0,1.0),lit1);cloud1=mix(vec3(0.09,0.11,0.19),cloud1,uDay);
      sky=mix(sky,cloud1,smoothstep(0.54,0.74,c1)*band1);
      float c2=fbm(vec2(cuv.x*4.5 - uT*0.028 + 9.0, cuv.y*7.0));
      float band2=smoothstep(0.30,0.55,y)*smoothstep(0.74,0.46,y);
-     sky=mix(sky,vec3(0.97,0.99,1.0),smoothstep(0.62,0.80,c2)*band2*0.55);
+     sky=mix(sky,mix(vec3(0.10,0.12,0.20),vec3(0.97,0.99,1.0),uDay),smoothstep(0.62,0.80,c2)*band2*0.55);
 
      // ── distinct round cumulus puffs: jittered grid of soft circles, parallax layers ──
      float puffs=0.0;
@@ -1409,8 +1509,8 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        }
      }
      float puffBand=smoothstep(0.40,0.58,y)*smoothstep(0.88,0.66,y);
-     vec3 puffShade=vec3(0.80,0.85,0.93);
-     vec3 puffLit  =vec3(1.00,1.00,1.00);
+     vec3 puffShade=mix(vec3(0.08,0.10,0.18),vec3(0.80,0.85,0.93),uDay);
+     vec3 puffLit  =mix(vec3(0.12,0.14,0.24),vec3(1.00,1.00,1.00),uDay);
      vec3 puffCol=mix(puffShade, puffLit, smoothstep(0.05,0.75,puffs));
      sky=mix(sky, puffCol, puffs*puffBand*0.90);
 
@@ -1431,8 +1531,14 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        grass=mix(grass,grassDeep,smoothstep(0.40,1.0,gT));
        // subtle wind-streak striations along the slope
        grass+=0.025*sin(cuv.x*38.0 + cuv.y*12.0);
-       sky=grass;
+       sky=grass*(0.12+0.88*uDay);
      }
+
+     // ── emissive lighting: ambient day factor + two-scale light buffer ──
+     vec3 lit=texture(uLC,uv).rgb*1.82 + texture(uLW,uv).rgb*1.82;
+     float amb=0.16+0.84*uDay;
+     vec3 partRGB=tx.rgb*(amb + lit*1.35);
+     tx=vec4(partRGB,tx.a);
 
      // ── ordered-dither posterize → smooth gradients become pixel bands ──
      // more levels + softer dither = banded pixel-art feel without checkerboard noise
@@ -1445,6 +1551,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      // posterize particles to 8 levels/channel to match the sky's wider palette
      vec3 part=floor(tx.rgb*7.99)/7.0;
      vec3 col=mix(sky,part,tx.a);
+     col+=lit*0.30;                        // soft bloom over everything
      c=vec4(col,1.0);
    }`));
 gl.linkProgram(prog);gl.useProgram(prog);
@@ -1460,7 +1567,10 @@ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 gl.uniform1i(gl.getUniformLocation(prog,'t'),0);
+gl.uniform1i(gl.getUniformLocation(prog,'uLC'),1);
+gl.uniform1i(gl.getUniformLocation(prog,'uLW'),2);
 const uTimeLoc=gl.getUniformLocation(prog,'uT');
+const uDayLoc=gl.getUniformLocation(prog,'uDay');
 const uGridLoc=gl.getUniformLocation(prog,'uGrid');
 let gTime=0;
 
@@ -1470,6 +1580,80 @@ function allocTexture(){
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,texData);
 }
 allocTexture();
+
+/* ═══ EMISSIVE LIGHTING — two-scale light buffer + day/night clock ═══
+   CORE: quarter-res, tight falloff near sources. WIDE: 1/16-res broad halo.
+   Rebuilt every other frame in JS (<1ms), uploaded as two LINEAR-filtered
+   textures the fragment shader samples bilinearly for free. */
+let LW,LH,WW,WH,coreBuf,wideBuf,coreF,wideF,tmpF,tmpW;
+const lightTexC=gl.createTexture(), lightTexW=gl.createTexture();
+for(const t of [lightTexC,lightTexW]){
+  gl.bindTexture(gl.TEXTURE_2D,t);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+}
+function allocLight(){
+  LW=(W>>2)+1;LH=(H>>2)+1;WW=(W>>4)+1;WH=(H>>4)+1;
+  coreF=[new Float32Array(LW*LH),new Float32Array(LW*LH),new Float32Array(LW*LH)];
+  wideF=[new Float32Array(WW*WH),new Float32Array(WW*WH),new Float32Array(WW*WH)];
+  tmpF=new Float32Array(LW*LH);tmpW=new Float32Array(WW*WH);
+  coreBuf=new Uint8Array(LW*LH*4);wideBuf=new Uint8Array(WW*WH*4);
+}
+allocLight();
+
+// day/night clock: slow automatic cycle; click the taskbar clock to fast-forward
+let dayPhase=0;               // radians; 0 = noon
+const DAY_PERIOD=240;         // seconds per full day
+let dayWarp=0;                // extra phase from clock clicks (eased)
+function dayFactor(){return 0.5+0.5*Math.cos(dayPhase);}
+
+function blurL(a,tmp,w,h){
+  for(let y=0;y<h;y++){const row=y*w;
+    for(let x=0;x<w;x++){const l=x>0?a[row+x-1]:a[row+x],r=x<w-1?a[row+x+1]:a[row+x];tmp[row+x]=(l+a[row+x]*1.1+r)/3.1;}}
+  for(let y=0;y<h;y++){const row=y*w;
+    for(let x=0;x<w;x++){const u=y>0?tmp[row-w+x]:tmp[row+x],d=y<h-1?tmp[row+w+x]:tmp[row+x];a[row+x]=(u+tmp[row+x]*1.1+d)/3.1;}}
+}
+function buildLight(){
+  const day=dayFactor(), night=1-day;
+  for(const c of coreF)c.fill(0);
+  for(const c of wideF)c.fill(0);
+  for(let y=0;y<H;y++){const row=y*W;
+    for(let x=0;x<W;x++){
+      const gi=row+x, m=grid[gi];
+      let r=0,g=0,b=0;
+      if(m===FIRE){r=1.0;g=0.45;b=0.08;}
+      else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
+      else if(m===BOMB&&(variant[gi]&0x80)){r=0.7;g=0.10;b=0.05;}
+      else if(m===ACID){r=0.10;g=0.22;b=0.02;}
+      else if(m===GLASS&&frozen[gi]&&night>0.25){
+        const k=(night-0.25)*1.1;r=0.55*k;g=0.38*k;b=0.14*k;
+      }
+      if(r+g+b===0)continue;
+      const ci=(y>>2)*LW+(x>>2);
+      coreF[0][ci]+=r*0.5;coreF[1][ci]+=g*0.5;coreF[2][ci]+=b*0.5;
+      const wi=(y>>4)*WW+(x>>4);
+      wideF[0][wi]+=r*0.16;wideF[1][wi]+=g*0.16;wideF[2][wi]+=b*0.16;
+    }
+  }
+  for(const c of coreF)for(let i=0;i<c.length;i++)if(c[i]>1.8)c[i]=1.8;
+  for(const c of wideF)for(let i=0;i<c.length;i++)if(c[i]>1.2)c[i]=1.2;
+  for(let p=0;p<4;p++)for(const c of coreF)blurL(c,tmpF,LW,LH);
+  for(let p=0;p<3;p++)for(const c of wideF)blurL(c,tmpW,WW,WH);
+  // pack (y-flipped to match uv space), scale 140 units per 1.0
+  for(let y=0;y<LH;y++){const fy=LH-1-y;
+    for(let x=0;x<LW;x++){const s=y*LW+x,d=(fy*LW+x)*4;
+      coreBuf[d]=Math.min(255,coreF[0][s]*140);coreBuf[d+1]=Math.min(255,coreF[1][s]*140);coreBuf[d+2]=Math.min(255,coreF[2][s]*140);coreBuf[d+3]=255;}}
+  for(let y=0;y<WH;y++){const fy=WH-1-y;
+    for(let x=0;x<WW;x++){const s=y*WW+x,d=(fy*WW+x)*4;
+      wideBuf[d]=Math.min(255,wideF[0][s]*140);wideBuf[d+1]=Math.min(255,wideF[1][s]*140);wideBuf[d+2]=Math.min(255,wideF[2][s]*140);wideBuf[d+3]=255;}}
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lightTexC);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,LW,LH,0,gl.RGBA,gl.UNSIGNED_BYTE,coreBuf);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightTexW);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,WW,WH,0,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
+  gl.activeTexture(gl.TEXTURE0);
+}
 
 // inline pixel fill — writes RGBA directly to texData, no array allocations
 function fillTexel(x,y){
@@ -1513,9 +1697,29 @@ function fillTexel(x,y){
     case ACCENT:r=184;g=224;b=0;  a=255; break;
     case BODY:  r=28; g=26; b=34; a=255; break;
     // ─── sprite materials: variant is a SHADE index (0=base..3=deep) ───
-    case WOOD:  { const sh=SHADE[v&3]; r=104+sh[0]; g=68+sh[1]; b=38+sh[2]; a=255; break; }
+    case WOOD:  {
+      if(v&0x20){ // structured planking: role + per-plank tint
+        const role=v&3, tint=((v>>2)&7)-3;
+        r=104+tint*5; g=68+tint*4; b=38+tint*2;
+        if(role===3){ r-=36; g-=30; b-=18; }                           // seam
+        else if(role===1){ r-=20; g-=16; b-=10; }                      // grain fleck
+        else if(role===2){ r=Math.min(255,r+14); g+=11; b+=7; }        // lit edge
+        a=255; break;
+      }
+      const sh=SHADE[v&3]; r=104+sh[0]; g=68+sh[1]; b=38+sh[2]; a=255; break; }
     case LEAF:  { const sh=SHADE[v&3]; r=60+sh[0]; g=128+sh[1]; b=48+sh[2]; a=255; break; }
-    case BRICK: { const sh=SHADE[v&3]; r=168+sh[0]; g=88+sh[1]; b=62+sh[2]; a=255; break; }
+    case BRICK: {
+      if(v&0x20){ // structured masonry: role + per-brick tint
+        const role=v&3, tint=((v>>2)&7)-3; // tint in [-3..4]
+        if(role===3){ r=186+tint*3; g=176+tint*3; b=164+tint*2; }      // mortar
+        else{
+          r=168+tint*7; g=88+tint*4; b=62+tint*3;
+          if(role===1){ r-=30; g=(g-22)|0; b-=16; }                    // shadow edge
+          else if(role===2){ r=Math.min(255,r+22); g+=16; b+=10; }     // lit edge
+        }
+        a=255; break;
+      }
+      const sh=SHADE[v&3]; r=168+sh[0]; g=88+sh[1]; b=62+sh[2]; a=255; break; }
     case THATCH:{ const sh=SHADE[v&3]; r=210+sh[0]; g=168+sh[1]; b=86+sh[2]; a=255; break; }
     case BERRY: { const sh=SHADE[v&3]; r=214+sh[0]; g=52+sh[1]; b=68+sh[2]; a=255; break; }
     case GLASS: { const sh=SHADE[v&3]; r=178+sh[0]; g=206+sh[1]; b=222+sh[2]; a=210; break; }
@@ -1596,6 +1800,7 @@ function render(){
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D,tex);
   gl.uniform1f(uTimeLoc,gTime);
+  gl.uniform1f(uDayLoc,dayFactor());
   gl.uniform2f(uGridLoc,W,H);
   gl.disable(gl.BLEND);
   // iterate dirty chunks: only re-fill+upload pixels that actually changed
@@ -1962,13 +2167,15 @@ function putCell(x,y,m,v){
 // shading without an external sprite tool.
 const SPRITE_MATS={
   '.':null,
-  T:{m:WOOD,v:0},   t:{m:WOOD,v:1},   '!':{m:WOOD,v:3},     // wood: base, shadow, deep
+  T:{m:WOOD,v:0},   t:{m:WOOD,v:1},   '!':{m:WOOD,v:3},  '^':{m:WOOD,v:2},   // wood: base, shadow, deep, highlight
   L:{m:LEAF,v:0},   l:{m:LEAF,v:1},   H:{m:LEAF,v:2},  '%':{m:LEAF,v:3}, // leaf: base, shadow, highlight, deep
-  R:{m:THATCH,v:0}, r:{m:THATCH,v:1},                       // thatch: base, shadow
-  K:{m:BRICK,v:0},  k:{m:BRICK,v:1},                        // brick: base, mortar
-  B:{m:BERRY,v:0},  b:{m:BERRY,v:1},                        // berry: base, shadow
-  G:{m:GLASS,v:0},  P:{m:PLANT,v:0},  M:{m:MOSS,v:0},
-  W:{m:WATER,v:0},  S:{m:STONE,v:0},  F:{m:FIRE,v:0},
+  R:{m:THATCH,v:0}, r:{m:THATCH,v:1}, Y:{m:THATCH,v:2},                  // thatch: base, shadow, highlight
+  K:{m:BRICK,v:0},  k:{m:BRICK,v:1},  C:{m:BRICK,v:2},  c:{m:BRICK,v:3}, // brick: base, mortar, highlight, deep
+  B:{m:BERRY,v:0},  b:{m:BERRY,v:1},  A:{m:BERRY,v:2},                   // berry: base, shadow, highlight
+  G:{m:GLASS,v:0},  g:{m:GLASS,v:1},  '*':{m:GLASS,v:2},                 // glass: base, shade, sparkle
+  D:{m:STONE,v:0},  E:{m:STONE,v:7},                                     // stone: dark, light (via jitter)
+  P:{m:PLANT,v:0},  M:{m:MOSS,v:0},
+  W:{m:WATER,v:0},  S:{m:STONE,v:3},  F:{m:FIRE,v:0},
 };
 
 // ─── SPRITES ───
@@ -1979,187 +2186,191 @@ const SPRITES={
   // a broad asymmetric oak. shadows hang on right/bottom side, berries dot the
   // canopy, the highlighted ! is a darker knot in the trunk.
   oak:[
-    ".......HHLLLLL.......",
-    ".....HHLLLLLLLl......",
-    "....HHLLLBLLLLll.....",
-    "...HHLHLLLLLLLLll....",
-    "..HHLBLHLLLLLBLLll...",
-    ".HHLLLLLLLLLLLLLLll..",
-    "HHLHLLLLLLLLLLLLLLll.",
-    "HLLLBLLLLHLLLLLLBLll.",
-    "HLLLLLLLLLLLLBLLLLll.",
-    ".LLHLLBLLLLLLLLLll%..",
-    ".lLLLLLLLLLLLLLll%%..",
-    "..lLLLLLLLLLLLll%%...",
-    "...llLLLLHLLLll%%....",
-    "....lllLLLLLLll%%....",
-    "........tTT!t........",
-    "........tTTTt........",
-    "........tTTTt........",
-    "........tTTTt........",
-    "........tTTTt........",
-    "........tTTTt........",
-    ".......tTTTTTt.......",
-    "......tTTTTTTTt......",
-    ".....tttTTTTTttt.....",
+    "......HHHLLL.........",
+    "....HHHLLLLLLl.......",
+    "...HHLLLLLLLLLl......",
+    "..HHLLLBLLLLHHLLl....",
+    "..HLLLLLLLLHHLLLLl...",
+    ".HHLLHHLLLLLLLLBLll..",
+    ".HLLHHLLLLBLLLLLLLl..",
+    ".HLLLLLLLLLLLLLLLlll.",
+    ".HLBLLLLHHLLLLLLLll%.",
+    "..LLLLLLLLLLLLBLLll%.",
+    "..lLLLLBLLLLLLLLll%%.",
+    "...lLLLLLLLBLLLll%%..",
+    "...%llLLLLLLLlll%%...",
+    "....%%lll..llll%%....",
+    "......^Tt..tTt.......",
+    "......^TTttTt........",
+    ".......^TTTt.........",
+    ".......^TTt..........",
+    ".......^TTt..........",
+    ".......^TTt..........",
+    ".......^TTt..........",
+    "......^TTTTt.........",
+    ".....^TTTTTTt........",
+    "...^ttTTTTtttt.......",
   ],
   // tall conical pine with stacked branches and a hint of shading on right side
   pine:[
     ".......H.......",
-    "......LHL......",
-    "......LLL......",
-    ".....LHLLL.....",
-    "....LLLLLLl....",
-    "....LHLLLLl....",
-    "...LLLLLLLLL...",
-    "...LHLLLLLLl...",
-    "..LLLLLLLLLLL..",
-    "..LHLLLLLLLLl..",
-    ".LLLLLLLLLLLLL.",
-    ".LLHLLLLLLLLLl.",
-    "LLLLLLLLLLLLLLL",
-    "LHLLLLLLLLLLLLl",
-    ".LLLLLLLLLLLLl.",
-    "..lLLLLLLLLLl..",
-    "......TTT......",
-    "......TTT......",
-    "......TTT......",
-    ".....tTTTt.....",
-    "....tTTTTTt....",
+    "......HLl......",
+    "......HLl......",
+    ".....HLLLl.....",
+    "....HLLLLLl....",
+    ".....%lll%.....",
+    "....HLLLLl.....",
+    "...HLLLLLLl....",
+    "..HLLLLLLLLl...",
+    "...%llllll%....",
+    "...HLLLLLLl....",
+    "..HLLLLLLLLl...",
+    ".HLLLLLLLLLLl..",
+    "..%llllllll%...",
+    "..HLLLLLLLLl...",
+    ".HLLLLLLLLLLl..",
+    "HLLLLLLLLLLLLl.",
+    ".%llllllllll%..",
+    "......TTt......",
+    "......TTt......",
+    ".....^TTTt.....",
+    "....^tTTTtt....",
   ],
   // shorter foreground pine, useful as scatter and for tight spots
   smallpine:[
     "....H....",
-    "...LHL...",
-    "..LLLLL..",
-    "..LHLLl..",
-    ".LLLLLLL.",
-    ".LHLLLLl.",
-    "LLLLLLLLL",
-    ".LLLLLLl.",
-    "....T....",
-    "....T....",
-    "...tTTt..",
+    "...HLl...",
+    "...HLl...",
+    "..HLLLl..",
+    "..%lll%..",
+    "..HLLLl..",
+    ".HLLLLLl.",
+    "HLLLLLLLl",
+    ".%llllll%",
+    "....Tt...",
+    "...^TTt..",
   ],
   // toadstool with a domed cap, white spots, and a banded stem
   mushroom:[
-    "....BBBBBBB....",
-    "..BBGBBBGBBBBB.",
-    ".BBBBBBBBBBBBBB",
-    "BBBGBBBBBBBBBGB",
-    "BBBBBBBBBBBBBBB",
-    "BBBBBBGBBBBBBBB",
-    "BBBBBBBBBBBBBBB",
+    "....AABBBBB....",
+    "..AABBBGBBBBB..",
+    ".ABBGBBBBBBGBB.",
+    "ABBBBBBBBBBBBBb",
+    "ABBBBBGBBBBBBBb",
+    "BBBGBBBBBBGBBBb",
+    "bBBBBBBBBBBBBbb",
     ".bbbbbbbbbbbbb.",
     "..bbbbbbbbbbb..",
-    ".....TTTTT.....",
-    "....tTTTTTt....",
-    "....tTTTTTt....",
-    "....tTTTTTt....",
-    "...tTTTTTTTt...",
-    "..tttTTTTTttt..",
+    "....^TTTTt.....",
+    "....^TTTTt.....",
+    "....^TTTTt.....",
+    "....^TTTTt.....",
+    "...^TTTTTTt....",
+    "..^ttTTTTttt...",
   ],
   // dense bush with a few berries — easy fuel for fire experiments
   bush:[
-    "...LLLLLLL...",
-    "..LHLLBLLLL..",
-    ".LLLLLLLHLLLl",
-    "LLBLLLLLLLBLLl",
-    "LLHLLLBLLLLLLl",
-    "LLLLLLLLLLLLLl",
-    ".lLLLLLLLLLll",
-    "..llllLLllll.",
+    "...HHLLLLL...",
+    "..HHLLBLLLLl.",
+    ".HHLLLLLHLLll",
+    ".HLBLLLLLLBLl",
+    "HHLLLLBLLLLll",
+    ".HLLLLLLLLll%",
+    ".lLLLLLLLLll%",
+    "..%lllLLlll%.",
   ],
   // small flower cluster on a leaf-stem so it falls cleanly when disturbed
   flower:[
-    ".B.B.B.",
-    "BBBBBBB",
-    "BHBBBHB",
-    ".BBBBB.",
-    "..BBB..",
+    ".A.B.A.",
+    "ABBBBBA",
+    "BABBABB",
+    ".BBBBb.",
+    "..bBb..",
     "...L...",
     "...L...",
-    "..LLL..",
-    "...L...",
-    "...L...",
+    "..LlL..",
+    "...l...",
+    "...l...",
   ],
   // a small cottage: thatch roof with a shaded eave, two glass windows,
   // a wooden door, brick foundation. plenty of surface area for fire,
   // acid, and impact tests to crumble it apart.
   cottage:[
-    "............RR............",
-    "...........RRRR..kKK......",
-    "..........RRRRRR..kK......",
-    ".........RRRRRRRRRkK......",
-    "........RRRRRRRRRRkK......",
-    ".......RRRRRRRRRRRkK......",
-    "......RRRRRRRRRRRRRR......",
-    ".....RRRRRRRRRRRRRRRR.....",
-    "....RRRRRRRRRRRRRRRRRR....",
-    "...RRRRRRRRRRRRRRRRRRRR...",
-    "..rrRRRRRRRRRRRRRRRRRRrr..",
-    ".RRRRRRRRRRRRRRRRRRRRRRRR.",
-    "..TTTTTTTTTTTTTTTTTTTTTT..",
-    "..TTTGtGTTTTTTTTTTGtGTTT..",
-    "..TTTtttTTTTTTTTTTtttTTT..",
-    "..TTTGtGTTTTTTTTTTGtGTTT..",
-    "..TTTTTTTTTTTTTTTTTTTTTT..",
-    "..TTTTTTTTTtttttTTTTTTTT..",
-    "..TTTTTTTTTtttttTTTTTTTT..",
-    "..TTTTTTTTTtttt!TTTTTTTT..",
-    "..TTTTTTTTTtttttTTTTTTTT..",
-    "..KKKKKKKKKtttttKKKKKKKK..",
-    "..kkKKKKKKKtttttKKKKKKkk..",
+    "............HL............",
+    "...........HLLL..cKC......",
+    "..........HLLLLl.cKC......",
+    ".........HLLLLLLlcKC......",
+    "........HLLLLLLLLKKC......",
+    ".......H!*G!LLLLLLKC......",
+    "......H!*GG!LLBLLLLLl.....",
+    ".....H!*GGG!LLLLLLLLLl....",
+    "....H!*GGGG!LLLMLLLLLLl...",
+    "...H!*GGGGG!LLLLLLLBLLLl..",
+    "..H!*GGGGGG!LLMLLLLLLLLLl.",
+    ".HLL!!!!!!!!LLLLLLLLLLLLLl",
+    ".%llllllllllllllllllllllll",
+    "..!TTTTTTTTTTTTTTTTTTTT!L.",
+    "..!T*Ggt*GgTTTTTT*Ggt*GgLl",
+    "..!TGgGtGgGTTTTTTGgGtGgGL.",
+    "..!TtttttttTTTTTTtttttttLl",
+    "..!TGgGtGgGTTTTTTGgGtGgGBL",
+    "..!TTTTTTTTT!!!!!TTTTTTTL.",
+    "..!TTTTTTTTT!tt^!TTTTTTTLl",
+    "..!TTTTTTTTT!ttt!TTTTTTTL.",
+    "..!TTTTTTTTT!tt^!TTTTTTTL.",
+    "..EKKCKKEKKC!ttt!KKEKKCKL.",
+    "..cKKKEKKCKK!ttt!KCKKKEKkL",
   ],
   // a longer picket fence — five pickets
   fence:[
+    "..^.....^.....^.....^.....^..",
+    "..T.....T.....T.....T.....T..",
+    "^TTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     "..T.....T.....T.....T.....T..",
     "..T.....T.....T.....T.....T..",
-    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-    "..T.....T.....T.....T.....T..",
-    "..T.....T.....T.....T.....T..",
-    "..T.....T.....T.....T.....T..",
-    "TTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    "..t.....t.....t.....t.....t..",
+    "tTTTTTTTTTTTTTTTTTTTTTTTTTTTt",
   ],
   // a chunky stone well with a peaked roof, water in the basin
   well:[
     ".....T...T.....",
     ".....T...T.....",
-    "....TTTTTTT....",
-    "...tTTTTTTTt...",
-    "..tttTTTTTttt..",
-    "KKKKKKKKKKKKKKK",
-    "KkKKKKKKKKKKKkK",
+    "....^TTTTTt....",
+    "...^tTTTTTtt...",
+    "..^tttTTTtttt..",
+    "EKKCKKEKKCKKEKK",
+    "KcKKEKKCKKEKKcK",
+    "Kk*WWWWWWWWWWkK",
     "KkWWWWWWWWWWWkK",
     "KkWWWWWWWWWWWkK",
-    "KkWWWWWWWWWWWkK",
-    "KkKKKKKKKKKKKkK",
-    "KKKKKKKKKKKKKKK",
-    "kkKKKKKKKKKKKkk",
+    "KcKKCKKEKKCKKcK",
+    "EKKEKKCKKEKKCKK",
+    "ckKKKKKKKKKKKkc",
   ],
   // a wooden signpost with a shaded post — landmark / fence-end accent
   signpost:[
-    "TTTTTTTT",
+    "^TTTTTTT",
     "TttttttT",
-    "TTTTTTTT",
+    "tTTTTTTt",
     "...T....",
     "...T....",
     "...T....",
     "...T....",
     "...T....",
-    "...T....",
+    "...t....",
     "..ttt...",
   ],
   // a mossy boulder — a moss cap crowns weathered stone. sits as solid
   // terrain that sand drifts against and moss can creep from.
   rock:[
-    "...MMMM..",
-    "..MMMMMM.",
-    ".MSSSSSMM",
-    ".SSSSSSSS",
-    "SSSSSSSSS",
-    "SSSSSSSSS",
-    ".SSSSSSS.",
+    "....MMMM....",
+    "..MMMMMMM...",
+    ".MEESSSSSM..",
+    ".ESSSSSSSSD.",
+    "ESSSSSSSSSD.",
+    "ESSSSSSSSDDD",
+    ".SSSSSSSDDD.",
+    "..DDSSSDDD..",
   ],
   // a slim cattail reed — brown seed-head on a leaf stalk, for the pond rim
   cattail:[
@@ -2174,6 +2385,63 @@ const SPRITES={
     "..P..",
     "..P..",
     "..P..",
+  ],
+  greenhouse:[
+    ".........!!.........",
+    ".......*!GG!g.......",
+    ".....*!GGGGGG!g.....",
+    "...*!GGGGGGGGGG!g...",
+    "..!GGGGGGGGGGGGGG!..",
+    "..!*GGGGGGGGGGGGG!..",
+    "..!GGGGGGGGGGGGGG!..",
+    "..!GGPGGBGGPGGBGG!..",
+    "..!GPPGPPPGPPGPPG!..",
+    "..!GPPGPPPGPPGPPG!..",
+    "..!!!!!!!!!!!!!!!!..",
+  ],
+  turbine:[
+    "Gg.........gG",
+    ".Gg.......gG.",
+    "..Gg.....gG..",
+    "...Gg...gG...",
+    "....gg.gg....",
+    ".....g*g.....",
+    "......!......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......t......",
+    "......T......",
+    "......T......",
+    "......T......",
+    ".....^Tt.....",
+    "....^tTtt....",
+  ],
+  solarpanel:[
+    "**GGGGGGGGg...",
+    ".g*GGGGGGGGg..",
+    "..gg*GGGGGGGg.",
+    "......!...!...",
+    "......t...t...",
+    ".....tt...tt..",
+  ],
+  archway:[
+    "...tTTTTTt...",
+    "..TLLLLLLLT..",
+    ".TLLBLLLBLLT.",
+    ".TLl.....lLT.",
+    ".TL.......LT.",
+    ".LL.......LL.",
+    ".TL.......BT.",
+    ".TL.......LT.",
+    ".BL.......LL.",
+    ".TL.......LT.",
+    ".tL.......Lt.",
+    ".tl.......lt.",
   ],
 };
 
@@ -2380,39 +2648,31 @@ function spawnNaturalLandscape(){
   // ── focal: a single big oak on the rise, set off-center to anchor the view
   place('oak',(W*0.42)|0);
 
-  // ── cottage village on the left, with a fence path leading toward it
-  place('cottage',(W*0.16)|0);
-  place('signpost',(W*0.07)|0);
-  place('fence',(W*0.29)|0);
+  // ── solarpunk homestead on the left: turbine on the horizon, cottage with
+  // its living roof, greenhouse in the garden, an arch framing the foot path
+  place('cottage',(W*0.15)|0);
+  place('turbine',(W*0.045)|0);
+  place('signpost',(W*0.09)|0);
+  place('greenhouse',(W*0.25)|0);
+  place('archway',(W*0.335)|0);
+  place('solarpanel',(W*0.52)|0);
 
   // ── pine grove sweeping along the far-right horizon, past the pond.
-  // A loose grove of four reads as "treeline" without walling off the edge;
-  // staggering tall/short and leaving gaps keeps it airy.
   place('pine',(W*0.87)|0);
   place('pine',(W*0.96)|0);
   place('smallpine',(W*0.82)|0);
   place('smallpine',(W*0.92)|0);
 
-  // ── boulders punctuating the meadow + cattail reeds at the pond's edge.
-  // Two well-separated rocks anchor the turf without cluttering it.
-  for(const f of [0.20,0.52]){ place('rock',(W*f)|0); }
+  // ── boulders, mushrooms, bushes tucked between the anchors
+  for(const f of [0.46,0.565]){ place('rock',(W*f)|0); }
   place('cattail',(W*0.61)|0,{allowPond:true});
   place('cattail',(W*0.81)|0,{allowPond:true});
-
-  // ── ground details: kept deliberately sparse so the hero silhouettes
-  // (cottage, oak, well, pond) carry the composition and the meadow breathes.
-  // Mushrooms tuck into cool spots near the bigger sprites; bushes and
-  // flowers are spread wide with real gaps between them.
-  for(const f of [0.34,0.50]){
-    place('mushroom',(W*f)|0);
-  }
-  for(const f of [0.24,0.46]){
-    place('bush',(W*f)|0);
-  }
-  // a handful of flowers, jittered along the open meadow but never clustered
-  const flowerCount=4;
+  for(const f of [0.375,0.475]){ place('mushroom',(W*f)|0); }
+  for(const f of [0.205,0.575]){ place('bush',(W*f)|0); }
+  // pollinator strip: flowers thick near the greenhouse, looser across the meadow
+  const flowerCount=6;
   for(let i=0;i<flowerCount;i++){
-    const fx=((W*0.06)+(i/(flowerCount-1))*(W*0.46)+(Math.random()*W*0.03-W*0.015))|0;
+    const fx=((W*0.06)+(i/(flowerCount-1))*(W*0.48)+(Math.random()*W*0.03-W*0.015))|0;
     place('flower',fx);
   }
 
@@ -2612,6 +2872,85 @@ function simXY(e){
   return[Math.max(0,Math.min(W-1,Math.floor((e.clientX-r.left)/SCALE))),
          Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)/SCALE)))];
 }
+/* ═══ STRUCTURAL MATERIAL VARIANTS ═══
+   Variants are baked from the cell's BIRTH position and travel with the
+   particle (movement already copies variant). Intact walls read as coursed
+   masonry / planked timber; debris keeps its identity when it crumbles —
+   mortar crumbs stay pale, brick chips stay terracotta.
+   Encoding: bit5 (0x20) = "structured" flag → fillTexel decodes
+   role (bits 0-1) + per-unit tint (bits 2-4). Unflagged variants keep the
+   legacy random-jitter / hand-shaded sprite path. */
+function hash2i(x,y){let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177|0;return ((h^(h>>>16))>>>0);}
+function brickVariant(x,y){
+  // courses 4px tall: 3 rows of face + 1 mortar bed; head joints every 7px,
+  // staggered half a brick per course
+  const course=Math.floor(y/4), inRow=y-course*4;
+  const off=(course&1)?3:0;
+  const inCol=(x+off)%7;
+  let role;
+  if(inRow===3||inCol===6) role=3;                 // mortar bed / head joint
+  else if(inRow===0&&inCol<6) role=2;              // lit top edge of the brick
+  else if(inRow===2||inCol===5) role=1;            // shadowed bottom/right
+  else role=0;                                     // brick face
+  const bid=hash2i(Math.floor((x+off)/7),course);  // per-BRICK tint, not per-cell
+  return 0x20|role|((bid&7)<<2);
+}
+function woodVariant(x,y){
+  // planking: 5x9 segments — vertical seam on the right, butt joint on the
+  // bottom row, grain streaks hashed per segment
+  const plank=Math.floor(x/5), inP=x-plank*5;
+  const seg=Math.floor(y/9), inS=y-seg*9;
+  let role;
+  if(inP===4||inS===8) role=3;                     // seam / butt joint
+  else if(((hash2i(x,y>>2)&15)===0)) role=1;       // occasional grain fleck
+  else if(inP===0||inS===0) role=2;                // lit left/top edge
+  else role=0;
+  const pid=hash2i(plank,seg*7+7);
+  return 0x20|role|((pid&7)<<2);
+}
+function bakeVariant(m,x,y){
+  if(m===BRICK)return brickVariant(x,y);
+  if(m===WOOD)return woodVariant(x,y);
+  return Math.random()*8|0;
+}
+
+/* ═══ UNIT-SNAPPED MASONRY PAINTING ═══
+   Painting BRICK/WOOD lays complete units — whole bricks (7x4 tiles: 6x3
+   face + head joint + mortar bed) and whole plank segments (5x9). Only
+   units that fit entirely inside the brush stamp; a brush smaller than one
+   unit lays the single unit under the cursor, so small brushes become a
+   brick-by-brick trowel. Stamps are position-deterministic → overlapping
+   drag strokes are idempotent and courses always align. */
+function unitGeom(m){return m===BRICK?{tw:7,th:4,offFn:c=>(c&1)?3:0}:{tw:5,th:9,offFn:()=>0};}
+function stampUnit(m,ux0,uy0,tw,th){
+  if(ux0<0||uy0<0||ux0+tw>W||uy0+th>H)return;      // clipped units don't spawn
+  for(let y=uy0;y<uy0+th;y++)for(let x=ux0;x<ux0+tw;x++){
+    const pi=idx(x,y);
+    grid[pi]=m;variant[pi]=bakeVariant(m,x,y);frozen[pi]=1;inChunk[pi]=0;
+    wake3(x,y);pixDirty(x,y);
+  }
+}
+function paintUnits(cx,cy,b,m){
+  const {tw,th,offFn}=unitGeom(m);
+  let laid=false;
+  const c0=Math.floor((cy-b)/th),c1=Math.floor((cy+b)/th);
+  for(let c=c0;c<=c1;c++){
+    const off=offFn(c), y0=c*th;
+    const t0=Math.floor((cx-b+off)/tw),t1=Math.floor((cx+b+off)/tw);
+    for(let t=t0;t<=t1;t++){
+      const x0=t*tw-off;
+      // whole unit must sit inside the brush circle (corner test on the tile)
+      const dx=Math.max(Math.abs(x0-cx),Math.abs(x0+tw-1-cx));
+      const dy=Math.max(Math.abs(y0-cy),Math.abs(y0+th-1-cy));
+      if(dx*dx+dy*dy<=b*b){stampUnit(m,x0,y0,tw,th);laid=true;}
+    }
+  }
+  if(!laid){ // brush smaller than a unit: lay the one under the cursor
+    const c=Math.floor(cy/th), off=offFn(c);
+    stampUnit(m,Math.floor((cx+off)/tw)*tw-off,c*th,tw,th);
+  }
+}
+
 function paint(cx,cy){
   const b=+document.getElementById('brushSlider').value;
   if(curMat===BIRD){
@@ -2624,9 +2963,10 @@ function paint(cx,cy){
     }
     return;
   }
+  if(curMat===BRICK||curMat===WOOD){paintUnits(cx,cy,b,curMat);return;}
   // structural / drawable-static materials paint densely AND pin themselves
-  // (WOOD/BRICK with frozen=1; FUSE/BOMB stay unfrozen so their step runs).
-  const pinned=(curMat===WOOD||curMat===BRICK||curMat===FUSE||curMat===BOMB);
+  // (FUSE/BOMB stay unfrozen so their step runs).
+  const pinned=(curMat===FUSE||curMat===BOMB);
   const solid=isStatic(curMat)||curMat===EMPTY||pinned;
   for(let dy=-b;dy<=b;dy++)for(let dx=-b;dx<=b;dx++){
     if(dx*dx+dy*dy>b*b)continue;
@@ -2634,7 +2974,7 @@ function paint(cx,cy){
     const nx=cx+dx,ny=cy+dy;
     if(nx>=0&&nx<W&&ny>=0&&ny<H){
       const pi=idx(nx,ny);
-      grid[pi]=curMat;variant[pi]=Math.random()*8|0;
+      grid[pi]=curMat;variant[pi]=bakeVariant(curMat,nx,ny);
       frozen[pi]=(curMat===WOOD||curMat===BRICK)?1:0;
       wake3(nx,ny);pixDirty(nx,ny);
     }
@@ -3131,7 +3471,7 @@ let resizeTimer=null;
 window.addEventListener('resize',()=>{
   clearTimeout(resizeTimer);
   resizeTimer=setTimeout(()=>{
-    computeDims();allocArrays();allocChunks();allocTexture();
+    computeDims();allocArrays();allocChunks();allocTexture();allocLight();
     spawnContent();buildBodies();
   },200);
 });
@@ -3146,9 +3486,12 @@ requestAnimationFrame(()=>{
   physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
 });
 
-let lastSim=0,simAcc=0;
+let lastSim=0,simAcc=0,frameNo=0;
 function loop(ts){
   gTime=ts*0.001; // sky clock keeps clouds & sun drifting even when paused
+  dayPhase+=(2*Math.PI/DAY_PERIOD)*Math.min(0.1,(ts-lastSim)*0.001);
+  if(dayWarp>0){const step=Math.min(dayWarp,0.09);dayPhase+=step;dayWarp-=step;}
+  if((frameNo++&1)===0)buildLight();
   if(physicsOn){
     updateWindowMasks();
     updateBodies();
@@ -3156,7 +3499,7 @@ function loop(ts){
     simAcc+=ts-lastSim;
     const stepMs=14/simSpeed;
     let n=0;
-    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateBoids();updateCats();updateFlytraps();simAcc-=stepMs;n++;}
+    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();updateFlytraps();simAcc-=stepMs;n++;}
     if(simAcc>stepMs*4)simAcc=0;
     applyHoverFreeze();
   }
@@ -3176,6 +3519,9 @@ requestAnimationFrame(loop);
 (function(){
   const tasksEl = document.getElementById('taskbarTasks');
   const clockEl = document.getElementById('taskbarClock');
+  clockEl.style.cursor='pointer';
+  clockEl.title='click: fast-forward to night/day';
+  clockEl.addEventListener('click',()=>{dayWarp+=Math.PI;});
   const tasks = new Map(); // window el -> taskbar btn
 
   function titleOf(win){
