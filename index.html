@@ -2715,16 +2715,6 @@ function spawnNaturalLandscape(){
     const fx=((W*0.06)+(i/(flowerCount-1))*(W*0.48)+(Math.random()*W*0.03-W*0.015))|0;
     place('flower',fx);
   }
-
-  // ── venus flytraps: pondside on the meadow flank, away from the pines
-  for(const f of [0.585, 0.835]){
-    const fx=Math.max(1,Math.min(W-2,(W*f)|0));
-    const sy=surf[fx];
-    // skip if pond rim or no clearance overhead
-    if(Math.sqrt(pondEl(fx,sy))<1.05)continue;
-    if(sy<14)continue;
-    spawnFlytrap(fx,sy);
-  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2734,7 +2724,6 @@ function spawnContent(){
   grid.fill(0);variant.fill(0);frozen.fill(0);
   birds.length=0;
   cats.length=0;
-  flytraps.length=0;
 
   // ─── meadow & pond landscape ───
   spawnNaturalLandscape();
@@ -3312,8 +3301,12 @@ function drawBirds(){
 /* ═══════════════════════════════════════════════════════
    CATS — small ground-roaming critters. They walk on top of
    whatever terrain is currently there (sand/grass/dirt/sprite
-   debris all count), avoid liquids and fire, and pick wandering
+   debris all count), spring up ledges, leap narrow liquid/fire
+   hazards (turning back from wide ones), and pick wandering
    targets within a "home" range so they hang around the village.
+   When boxed in they give up and sit; idle cats sometimes sit
+   for a long stretch, and occasionally sprint in a burst of
+   zoomies with playful hops.
 ═══════════════════════════════════════════════════════ */
 const cats=[];
 function isAvoidForCat(m){return m===WATER||m===OIL||m===ACID||m===FIRE||m===SMOKE;}
@@ -3335,16 +3328,35 @@ function spawnCat(x,y,opts){
   opts=opts||{};
   cats.push({
     x:x, y:y,
-    vx:0, dir:Math.random()<0.5?-1:1,
+    vx:0, vy:0, dir:Math.random()<0.5?-1:1,
     homeMin:opts.homeMin!==undefined?opts.homeMin:Math.max(2,x-60),
     homeMax:opts.homeMax!==undefined?opts.homeMax:Math.min(W-3,x+60),
     target:x,
     state:'pause', stateT:30+Math.random()*60|0,
     step:0, // walk-cycle phase
+    air:false, // mid-leap
+    blocked:0, // consecutive turnarounds — give up and sit when boxed in
   });
 }
 function updateCats(){
   for(const c of cats){
+    c.step++;
+    if(c.stateT>0)c.stateT--;
+
+    // ── airborne: ballistic hop; land on the first support while falling
+    if(c.air){
+      c.vy+=0.1;
+      c.x+=c.vx; c.y+=c.vy;
+      if(c.x<2)c.x=2;
+      if(c.x>W-3)c.x=W-3;
+      const g=catGround(c.x|0,c.y);
+      if(c.vy>0&&(c.y>=g-1||c.y>H-2)){
+        c.y=Math.min(g-1,H-1);
+        c.air=false; c.vy=0;
+      }
+      continue;
+    }
+
     // settle to the ground under our nose
     const gy=catGround(c.x|0,c.y);
     if(gy>=H){ // nothing to stand on, drift down till we find something
@@ -3355,53 +3367,84 @@ function updateCats(){
     // glue paws to the surface; small jumps are absorbed by stepping
     c.y+=(gy-1-c.y)*0.5;
 
-    c.step++;
-    if(c.stateT>0)c.stateT--;
-
-    if(c.state==='pause'){
+    if(c.state==='pause'||c.state==='sit'){
       c.vx=0;
       if(c.stateT<=0){
-        // pick a new target somewhere in home range, biased away from current pos
-        const span=c.homeMax-c.homeMin;
-        const t=c.homeMin+(Math.random()*span)|0;
-        c.target=t;
-        c.dir=t>c.x?1:-1;
-        c.state=Math.random()<0.7?'run':'walk';
-        c.stateT=120+Math.random()*240|0;
+        if(c.state==='pause'&&Math.random()<0.3){
+          // settle in for a long sit
+          c.state='sit'; c.stateT=300+Math.random()*600|0;
+        }else{
+          // pick a new target somewhere in home range
+          const span=c.homeMax-c.homeMin;
+          c.target=c.homeMin+(Math.random()*span)|0;
+          c.dir=c.target>c.x?1:-1;
+          const r=Math.random();
+          c.state=r<0.12?'zoom':(r<0.55?'run':'walk'); // occasional zoomies
+          c.stateT=120+Math.random()*240|0;
+        }
       }
       continue;
     }
 
-    // walk/run toward target
-    const speed=c.state==='run'?0.55:0.28;
+    // walk / trot / zoom toward target
+    const speed=c.state==='zoom'?0.95:(c.state==='run'?0.55:0.28);
     c.vx=c.dir*speed;
 
-    // obstacle check: a column or two ahead, is the ground rising sharply
-    // or is there a liquid/fire pit?
-    const ahead=(c.x+c.dir*2)|0;
-    const ahead2=(c.x+c.dir*4)|0;
+    // obstacle check on the next column: hazard pit, cliff, or rising wall?
+    const cx=c.x|0;
+    const ahead=cx+c.dir;
     const aheadGround=catGround(ahead,c.y);
-    const ahead2Ground=catGround(ahead2,c.y);
-    const myGround=gy;
-    // bail-out: stepping into deep liquid/fire — turn around
-    let blocked=false;
-    if(ahead>=0&&ahead<W){
-      const am=grid[idx(ahead,Math.max(0,aheadGround))];
-      if(isAvoidForCat(am)||aheadGround>=H){blocked=true;}
-    }
-    if(ahead<0||ahead>=W)blocked=true;
-    // also turn if a wall is too tall to step up (>2 cells)
-    if(!blocked&&aheadGround<myGround-2)blocked=true;
+    let turn=false;
 
-    if(blocked){
-      c.dir=-c.dir;
-      c.target=c.dir>0?c.homeMax:c.homeMin;
-      // small pause to look around
-      c.state='pause';c.stateT=20+Math.random()*40|0;
+    if(ahead<2||ahead>W-3){
+      turn=true;
+    }else{
+      const am=aheadGround<H?grid[idx(ahead,aheadGround)]:EMPTY;
+      if(aheadGround>=H||isAvoidForCat(am)){
+        // hazard underfoot ahead — look for safe footing to leap to
+        let leapt=false;
+        for(let j=3;j<=6;j++){
+          const lx=cx+c.dir*j;
+          if(lx<2||lx>W-3)break;
+          const lg=catGround(lx,c.y);
+          if(lg>=H)continue;
+          if(isAvoidForCat(grid[idx(lx,lg)]))continue;
+          if(lg<gy-4)continue; // landing is up a wall — can't clear it
+          c.air=true; c.vy=-1.05; c.vx=c.dir*(j/21);
+          leapt=true; break;
+        }
+        if(!leapt)turn=true;
+      }else{
+        const rise=gy-aheadGround; // positive = ground climbs ahead
+        if(rise>2){
+          if(rise<=7){
+            // spring up the ledge
+            c.air=true; c.vy=-Math.sqrt(0.2*(rise+2)); c.vx=c.dir*0.3;
+          }else turn=true;
+        }
+      }
+    }
+
+    if(turn){
+      c.blocked++;
+      if(c.blocked>=3){
+        // boxed in — stop fighting the terrain and settle down here
+        c.state='sit'; c.stateT=240+Math.random()*360|0; c.blocked=0;
+      }else{
+        c.dir=-c.dir;
+        c.target=c.dir>0?c.homeMax:c.homeMin;
+        // small pause to look around
+        c.state='pause'; c.stateT=15+Math.random()*30|0;
+      }
       continue;
     }
+    if(c.air)continue; // just launched into a hop
 
     c.x+=c.vx;
+    // zoomies come with playful little hops
+    if(c.state==='zoom'&&Math.random()<0.02){
+      c.air=true; c.vy=-0.65;
+    }
     // clamp to home range with a turnaround
     if(c.x<c.homeMin){c.x=c.homeMin;c.dir=1;}
     if(c.x>c.homeMax){c.x=c.homeMax;c.dir=-1;}
@@ -3410,39 +3453,66 @@ function updateCats(){
     if(Math.abs(c.x-c.target)<1.5){
       c.state='pause';
       c.stateT=40+Math.random()*120|0;
+      c.blocked=0; // made it somewhere — clearly not boxed in
     }
   }
 }
 function drawCats(){
   if(!cats.length)return;
   bctx.fillStyle='#0a0a0e';
-  const eyeOn=((performance.now()*0.001)|0)%6!==0; // blink every ~6s
   for(const c of cats){
     const x=c.x|0,y=c.y|0,d=c.dir;
-    const moving=c.state!=='pause';
-    // walk cycle: legs alternate every few frames; faster when running
-    const phaseRate=c.state==='run'?3:5;
-    const ph=((c.step/phaseRate)|0)&1;
-    // body (4 wide, 2 tall), head (1px forward, 1 up), tail (up-curve behind)
-    // origin (x,y) = head/shoulder cell; body extends behind
+    // origin (x,y) = shoulder cell; body extends behind
     // facing right: body is to the LEFT of head; tail further left
     // facing left:  body is to the RIGHT of head
     const px=(dx,dy)=>{const xx=x+dx*d,yy=y+dy;if(xx>=0&&xx<W&&yy>=0&&yy<H)bctx.fillRect(xx,yy,1,1);};
+
+    if(c.air){
+      // mid-leap: body stretched long, paws out fore and aft, tail swept back
+      px(0,0); px(-1,0); px(-2,0); px(-3,0);
+      px(-1,-1); px(-2,-1); px(-3,-1);
+      px(0,-1); px(1,-1); px(2,-1);
+      px(0,-2); px(1,-2); px(2,-2);
+      px(0,-3); px(2,-3);
+      px(-4,-1); px(-5,-2);
+      px(1,0); px(-4,0);
+      continue;
+    }
+
+    if(c.state==='sit'){
+      // sitting: haunches down, chest up, tail wrapped down the back
+      px(0,-3); px(2,-3);                      // ears
+      px(0,-2); px(1,-2); px(2,-2);            // head
+      px(-1,-1); px(0,-1); px(1,-1); px(2,-1); // head + sloping back
+      px(-2,0); px(-1,0); px(0,0); px(1,0);    // body
+      px(-2,1); px(-1,1); px(1,1);             // haunch + front paw
+      px(-3,0); px(-3,1);                      // tail
+      continue;
+    }
+
+    const moving=c.state!=='pause';
+    // walk cycle: legs alternate every few frames; faster when running
+    const phaseRate=c.state==='zoom'?2:(c.state==='run'?3:5);
+    const ph=((c.step/phaseRate)|0)&1;
+    // body (4 wide, 2 tall), raised head (3 wide, 2 tall) with pointy ears,
+    // upright curved tail behind
     // body block
     px(0,0); px(-1,0); px(-2,0); px(-3,0);
-    px(0,-1); px(-1,-1); px(-2,-1); px(-3,-1);
-    // head — one cell forward of shoulder, one up
-    px(1,-1); px(1,-2);
-    // ears (two tiny tufts on top of head)
-    px(0,-2); px(2,-2);
-    // tail curls up behind
+    px(-1,-1); px(-2,-1); px(-3,-1);
+    // head — 3 wide, raised above the body so the chin clears the ground
+    px(0,-1); px(1,-1); px(2,-1);
+    px(0,-2); px(1,-2); px(2,-2);
+    // ears — two pointy tufts with a notch between them
+    px(0,-3); px(2,-3);
+    // tail — question-mark curve rising off the rump
+    px(-4,-1); px(-5,-2); px(-5,-3);
     if(moving){
-      // wag: tail tip swings with step phase
-      px(-4,-1); px(-4,-2); px(ph?-3:-5,-2);
+      // wag: tip flicks with the step phase
+      px(ph?-4:-6,-4);
     } else {
-      px(-4,-1); px(-4,-2); px(-4,-3);
+      px(-5,-4);
     }
-    // legs — alternate; when paused both legs down
+    // legs — alternate pairs; when paused just front + back so it reads as standing
     if(moving){
       if(ph){
         px(0,1); px(-3,1); // front-right + back-left forward
@@ -3450,113 +3520,7 @@ function drawCats(){
         px(-1,1); px(-2,1);
       }
     } else {
-      px(0,1); px(-1,1); px(-2,1); px(-3,1);
-    }
-    // eye — a single yellow-green pixel on the head, blinks
-    if(eyeOn){
-      bctx.fillStyle='#c8e000';
-      bctx.fillRect(x+1*d,y-1,1,1);
-      bctx.fillStyle='#0a0a0e';
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
-   VENUS FLYTRAPS — overlay-drawn pixel-art critters with a
-   slow open / quick snap / hold-shut / slow reopen cycle.
-   Stem is stamped into the sim grid as PLANT so particles
-   collide with it; the animated head lives on the overlay
-   canvas alongside the birds and cats.
-═══════════════════════════════════════════════════════ */
-const flytraps=[];
-// Two head frames, drawn anchored so the bulb sits at (cx, cy) and the
-// jaws bloom upward. 11 wide × 8 tall. The lobes are RED (the real "Akai Ryu"
-// red flytrap cultivar) rather than green — red against the green meadow is
-// complementary contrast, so the trap pops instead of camouflaging. A dark
-// outline (O) and bone-white teeth (W) sharpen it further; only the hinge (B)
-// stays green to tie the head to its plant stem.
-//   O outline · G/g red lobe + shadow · R/r dark throat · W tooth · B green hinge
-const FLYTRAP_FRAMES={
-  open:[
-    "O.O.....O.O",
-    "OWO.....OWO",
-    ".OGWO.OWGO.",
-    ".OGRWWWRGO.",
-    ".OGRRRRRGO.",
-    "..OGRRRGO..",
-    "...OgRgO...",
-    "....OBO....",
-  ],
-  shut:[
-    ".....W.....",
-    "....OWO....",
-    "...OGWGO...",
-    "..OGGWGGO..",
-    "..OGRWRGO..",
-    "..OgGWGgO..",
-    "...OgGgO...",
-    "....OBO....",
-  ],
-};
-const FLYTRAP_COLORS={
-  O:'#3a0d14',                 // near-black outline — hard edge against the grass
-  G:'#e23450', g:'#a8243a',    // red lobes (Akai Ryu cultivar) — pops on green
-  R:'#6e1622', r:'#4a0e18',    // dark red throat behind the teeth
-  W:'#fbf7e6',                 // bone-white teeth
-  B:'#8fae33',                 // green hinge ties the head to the stem
-  t:'#2c962e', l:'#1f6e22',
-};
-function spawnFlytrap(cx,gy){
-  const stemH=8+(Math.random()*3|0);
-  // stamp the stem into the grid as PLANT so it interacts with the sim
-  for(let i=1;i<=stemH;i++){
-    const sy=gy-i;
-    if(sy<0||sy>=H)break;
-    const gi=idx(cx,sy);
-    if(grid[gi]===EMPTY){grid[gi]=PLANT;variant[gi]=0;frozen[gi]=1;}
-    // a little leaf bump every few cells, alternating sides
-    if(i%3===2){
-      const side=(i&2)?1:-1, nx=cx+side;
-      if(nx>=0&&nx<W){
-        const gj=idx(nx,sy);
-        if(grid[gj]===EMPTY){grid[gj]=PLANT;variant[gj]=0;frozen[gj]=1;}
-      }
-    }
-  }
-  flytraps.push({
-    x:cx|0, gy:gy|0,
-    stemH:stemH,
-    phase:Math.random()*1000|0,
-    period:280+(Math.random()*180|0),
-  });
-}
-function updateFlytraps(){
-  for(const f of flytraps)f.phase++;
-}
-function drawFlytraps(){
-  if(!flytraps.length)return;
-  for(const f of flytraps){
-    const t=(f.phase%f.period)/f.period;
-    // long open · brisk close · brief shut · slow reopen
-    let openAmt;
-    if(t<0.62)openAmt=1;
-    else if(t<0.66)openAmt=1-(t-0.62)/0.04;
-    else if(t<0.74)openAmt=0;
-    else openAmt=(t-0.74)/0.26;
-    const frame=openAmt>0.45?FLYTRAP_FRAMES.open:FLYTRAP_FRAMES.shut;
-    // head sits above the stem; bulb (B row) aligns with stem top
-    const hx=f.x-5, hy=f.gy-f.stemH-(frame.length-1); // 11 wide so -5 centers; bulb on bottom row aligns to stem top
-    for(let dy=0;dy<frame.length;dy++){
-      const row=frame[dy];
-      for(let dx=0;dx<row.length;dx++){
-        const ch=row[dx];
-        const col=FLYTRAP_COLORS[ch];
-        if(!col)continue;
-        const px=hx+dx, py=hy+dy;
-        if(px<0||px>=W||py<0||py>=H)continue;
-        bctx.fillStyle=col;
-        bctx.fillRect(px,py,1,1);
-      }
+      px(0,1); px(-3,1);
     }
   }
 }
@@ -3613,7 +3577,7 @@ function loop(ts){
     simAcc+=ts-lastSim;
     const stepMs=14/simSpeed;
     let n=0;
-    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();updateFlytraps();simAcc-=stepMs;n++;}
+    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();simAcc-=stepMs;n++;}
     if(simAcc>stepMs*4)simAcc=0;
     // keep pouring while the button is held even if the cursor isn't moving
     if(painting&&!dragBody&&lastPX>=0)paint(lastPX,lastPY,strokeMat);
@@ -3623,7 +3587,6 @@ function loop(ts){
   renderAll();
   drawBirds();
   drawCats();
-  drawFlytraps();
   updateStats(ts);
   requestAnimationFrame(loop);
 }
