@@ -143,6 +143,12 @@ html,body{
   width:60px;height:60px;pointer-events:none;transform:translate(-50%,-50%);
   transition:opacity 0.3s;opacity:0;z-index:5;
 }
+#brushRing{
+  position:absolute;border:1px solid rgba(255,255,255,0.35);border-radius:50%;
+  box-shadow:0 0 0 1px rgba(0,0,0,0.22);
+  pointer-events:none;transform:translate(-50%,-50%);
+  transition:opacity 0.15s;opacity:0;z-index:5;
+}
 /* ── Resume overlay: real DOM content that particles collide with via [data-collide] ── */
 #resume{
   position:absolute;inset:0;pointer-events:none;z-index:6;
@@ -786,6 +792,7 @@ html,body{
     </div>
 
     <div id="freezeRing"></div>
+    <div id="brushRing"></div>
     <div id="stats"></div>
 
     <div id="taskbar">
@@ -802,7 +809,9 @@ html,body{
    SETUP
 ═══════════════════════════════════════════════════════ */
 const canvas = document.getElementById('simCanvas');
-const gl = canvas.getContext('webgl2');
+// opaque context: the shader paints every pixel (sky included), so skipping
+// page-compositing alpha blending is free performance
+const gl = canvas.getContext('webgl2',{alpha:false,antialias:false,depth:false,stencil:false,powerPreference:'high-performance'});
 if(!gl){document.body.innerHTML='<p style="color:#e05a1a;padding:2rem;font-family:monospace">WebGL2 required. Open in Chrome or Firefox.</p>';throw 0;}
 
 // material ids
@@ -1082,6 +1091,9 @@ function step(x,y){
 
   if(m===SAND||m===ASH){
     const thru=(m===SAND); // sand sinks through liquids, ash rests on them
+    // free-fall double-step: when two cells of clear air are below, drop 2 —
+    // grains read as accelerating instead of drifting down one cell per tick
+    if(eFree(x,y+1)&&eFree(x,y+2)){moveSwap(x,y,x,y+2);return;}
     if(eFree(x,y+1)||(thru&&lFree(x,y+1))){moveSwap(x,y,x,y+1);return;}
     if(eFree(x+d,y+1)||(thru&&lFree(x+d,y+1))){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)||(thru&&lFree(x-d,y+1))){moveSwap(x,y,x-d,y+1);return;}
@@ -1106,6 +1118,8 @@ function step(x,y){
     const light=(m===LEAF||m===THATCH);
     // light materials skip a third of frames so they look like they flutter
     if(light&&Math.random()<0.35){updated[i]=frameId;wake3(x,y);return;}
+    // heavy debris free-falls two cells through clear air, like sand
+    if(!light&&eFree(x,y+1)&&eFree(x,y+2)){moveSwap(x,y,x,y+2);return;}
     if(eFree(x,y+1)||lFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
     if(eFree(x+d,y+1)||lFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)||lFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
@@ -1136,11 +1150,30 @@ function step(x,y){
         }
       }
     }
-    if(eFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
-    if(eFree(x+d,y)){moveSwap(x,y,x+d,y);return;}
-    if(eFree(x-d,y)){moveSwap(x,y,x-d,y);return;}
+    if(eFree(x,y+1)){
+      if(eFree(x,y+2)){moveSwap(x,y,x,y+2);return;} // free-fall double-step
+      moveSwap(x,y,x,y+1);return;
+    }
     if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    // horizontal dispersion: slide up to `disp` cells along the surface in one
+    // tick, stopping early at the first ledge to spill over. Pools flatten in
+    // a few frames instead of creeping one cell per tick, so liquids read as
+    // fluid rather than viscous. Oil stays deliberately sluggish.
+    const disp=(m===OIL)?2:5;
+    let run=0;
+    for(let k=1;k<=disp;k++){
+      if(!eFree(x+k*d,y))break;
+      run=k;
+      if(eFree(x+k*d,y+1))break; // found a drop — go there and fall next tick
+    }
+    if(run){moveSwap(x,y,x+run*d,y);return;}
+    for(let k=1;k<=disp;k++){
+      if(!eFree(x-k*d,y))break;
+      run=k;
+      if(eFree(x-k*d,y+1))break;
+    }
+    if(run){moveSwap(x,y,x-run*d,y);return;}
     return; // settled
   }
 
@@ -1206,6 +1239,7 @@ function step(x,y){
 
   if(m===SEED){
     // falls like a grain, then sprouts into a plant on fertile ground
+    if(eFree(x,y+1)&&eFree(x,y+2)){moveSwap(x,y,x,y+2);return;}
     if(eFree(x,y+1)||lFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
     if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
@@ -1615,13 +1649,19 @@ function blurL(a,tmp,w,h){
   for(let y=0;y<h;y++){const row=y*w;
     for(let x=0;x<w;x++){const u=y>0?tmp[row-w+x]:tmp[row+x],d=y<h-1?tmp[row+w+x]:tmp[row+x];a[row+x]=(u+tmp[row+x]*1.1+d)/3.1;}}
 }
+// lookup table gating the full-grid emissive scan: one array read rejects the
+// sky/terrain bulk instead of a 5-way branch chain per cell
+const EMIT=new Uint8Array(256);
+EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;
 function buildLight(){
   const day=dayFactor(), night=1-day;
+  EMIT[GLASS]=night>0.25?1:0; // glass only glows after dusk
   for(const c of coreF)c.fill(0);
   for(const c of wideF)c.fill(0);
   for(let y=0;y<H;y++){const row=y*W;
     for(let x=0;x<W;x++){
       const gi=row+x, m=grid[gi];
+      if(!EMIT[m])continue;
       let r=0,g=0,b=0;
       if(m===FIRE){r=1.0;g=0.45;b=0.08;}
       else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
@@ -2839,9 +2879,12 @@ canvas.addEventListener('mousemove',e=>{
   mouseSimY=Math.floor((e.clientY-r.top)/SCALE);
   freezeRing.style.left=e.clientX+'px';freezeRing.style.top=e.clientY+'px';
   freezeRing.style.opacity=hoverEnabled&&physicsOn?'1':'0';
+  brushRing.style.left=e.clientX+'px';brushRing.style.top=e.clientY+'px';
+  brushRing.style.opacity='1';
 });
 canvas.addEventListener('mouseleave',()=>{
   freezeRing.style.opacity='0';
+  brushRing.style.opacity='0';
   releaseHover();
 });
 function releaseHover(){
@@ -2951,9 +2994,10 @@ function paintUnits(cx,cy,b,m){
   }
 }
 
-function paint(cx,cy){
+function paint(cx,cy,pm){
+  const m=(pm===undefined)?curMat:pm;
   const b=+document.getElementById('brushSlider').value;
-  if(curMat===BIRD){
+  if(m===BIRD){
     // throttle: don't carpet-bomb on every mousemove event
     const want=Math.max(1,Math.floor(b*0.4));
     for(let k=0;k<want;k++){
@@ -2963,22 +3007,41 @@ function paint(cx,cy){
     }
     return;
   }
-  if(curMat===BRICK||curMat===WOOD){paintUnits(cx,cy,b,curMat);return;}
+  if(m===BRICK||m===WOOD){paintUnits(cx,cy,b,m);return;}
   // structural / drawable-static materials paint densely AND pin themselves
   // (FUSE/BOMB stay unfrozen so their step runs).
-  const pinned=(curMat===FUSE||curMat===BOMB);
-  const solid=isStatic(curMat)||curMat===EMPTY||pinned;
+  const pinned=(m===FUSE||m===BOMB);
+  const solid=isStatic(m)||m===EMPTY||pinned;
   for(let dy=-b;dy<=b;dy++)for(let dx=-b;dx<=b;dx++){
     if(dx*dx+dy*dy>b*b)continue;
     if(!solid&&Math.random()>.78)continue;
     const nx=cx+dx,ny=cy+dy;
     if(nx>=0&&nx<W&&ny>=0&&ny<H){
       const pi=idx(nx,ny);
-      grid[pi]=curMat;variant[pi]=bakeVariant(curMat,nx,ny);
-      frozen[pi]=(curMat===WOOD||curMat===BRICK)?1:0;
+      grid[pi]=m;variant[pi]=bakeVariant(m,nx,ny);
+      frozen[pi]=(m===WOOD||m===BRICK)?1:0;
       wake3(nx,ny);pixDirty(nx,ny);
     }
   }
+}
+/* ═══ STROKE INTERPOLATION ═══
+   mousemove samples arrive far apart during fast drags; stamping only at the
+   sample points leaves a dotted trail. Walk the segment from the previous
+   sample, stamping every half-brush-width, so strokes are continuous. The
+   stroke's material is latched at press time — right button latches ERASE. */
+let strokeMat=SAND,lastPX=-1,lastPY=-1;
+function paintStroke(x,y){
+  if(lastPX<0){paint(x,y,strokeMat);lastPX=x;lastPY=y;return;}
+  const dx=x-lastPX,dy=y-lastPY;
+  const dist=Math.max(Math.abs(dx),Math.abs(dy));
+  const b=+document.getElementById('brushSlider').value;
+  const stepLen=Math.max(1,b>>1);
+  if(dist<=stepLen)paint(x,y,strokeMat);
+  else{
+    const nSeg=Math.ceil(dist/stepLen);
+    for(let k=1;k<=nSeg;k++)paint(Math.round(lastPX+dx*k/nSeg),Math.round(lastPY+dy*k/nSeg),strokeMat);
+  }
+  lastPX=x;lastPY=y;
 }
 let dragBody=null,dragOffX=0,dragOffY=0;
 function grabAt(sx,sy){
@@ -2995,15 +3058,42 @@ function dragTo(sx,sy){
   dragBody.vx=nx-dragBody.x;dragBody.vy=ny-dragBody.y;clampVel(dragBody);
   dragBody.x=nx;dragBody.y=ny;
 }
-function release(){if(dragBody){dragBody.dragging=false;dragBody=null;}painting=false;}
+function release(){if(dragBody){dragBody.dragging=false;dragBody=null;}painting=false;lastPX=-1;lastPY=-1;}
 
-canvas.addEventListener('mousedown',e=>{const p=simXY(e);if(grabAt(...p))return;painting=true;paint(...p);});
-canvas.addEventListener('mousemove',e=>{const p=simXY(e);if(dragBody){dragTo(...p);return;}if(painting)paint(...p);});
+canvas.addEventListener('mousedown',e=>{
+  const p=simXY(e);
+  if(e.button===0&&grabAt(...p))return;
+  painting=true;
+  strokeMat=(e.button===2)?EMPTY:curMat; // right button = quick erase
+  lastPX=-1;lastPY=-1;
+  paintStroke(...p);
+});
+canvas.addEventListener('mousemove',e=>{const p=simXY(e);if(dragBody){dragTo(...p);return;}if(painting)paintStroke(...p);});
 canvas.addEventListener('mouseup',release);
 canvas.addEventListener('mouseleave',release);
-canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(grabAt(...p))return;painting=true;paint(...p);},{passive:false});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(dragBody){dragTo(...p);return;}if(painting)paint(...p);},{passive:false});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(grabAt(...p))return;painting=true;strokeMat=curMat;lastPX=-1;lastPY=-1;paintStroke(...p);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(dragBody){dragTo(...p);return;}if(painting)paintStroke(...p);},{passive:false});
 canvas.addEventListener('touchend',release);
+canvas.addEventListener('touchcancel',release);
+
+/* ═══ BRUSH RING + WHEEL RESIZE ═══
+   A cursor-following circle shows the true brush footprint (the HUD slider
+   is hidden by default), and the wheel resizes the brush in place. */
+const brushRing=document.getElementById('brushRing');
+const brushSliderEl=document.getElementById('brushSlider');
+function syncBrushRing(){
+  const d=(+brushSliderEl.value*2+1)*SCALE;
+  brushRing.style.width=d+'px';brushRing.style.height=d+'px';
+}
+syncBrushRing();
+brushSliderEl.addEventListener('input',syncBrushRing);
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const v=+brushSliderEl.value+(e.deltaY<0?1:-1);
+  brushSliderEl.value=Math.max(+brushSliderEl.min,Math.min(+brushSliderEl.max,v));
+  syncBrushRing();
+},{passive:false});
 
 /* ═══════════════════════════════════════════════════════
    MATERIAL PICKER + KEYS
@@ -3096,24 +3186,46 @@ function isSolidForBird(x,y){
          m===LEAF||m===BERRY||m===GLASS||m===MASK||m===RIGID||m===FUSE||m===BOMB;
 }
 
+// spatial hash for neighbour queries: bin birds into perception-radius cells
+// (linked lists over two Int32Arrays) so flocking is O(n·k), not O(n²) —
+// 350 birds went from ~122k pair tests per step to a few hundred
+const BOID_CELL=18;
+let boidHead=null,boidNext=null,boidGW=0,boidGH=0;
 function updateBoids(){
-  if(!birds.length)return;
+  const n=birds.length;
+  if(!n)return;
   const perc=18,perc2=perc*perc,sepR=5,sep2=sepR*sepR;
   const maxSpeed=1.15,maxForce=0.045;
-  for(let i=0;i<birds.length;i++){
+  const gw=((W/BOID_CELL)|0)+1,gh=((H/BOID_CELL)|0)+1;
+  if(!boidHead||boidGW!==gw||boidGH!==gh){boidHead=new Int32Array(gw*gh);boidGW=gw;boidGH=gh;}
+  if(!boidNext||boidNext.length<n)boidNext=new Int32Array(Math.max(n*2,64));
+  boidHead.fill(-1);
+  for(let i=0;i<n;i++){
+    const b=birds[i];
+    let cx=(b.x/BOID_CELL)|0,cy=(b.y/BOID_CELL)|0;
+    if(cx<0)cx=0;else if(cx>=gw)cx=gw-1;
+    if(cy<0)cy=0;else if(cy>=gh)cy=gh-1;
+    const c=cy*gw+cx;
+    boidNext[i]=boidHead[c];boidHead[c]=i;
+  }
+  for(let i=0;i<n;i++){
     const b=birds[i];
     let alX=0,alY=0,coX=0,coY=0,sepX=0,sepY=0,nA=0,nS=0;
-    for(let j=0;j<birds.length;j++){
-      if(i===j)continue;
-      const o=birds[j];
-      const dx=o.x-b.x,dy=o.y-b.y,d2=dx*dx+dy*dy;
-      if(d2<perc2){
-        alX+=o.vx;alY+=o.vy;
-        coX+=o.x;coY+=o.y;
-        nA++;
-        if(d2<sep2&&d2>0.01){
-          const d=Math.sqrt(d2);
-          sepX-=dx/d;sepY-=dy/d;nS++;
+    const cx0=Math.max(0,((b.x-perc)/BOID_CELL)|0),cx1=Math.min(gw-1,((b.x+perc)/BOID_CELL)|0);
+    const cy0=Math.max(0,((b.y-perc)/BOID_CELL)|0),cy1=Math.min(gh-1,((b.y+perc)/BOID_CELL)|0);
+    for(let cy=cy0;cy<=cy1;cy++)for(let cx=cx0;cx<=cx1;cx++){
+      for(let j=boidHead[cy*gw+cx];j!==-1;j=boidNext[j]){
+        if(j===i)continue;
+        const o=birds[j];
+        const dx=o.x-b.x,dy=o.y-b.y,d2=dx*dx+dy*dy;
+        if(d2<perc2){
+          alX+=o.vx;alY+=o.vy;
+          coX+=o.x;coY+=o.y;
+          nA++;
+          if(d2<sep2&&d2>0.01){
+            const d=Math.sqrt(d2);
+            sepX-=dx/d;sepY-=dy/d;nS++;
+          }
         }
       }
     }
@@ -3472,7 +3584,7 @@ window.addEventListener('resize',()=>{
   clearTimeout(resizeTimer);
   resizeTimer=setTimeout(()=>{
     computeDims();allocArrays();allocChunks();allocTexture();allocLight();
-    spawnContent();buildBodies();
+    spawnContent();buildBodies();syncBrushRing();
   },200);
 });
 
@@ -3493,7 +3605,9 @@ function loop(ts){
   if(dayWarp>0){const step=Math.min(dayWarp,0.09);dayPhase+=step;dayWarp-=step;}
   if((frameNo++&1)===0)buildLight();
   if(physicsOn){
-    updateWindowMasks();
+    // DOM reads (querySelectorAll + getBoundingClientRect per window) are the
+    // costly part here — a 4-frame cadence is invisible at sand speed
+    if((frameNo&3)===0)updateWindowMasks();
     updateBodies();
     restampBodies();
     simAcc+=ts-lastSim;
@@ -3501,6 +3615,8 @@ function loop(ts){
     let n=0;
     while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();updateFlytraps();simAcc-=stepMs;n++;}
     if(simAcc>stepMs*4)simAcc=0;
+    // keep pouring while the button is held even if the cursor isn't moving
+    if(painting&&!dragBody&&lastPX>=0)paint(lastPX,lastPY,strokeMat);
     applyHoverFreeze();
   }
   lastSim=ts;
