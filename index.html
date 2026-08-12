@@ -134,9 +134,12 @@ html,body{
 .site-hint{font-size:8px;color:#303030;letter-spacing:0.08em}
 
 #stats{
-  position:absolute;bottom:38px;right:14px;font-size:8px;color:#222;
+  /* sits above the foreground berm (see uBar in the fragment shader); the light
+     halo keeps it legible whether it lands on meadow or on a dark blade */
+  position:absolute;bottom:56px;right:14px;font-size:8px;color:#222;
   letter-spacing:0.08em;font-family:'Courier New',monospace;pointer-events:none;
   text-align:right;line-height:1.8;z-index:10;
+  text-shadow:0 0 2px rgba(255,255,255,0.75);
 }
 #freezeRing{
   position:absolute;border:1px solid rgba(184,224,0,0.18);border-radius:50%;
@@ -352,6 +355,14 @@ html,body{
   min-width:280px;max-width:560px;
   width:420px;max-height:70vh;
 }
+/* Scorch overlay for a window that fire, acid or lava has gotten into. Sized to
+   the BORDER box (the -2px cancels the 2px chrome border) so its cells line up
+   exactly with the holes the clip-path punches in the window. */
+.win-app .burn-char{
+  position:absolute;top:-2px;left:-2px;
+  width:calc(100% + 4px);height:calc(100% + 4px);
+  pointer-events:none;z-index:60;image-rendering:pixelated;
+}
 .win-app .win-title{
   background:linear-gradient(90deg,#7e7e7e 0%,#a8a8a8 100%);
   color:#fff;font-weight:700;font-size:11px;
@@ -538,35 +549,6 @@ html,body{
 .win-app.theme-arcade a{color:#00ffff}
 .win-app.theme-arcade li::before{content:"▸";color:#ffcc00}
 .win-app.theme-arcade .tag{background:#ff0066;color:#fff;border-color:#fff #000 #000 #fff}
-.win-app.theme-arcade .award-list{
-  display:flex;flex-direction:column;gap:0;margin-top:10px;
-  border:2px solid #ff0066;background:rgba(0,0,0,.35);
-}
-.win-app.theme-arcade .award-row{
-  display:flex;align-items:center;gap:14px;
-  padding:12px 14px;cursor:pointer;text-decoration:none;color:#fff;
-  border-bottom:1px solid rgba(255,0,102,.4);
-}
-.win-app.theme-arcade .award-row:last-child{border-bottom:none}
-.win-app.theme-arcade .award-row:hover{background:rgba(255,0,102,.18)}
-.win-app.theme-arcade .award-icon{
-  width:44px;height:44px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-size:26px;border:2px solid #00ffff;background:rgba(0,255,255,.08);
-}
-.win-app.theme-arcade .award-info{
-  display:flex;flex-direction:column;gap:4px;min-width:0;
-}
-.win-app.theme-arcade .award-event{
-  font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#00ffff;
-}
-.win-app.theme-arcade .award-prize{
-  font-size:13px;font-weight:700;color:#ffcc00;
-}
-.win-app.theme-arcade .award-title{
-  font-size:17px;font-weight:700;color:#ff66cc;
-  font-family:'Impact','Arial Black',sans-serif;letter-spacing:1px;
-}
 
 /* ── THEME: spatial (AR projects — IntARnet, flagship lenses) ── */
 .win-app.theme-spatial .win-body{
@@ -627,6 +609,41 @@ html,body{
 .win-app.theme-academic a{color:#00274c;font-weight:700}
 .win-app.theme-academic li::before{content:"§";color:#00274c;font-style:italic}
 .win-app.theme-academic .tag{background:#00274c;color:#ffcb05;border-color:#ffcb05 #000 #000 #ffcb05}
+
+/* ── THEME: index (folder listings — Awards, Games) ──
+   Deliberately the quietest theme on the site. These windows are containers,
+   not destinations: no costume, so the themed detail pages they open into can
+   do the shouting. ── */
+.win-app.theme-index .win-body{
+  background:#f4f1ea;color:#2a2a28;
+  font-family:'Georgia','Times New Roman',serif;font-size:12px;
+}
+.win-app.theme-index .win-title{
+  background:linear-gradient(90deg,#5d574a 0%,#a8a091 100%) !important;
+}
+.win-app.theme-index h2{
+  color:#2a2a28;font-family:'Georgia',serif;
+  font-size:19px;font-weight:400;letter-spacing:0.3px;
+  border-bottom:1px solid #cdc6b8;padding-bottom:4px;margin-bottom:6px;
+}
+.win-app.theme-index h3{
+  color:#6b6558;font-family:'Georgia',serif;
+  font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:1.5px;
+  margin:14px 0 5px;
+}
+.win-app.theme-index .sub{color:#5a5448;font-size:12px}
+.win-app.theme-index .meta{color:#8a8274}
+.win-app.theme-index a{color:#3a4a6b}
+.win-app.theme-index a:hover{color:#1f2b45}
+.win-app.theme-index li{margin:6px 0}
+.win-app.theme-index li::before{
+  content:"·";color:#a8a091;font-size:1.3em;top:-1px;left:-3px;
+}
+.win-app.theme-index .tag{
+  background:#e6e1d6;color:#5a5448;
+  border-color:#ffffff #b8b0a0 #b8b0a0 #ffffff;box-shadow:none;
+}
 
 /* ── THEME: personal (GeoCities homepage — About) ── */
 .win-app.theme-personal .win-body{
@@ -693,37 +710,39 @@ html,body{
   font-size:18px;font-weight:700;color:#000080;
 }
 .win-app.theme-desktop .ic:hover .ic-img{background:#dfdfdf}
-.win-app.theme-desktop .award-list{
-  display:flex;flex-direction:column;gap:0;margin-top:8px;
-  background:#fff;border:2px inset #808080;padding:2px;
+
+/* ══ EVIL CHEST ══
+   The chest itself has no CSS at all — it is drawn straight onto the sprite
+   canvas alongside the birds and the cat, one sim cell per sprite pixel, so
+   it lives in the same pixel layer as the world. Only the rogue cursors it
+   releases are DOM, because they have to visit real menu rows. */
+
+/* ── rogue cursors ── */
+#evilCursors{position:absolute;inset:0;pointer-events:none;z-index:12}
+.evil-cursor{
+  position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;
+  transition:opacity .45s;
 }
-.win-app.theme-desktop .award-row{
-  display:flex;align-items:center;gap:12px;
-  padding:8px 10px;cursor:pointer;text-decoration:none;color:#000;
-  border-bottom:1px solid #d0d0d0;
+.evil-cursor canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* ── material tag: the little tooltip that trails a cursor, shared by the
+      rogue cursors and by your own ── */
+.mat-tag{
+  white-space:nowrap;display:flex;align-items:center;gap:3px;
+  font:700 9px 'Tahoma','MS Sans Serif',sans-serif;color:#000;
+  background:#ffffe1;border:1px solid #000;padding:1px 3px;
+  box-shadow:1px 1px 0 rgba(0,0,0,.45);
 }
-.win-app.theme-desktop .award-row:last-child{border-bottom:none}
-.win-app.theme-desktop .award-row:hover{background:#000080;color:#fff}
-.win-app.theme-desktop .award-icon{
-  width:40px;height:40px;background:#c0c0c0;border:1px solid #000;
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;flex-shrink:0;
+.mat-tag i{width:7px;height:7px;border:1px solid #000;display:block}
+.evil-cursor .mat-tag{position:absolute;left:15px;top:19px}
+#userTag{
+  position:absolute;left:0;top:0;z-index:12;pointer-events:none;
+  opacity:0;transition:opacity .12s;will-change:transform;
 }
-.win-app.theme-desktop .award-row:hover .award-icon{background:#dfdfdf}
-.win-app.theme-desktop .award-info{
-  display:flex;flex-direction:column;gap:3px;min-width:0;
-}
-.win-app.theme-desktop .award-title{
-  font-size:14px;font-weight:700;line-height:1.2;
-}
-.win-app.theme-desktop .award-prize{
-  font-size:12px;font-weight:600;color:#000080;line-height:1.3;
-}
-.win-app.theme-desktop .award-row:hover .award-prize{color:#ffff00}
-.win-app.theme-desktop .award-event{
-  font-size:11px;opacity:.75;line-height:1.3;
-}
-.win-app.theme-desktop .award-row:hover .award-event{opacity:.9}
+/* touch: there is no cursor for it to trail, so it never shows */
+@media (hover:none),(pointer:coarse){ #userTag{display:none} }
+.mat-opt.evil-pick{background:#000080;color:#fff}
+.mat-opt.evil-click{background:#b8e000;color:#000}
 </style>
 </head>
 <body>
@@ -740,7 +759,9 @@ html,body{
       <div class="mat-list">
       <div class="mat-opt active" data-mat="1"><span class="mat-dot" style="background:#cda852"></span>sand [1]</div>
       <div class="mat-opt" data-mat="2"><span class="mat-dot" style="background:#3076ce"></span>water [2]</div>
+      <div class="mat-opt" data-mat="29"><span class="mat-dot" style="background:#ced6de"></span>steam [e]</div>
       <div class="mat-opt" data-mat="3"><span class="mat-dot" style="background:#eb460c"></span>fire [3]</div>
+      <div class="mat-opt" data-mat="30"><span class="mat-dot" style="background:#ec601a"></span>lava [v]</div>
       <div class="mat-opt" data-mat="4"><span class="mat-dot" style="background:#46444a"></span>stone [4]</div>
       <div class="mat-opt" data-mat="5"><span class="mat-dot" style="background:#2c962e"></span>plant [5]</div>
       <div class="mat-opt" data-mat="6"><span class="mat-dot" style="background:#aad416"></span>acid [6]</div>
@@ -783,6 +804,9 @@ html,body{
     </div>
 
     <div id="resume"></div>
+
+    <div id="evilCursors"></div>
+    <div id="userTag" class="mat-tag"><i></i><b>sand</b></div>
 
     <div id="windowsLayer"></div>
 
@@ -829,7 +853,10 @@ const EMPTY=0,SAND=1,WATER=2,FIRE=3,STONE=4,PLANT=5,ACID=6,OIL=7,SMOKE=8,ASH=9,
       // adjacent fire / lit fuse touches it. BOMB sizzles a few frames after
       // ignition then radial-blasts. variant bit 0x80 = "lit"; for BOMB bits
       // 4–6 carry the fuse-in countdown.
-      FUSE=27,BOMB=28;
+      FUSE=27,BOMB=28,
+      // Thermal pair. LAVA is the heat source everything else answers to;
+      // STEAM is the exhaust that carries the water back up to the sky.
+      STEAM=29,LAVA=30;
 const BOUND=255;
 const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS;
 const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
@@ -837,14 +864,25 @@ const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
 let W,H,SCALE;
 function computeDims(){
   const vw=window.innerWidth,vh=window.innerHeight;
-  // SCALE=1 gives the crispest text, but the grid grows with the viewport.
-  // Cap total sim cells so huge/4K monitors step up to 2–3 without choking.
-  // larger SCALE = chunkier pixels. 3+ reads as pixel art instead of fine grit.
   const CELL_BUDGET=1300000;
-  // SCALE=4 reads as deliberate pixel-art chunk size; sprites stay legible
-  // and the cell budget keeps 4K monitors stepping up to 5–6 without choking.
-  SCALE=4;
-  while((vw/SCALE)*(vh/SCALE)>CELL_BUDGET&&SCALE<7)SCALE++;
+  // Sprites are authored in cells, so a fixed SCALE pins their on-screen size
+  // (the oak is 21x24 cells = 84x96px) no matter how big the window is — extra
+  // width lands as bare meadow and the composition pulls apart. Growing SCALE
+  // with the viewport keeps the grid near a constant cell count, so the scene
+  // holds its proportions and simply zooms in.
+  //
+  // Drive it off the geometric mean of both axes, not width alone: a single
+  // uniform SCALE cannot hold the sprites' share of the width AND their share
+  // of the height fixed while the aspect ratio changes, so sizing on vw alone
+  // makes wide-but-short viewports crush H and leave the trees looming. The
+  // mean splits that error evenly between the two axes.
+  //
+  // TARGET_SPAN is calibrated so a 1920x1000 viewport lands on SCALE=4, which
+  // is also the floor — it reads as deliberate pixel-art chunk size, and going
+  // finer would make the sprites too small to read.
+  const TARGET_SPAN=346;
+  SCALE=Math.max(4,Math.round(Math.sqrt(vw*vh)/TARGET_SPAN));
+  while((vw/SCALE)*(vh/SCALE)>CELL_BUDGET&&SCALE<9)SCALE++;
   W=Math.floor(vw/SCALE);H=Math.floor(vh/SCALE);
   canvas.width=W;canvas.height=H;
   canvas.style.width=vw+'px';canvas.style.height=vh+'px';
@@ -853,19 +891,25 @@ function computeDims(){
 }
 computeDims();
 
-let grid,variant,frozen,updated,inChunk;
+let grid,variant,frozen,updated,inChunk,maskOwner;
 function allocArrays(){
   grid=new Uint8Array(W*H);
   variant=new Uint8Array(W*H);
   frozen=new Uint8Array(W*H);
   updated=new Int32Array(W*H); // last frame this cell was written
   inChunk=new Uint8Array(W*H); // cell belongs to a falling masonry chunk
+  maskOwner=new Int16Array(W*H); // MASK cell → burnable DOM element id (0 = none)
 }
 allocArrays();
 
 const idx=(x,y)=>y*W+x;
 const mat=(x,y)=>(x<0||x>=W||y<0||y>=H)?BOUND:grid[idx(x,y)];
 const isLiq=m=>m===WATER||m===OIL||m===ACID;
+// Liquid densities. A heavier liquid sitting on a lighter one sinks through it,
+// so oil poured into a pond rises into a slick instead of mixing — and that
+// slick is what carries fire across open water.
+const LDEN=new Uint8Array(256);
+LDEN[OIL]=1;LDEN[ACID]=2;LDEN[WATER]=3;
 const isStatic=m=>m===STONE||m===TITLE||m===ACCENT||m===BODY||m===RIGID||m===DIRT||m===GRASS||m===MASK;
 
 /* ═══════════════════════════════════════════════════════
@@ -1097,6 +1141,15 @@ function step(x,y){
     if(eFree(x,y+1)||(thru&&lFree(x,y+1))){moveSwap(x,y,x,y+1);return;}
     if(eFree(x+d,y+1)||(thru&&lFree(x+d,y+1))){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)||(thru&&lFree(x-d,y+1))){moveSwap(x,y,x-d,y+1);return;}
+    // settled ash slaked by water becomes fertile topsoil: burn a meadow down,
+    // let the rain in, and the ground is ready to take seed again
+    if(m===ASH){
+      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+        if(mat(x+ax,y+ay)===WATER&&Math.random()<0.09){
+          setMat(x+ax,y+ay,EMPTY);setMat(x,y,DIRT);return;
+        }
+      }
+    }
     // settled, but if we're piling on top of a fragile frozen sprite cell,
     // sometimes shake it loose — pixel art crumbles under weight.
     if(y+1<H){
@@ -1105,6 +1158,8 @@ function step(x,y){
         const bm=grid[bi];
         if((bm===LEAF||bm===THATCH||bm===BERRY)&&Math.random()<0.06){
           frozen[bi]=0;wake3(x,y+1);pixDirty(x,y+1);
+        } else if(bm===GLASS&&Math.random()<0.04){
+          frozen[bi]=0;wake3(x,y+1);pixDirty(x,y+1); // glass gives out under a pile
         }
       }
     }
@@ -1139,10 +1194,26 @@ function step(x,y){
 
   if(m===WATER||m===OIL||m===ACID){
     if(m===ACID){
-      // dissolve structural/granular neighbours (text is acid-proof for readability)
+      // dissolve structural/granular neighbours (the baked title text is
+      // acid-proof for readability; the HTML windows are not)
       const ns=[[0,1],[d,0],[-d,0],[0,-1]];
+      // ...but water dilutes it. Enough rain on a pool and the acid fizzes out
+      // into plain water, so flooding is a real answer to a spill.
+      for(const[ax,ay]of ns){
+        if(mat(x+ax,y+ay)===WATER&&Math.random()<0.025){
+          if(eFree(x,y-1)&&Math.random()<0.35)setMat(x,y-1,SMOKE);
+          setMat(x,y,WATER);return;
+        }
+      }
       for(const[ax,ay]of ns){
         const t=mat(x+ax,y+ay);
+        // the page itself is not immune: a MASK cell belonging to a window
+        // etches away and the hole opens in the real HTML behind it
+        if(t===MASK&&Math.random()<0.16&&burnMask(x+ax,y+ay,1)){
+          if(eFree(x,y-1)&&Math.random()<0.3)setMat(x,y-1,SMOKE);
+          if(Math.random()<0.45){setMat(x,y,EMPTY);return;} // spent on the way through
+          break;
+        }
         if((t===STONE||t===SAND||t===PLANT||t===ASH||t===MOSS||t===SEED||t===DIRT||t===GRASS||t===WOOD||t===LEAF||t===THATCH||t===BERRY||t===BRICK||t===GLASS)&&Math.random()<0.10){
           setMat(x+ax,y+ay,EMPTY);
           if(Math.random()<0.4){setMat(x,y,EMPTY);return;}
@@ -1156,6 +1227,12 @@ function step(x,y){
     }
     if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    // no air below, but a *lighter* liquid is: trade places. Water dropped into
+    // an oil pool sinks and the oil beads up on top.
+    if(y+1<H){
+      const bi=i+W,bd=LDEN[grid[bi]];
+      if(bd&&bd<LDEN[m]&&!frozen[bi]&&Math.random()<0.6){moveSwap(x,y,x,y+1);return;}
+    }
     // horizontal dispersion: slide up to `disp` cells along the surface in one
     // tick, stopping early at the first ledge to spill over. Pools flatten in
     // a few frames instead of creeping one cell per tick, so liquids read as
@@ -1178,14 +1255,24 @@ function step(x,y){
   }
 
   if(m===FIRE){
-    if(Math.random()<0.03){setMat(x,y,SMOKE);return;}
+    // burning out leaves a residue as often as not — that ash is what the
+    // water cycle later turns back into soil
+    if(Math.random()<0.03){setMat(x,y,Math.random()<0.3?ASH:SMOKE);return;}
     for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
       const t=mat(x+ax,y+ay);
       if((t===PLANT||t===MOSS||t===SEED||t===LEAF||t===THATCH||t===BERRY)&&Math.random()<0.18)setMat(x+ax,y+ay,FIRE);
       else if(t===WOOD&&Math.random()<0.05)setMat(x+ax,y+ay,FIRE);
       else if(t===OIL&&Math.random()<0.20)setMat(x+ax,y+ay,FIRE);
-      else if(t===SAND&&Math.random()<0.0015)setMat(x+ax,y+ay,ASH);
-      else if(t===WATER&&Math.random()<0.06){setMat(x,y,SMOKE);return;}
+      else if(t===POLLEN&&Math.random()<0.55)setMat(x+ax,y+ay,FIRE); // dust flares
+      else if(t===GRASS&&Math.random()<0.035)setMat(x+ax,y+ay,FIRE); // turf carries a fire line
+      else if(t===MASK&&Math.random()<0.12)burnMask(x+ax,y+ay,0);    // paper burns: the HTML catches
+      else if(t===SAND&&Math.random()<0.04){
+        // sustained heat fuses sand into glass — and glass is what glows once
+        // the sun goes down, so a beach bonfire leaves you a lantern
+        setMat(x+ax,y+ay,GLASS,Math.random()*4|0);
+        frozen[idx(x+ax,y+ay)]=1;
+      }
+      else if(t===WATER&&Math.random()<0.06){setMat(x+ax,y+ay,STEAM);setMat(x,y,STEAM);return;}
     }
     if(eFree(x,y-1)&&Math.random()<0.4){moveSwap(x,y,x,y-1);return;}
     updated[i]=frameId;wake3(x,y);pixDirty(x,y);return; // keep flickering & awake
@@ -1200,11 +1287,85 @@ function step(x,y){
     updated[i]=frameId;wake3(x,y);return;
   }
 
+  if(m===STEAM){
+    // the return leg of the water cycle: rises faster than smoke, smothers
+    // flame on the way past, beads back into water against a ceiling, and
+    // rains out once it reaches the top of the sky
+    if(y<=2&&Math.random()<0.06){setMat(x,y,WATER);return;}
+    for(const[ax,ay]of [[0,-1],[d,0],[-d,0],[0,1]]){
+      if(mat(x+ax,y+ay)===FIRE&&Math.random()<0.09){setMat(x+ax,y+ay,SMOKE);setMat(x,y,EMPTY);return;}
+    }
+    if(Math.random()<0.006){setMat(x,y,WATER);return;}   // condenses mid-air
+    if(Math.random()<0.010){setMat(x,y,EMPTY);return;}   // or just thins away
+    if(eFree(x,y-1)){
+      if(eFree(x,y-2)&&Math.random()<0.6){moveSwap(x,y,x,y-2);return;}
+      moveSwap(x,y,x,y-1);return;
+    }
+    if(eFree(x+d,y-1)){moveSwap(x,y,x+d,y-1);return;}
+    if(eFree(x-d,y-1)){moveSwap(x,y,x-d,y-1);return;}
+    if(eFree(x+d,y)){moveSwap(x,y,x+d,y);return;}
+    // trapped under something solid — beads into a droplet on the underside
+    if(Math.random()<0.04){setMat(x,y,WATER);return;}
+    updated[i]=frameId;wake3(x,y);return;
+  }
+
+  if(m===LAVA){
+    // molten rock. It is the heat source the rest of the palette answers to:
+    // it lights anything flammable, fuses sand to glass, and freezes into
+    // stone the instant water reaches it — so water is the only real brake.
+    for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+      const nx=x+ax,ny=y+ay,t=mat(nx,ny);
+      if(t===BOUND)continue;
+      if(t===WATER){
+        // quench: flash to steam, and the lava mostly crusts over into rock
+        setMat(nx,ny,STEAM);
+        if(Math.random()<0.6){setMat(x,y,STONE);return;}
+      }
+      else if(t===SAND&&Math.random()<0.12){
+        setMat(nx,ny,GLASS,Math.random()*4|0);frozen[idx(nx,ny)]=1;
+      }
+      else if((t===PLANT||t===MOSS||t===SEED||t===GRASS||t===POLLEN||t===OIL||
+               t===LEAF||t===THATCH||t===BERRY||t===WOOD||t===FUSE)&&Math.random()<0.45){
+        setMat(nx,ny,FIRE);
+      }
+      else if(t===ACID&&Math.random()<0.35){setMat(nx,ny,SMOKE);}
+      else if(t===MASK&&Math.random()<0.16){burnMask(nx,ny,2);} // molten rock melts straight through a window
+    }
+    // flames and fumes lick off the surface
+    if(mat(x,y-1)===EMPTY&&Math.random()<0.05)setMat(x,y-1,Math.random()<0.55?FIRE:SMOKE);
+    // viscous: it only advances on some ticks, so it creeps rather than pours
+    if(Math.random()<0.55){updated[i]=frameId;wake3(x,y);pixDirty(x,y);return;}
+    if(eFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    if(eFree(x+d,y)&&Math.random()<0.45){moveSwap(x,y,x+d,y);return;}
+    // gone nowhere for a while: the flow crusts over on its own
+    if(Math.random()<0.0018){setMat(x,y,STONE);return;}
+    updated[i]=frameId;wake3(x,y);pixDirty(x,y);return;
+  }
+
   if(m===PLANT){
-    if(Math.random()<0.004){
+    // roots drink: a plant with water beside it climbs an order of magnitude
+    // faster and pulls the puddle down as it goes
+    let drink=false;
+    if(Math.random()<0.025){
+      for(const[ax,ay]of [[0,1],[d,0],[-d,0]]){
+        if(mat(x+ax,y+ay)===WATER){setMat(x+ax,y+ay,EMPTY);drink=true;break;}
+      }
+    }
+    if(drink||Math.random()<0.004){
       const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
       const t=mat(x+ax,y+ay);
       if(t===EMPTY||t===WATER||(t===GRASS&&Math.random()<0.25))setMat(x+ax,y+ay,PLANT);
+      // bare soil next to living roots greens back over — this is how a burnt
+      // meadow eventually turns back into turf
+      else if(t===DIRT&&Math.random()<0.35)setMat(x+ax,y+ay,GRASS);
+    }
+    // a thicket dense enough to shade itself sets fruit; birds do the rest
+    if(Math.random()<0.0008){
+      let n=0;
+      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]])if(mat(x+ax,y+ay)===PLANT)n++;
+      if(n>=3){setMat(x,y,BERRY,Math.random()*4|0);return;}
     }
     updated[i]=frameId;wake3(x,y);return; // stays awake to keep growing
   }
@@ -1228,11 +1389,24 @@ function step(x,y){
   }
 
   if(m===MOSS){
-    // nature reclaiming the structure: creeps slowly over adjacent stone
-    if(Math.random()<0.012){
-      const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
-      if(mat(x+ax,y+ay)===STONE&&Math.random()<0.5){setMat(x+ax,y+ay,MOSS);}
-      else if(mat(x+ax,y+ay)===DIRT&&Math.random()<0.08)setMat(x+ax,y+ay,MOSS);
+    // nature reclaiming the structure: creeps slowly over adjacent stone —
+    // but damp moss is a different animal. Water or steam next to it and the
+    // creep goes five times as fast, takes hold on burnt ground, and starts
+    // pushing real greenery up into the air.
+    if(Math.random()<0.06){
+      let damp=false;
+      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+        const t=mat(x+ax,y+ay);
+        if(t===WATER||t===STEAM){damp=true;break;}
+      }
+      if(damp||Math.random()<0.2){
+        const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
+        const t=mat(x+ax,y+ay);
+        if(t===STONE&&Math.random()<0.5)setMat(x+ax,y+ay,MOSS);
+        else if(t===DIRT&&Math.random()<(damp?0.45:0.08))setMat(x+ax,y+ay,MOSS);
+        else if(damp&&(t===ASH||t===SAND)&&Math.random()<0.10)setMat(x+ax,y+ay,MOSS);
+        else if(damp&&ay===-1&&t===EMPTY&&Math.random()<0.06)setMat(x,y-1,PLANT);
+      }
     }
     updated[i]=frameId;wake3(x,y);return;
   }
@@ -1244,10 +1418,18 @@ function step(x,y){
     if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
     const below=mat(x,y+1);
-    if((below===STONE||below===SAND||below===MOSS||below===PLANT||below===DIRT||below===GRASS)&&Math.random()<0.05){
-      setMat(x,y,PLANT);return;
+    if(below===STONE||below===SAND||below===MOSS||below===PLANT||below===DIRT||below===GRASS||below===ASH){
+      // germination is slow on dry ground and near-instant on wet — watering a
+      // scatter of seed is the fastest way to turn bare dirt into a thicket
+      let wet=false;
+      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+        const t=mat(x+ax,y+ay);
+        if(t===WATER||t===STEAM){wet=true;break;}
+      }
+      if(Math.random()<(wet?0.35:0.02)){setMat(x,y,PLANT);return;}
+      updated[i]=frameId;wake3(x,y);return; // keep trying until it takes
     }
-    return; // settled → sleeps
+    return; // settled on barren ground → sleeps
   }
 
   if(m===FUSE){
@@ -1325,7 +1507,7 @@ function step(x,y){
         }
         // empty/smoke: dust the air so the shockwave reads even where there
         // was nothing to fling
-        if(srcM===EMPTY||srcM===SMOKE){
+        if(srcM===EMPTY||srcM===SMOKE||srcM===STEAM){
           if(d2<R_push*R_push*0.45){
             setMat(c.x,c.y,Math.random()<0.55?FIRE:SMOKE);
           } else if(Math.random()<0.35){
@@ -1349,7 +1531,7 @@ function step(x,y){
           if(px<0||px>=W||py<0||py>=H)continue;
           const pi=idx(px,py);
           const pm=grid[pi];
-          if(pm===EMPTY||pm===SMOKE){
+          if(pm===EMPTY||pm===SMOKE||pm===STEAM){
             grid[pi]=srcM;
             variant[pi]=c.v&7; // strip lit/countdown bits
             frozen[pi]=0;
@@ -1416,6 +1598,8 @@ function matColor(m,v){
     case ACID:  return[170+j,212+j,22+j,235];
     case OIL:   return[70+j,58+j,30+j,240];
     case SMOKE: return[60+j,60+j,68+j,105];
+    case STEAM: return[206+j,214+j,222+j,120];          // pale, barely-there vapour
+    case LAVA:  return[236+j,96+j,26,255];              // molten orange
     case ASH:   return[96+j,88+j,82+j,255];
     case POLLEN:return[238+(j>0?j:0),205+j,96+j,210];  // glowing warm motes
     case MOSS:  return[78+j,124+j,58+j,255];            // soft reclaiming green
@@ -1468,7 +1652,7 @@ gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
   `#version 300 es\nin vec2 a;out vec2 uv;\nvoid main(){uv=a*.5+.5;gl_Position=vec4(a,0,1);}`));
 gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
   `#version 300 es
-   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;out vec4 c;
+   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;uniform float uBar;out vec4 c;
    float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
    float noise(vec2 p){
      vec2 i=floor(p),f=fract(p);
@@ -1477,6 +1661,19 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      return mix(mix(a,b,u.x),mix(cc,d,u.x),u.y);
    }
    float fbm(vec2 p){float s=0.0,a=0.5;for(int k=0;k<4;k++){s+=a*noise(p);p*=2.03;a*=0.5;}return s;}
+   // hit test: 1.0 when p lies within w of segment ab (hard edge for pixel-art crispness)
+   float seg(vec2 p,vec2 a,vec2 b,float w){
+     vec2 pa=p-a,ba=b-a;
+     float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+     return step(length(pa-ba*h),w);
+   }
+   // background-hill skyline height at horizontal position x
+   float crestAt(float x){
+     return 0.14
+           +0.070*exp(-pow((x-0.30)*2.6,2.0))
+           +0.055*exp(-pow((x-0.72)*2.9,2.0))
+           +0.008*fbm(vec2(x*3.0+7.0,1.5));
+   }
    // 4x4 ordered (Bayer) dither thresholds, normalised to [0,1)
    const float bayer[16]=float[16](
      0.0,    0.5,    0.125,  0.625,
@@ -1550,11 +1747,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
 
      // ── two gentle background hills: low on the horizon, never dominant ──
      // two offset gaussian bumps so distinct crests rise out of a flat skyline
-     float baseLine=0.14;
-     float hillA=0.070*exp(-pow((cuv.x-0.30)*2.6,2.0));
-     float hillB=0.055*exp(-pow((cuv.x-0.72)*2.9,2.0));
-     float crest=baseLine + hillA + hillB
-                +0.008*fbm(vec2(cuv.x*3.0+7.0,1.5));
+     float crest=crestAt(cuv.x);
      if(y<crest){
        // grass shading: vivid lime at the crest, deeper olive at the bottom
        float gT=clamp((crest-y)/crest,0.0,1.0); // 0 at crest, 1 at frame bottom
@@ -1566,6 +1759,35 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        // subtle wind-streak striations along the slope
        grass+=0.025*sin(cuv.x*38.0 + cuv.y*12.0);
        sky=grass*(0.12+0.88*uDay);
+     }
+
+     // ── wind turbines planted along the hill crests ──
+     // per turbine: x position, tower height, phase offset
+     const vec3 TURB[3]=vec3[3](
+       vec3(0.230,0.115,0.0),
+       vec3(0.345,0.085,2.1),
+       vec3(0.710,0.100,4.2));
+     float asp=uGrid.x/uGrid.y;
+     vec2 pp=vec2(cuv.x*asp,cuv.y);        // aspect-corrected so rotors sweep circles
+     float pw=1.0/uGrid.y;                 // one sim cell, in uv-y units
+     vec3 turbCol=mix(vec3(0.28,0.31,0.40),vec3(0.94,0.96,0.98),uDay);
+     for(int k=0;k<3;k++){
+       vec3 tp=TURB[k];
+       vec2 base=vec2(tp.x*asp,crestAt(tp.x)-0.006);
+       vec2 hub=base+vec2(0.0,tp.y);
+       float m=seg(pp,base,hub,pw*0.7);    // tower
+       float ang=uT*(0.42+0.06*float(k))+tp.z;
+       for(int i=0;i<3;i++){
+         float a=ang+float(i)*2.0944;
+         m=max(m,seg(pp,hub,hub+vec2(cos(a),sin(a))*tp.y*0.52,pw*0.55));
+       }
+       m=max(m,step(length(pp-hub),pw*1.1)); // nacelle
+       sky=mix(sky,turbCol,m);
+       // blinking red aviation light on the nacelle after dusk
+       if(night>0.5){
+         float blink=step(0.5,fract(uT*0.5+tp.z));
+         sky=mix(sky,vec3(0.95,0.15,0.15),step(length(pp-hub),pw*0.8)*blink*(night-0.5)*2.0);
+       }
      }
 
      // ── emissive lighting: ambient day factor + two-scale light buffer ──
@@ -1586,6 +1808,43 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      vec3 part=floor(tx.rgb*7.99)/7.0;
      vec3 col=mix(sky,part,tx.a);
      col+=lit*0.30;                        // soft bloom over everything
+
+     // ── foreground plane: a dark turf berm with swaying blades, composited
+     // over everything so the world reads as having a near plane and the
+     // taskbar is framed by scenery instead of butting into bedrock.
+     // Drawn after the posterize so it stays a flat, undithered silhouette.
+     float fy=cell.y, fx=cell.x;           // sim cells, y counted from frame bottom
+     // berm: ragged ridge cresting a few cells above the taskbar
+     float bermTop=uBar+1.0+floor(fbm(vec2(fx*0.035,3.7))*4.0);
+     float fg=step(fy,bermTop);
+     float rim=step(bermTop-1.0,fy)*fg;    // topmost cell catches the light
+     // blades: sparse jittered lanes, quadratic lean, gentle wind sway
+     float lane=floor(fx/13.0);
+     for(int k=-1;k<=1;k++){
+       float li=lane+float(k);
+       if(hash(vec2(li,5.1))<0.42)continue;               // not every lane sprouts
+       float bh=3.0+10.0*pow(hash(vec2(li,11.3)),2.0);    // mostly short, rarely tall
+       float bBase=bermTop-1.0;
+       float bt=(fy-bBase)/bh;                            // 0 at base, 1 at tip
+       if(bt<0.0||bt>1.0)continue;
+       float lean=(hash(vec2(li,7.7))*2.0-1.0)*bh*0.30;
+       // sway must clear a whole cell or it quantises away to nothing —
+       // amplitude is in cells, with a floor so short blades still step
+       lean+=sin(uT*(0.5+0.4*hash(vec2(li,13.1)))+li*2.3)*(0.9+bh*0.15);
+       float bx=li*13.0+13.0*(0.15+0.7*hash(vec2(li,2.9)))+lean*bt*bt;
+       float on=step(abs(fx-bx),mix(1.1,0.5,bt));         // taper toward the tip
+       fg=max(fg,on);
+       rim=max(rim,on*step(0.86,bt));
+     }
+     if(fg>0.5){
+       // By night the meadow behind this crushes to black, so a dark silhouette
+       // would invert and read as a glowing strip. Instead the body sinks into
+       // that black and the rim carries a cool moonlit edge — the near plane
+       // stays legible in both lighting states.
+       vec3 fgDark=mix(vec3(0.008,0.012,0.010),vec3(0.055,0.105,0.045),uDay);
+       vec3 fgLite=mix(vec3(0.105,0.130,0.175),vec3(0.130,0.215,0.090),uDay);
+       col=mix(fgDark,fgLite,rim)+lit*0.35;               // still catches nearby fire
+     }
      c=vec4(col,1.0);
    }`));
 gl.linkProgram(prog);gl.useProgram(prog);
@@ -1606,6 +1865,8 @@ gl.uniform1i(gl.getUniformLocation(prog,'uLW'),2);
 const uTimeLoc=gl.getUniformLocation(prog,'uT');
 const uDayLoc=gl.getUniformLocation(prog,'uDay');
 const uGridLoc=gl.getUniformLocation(prog,'uGrid');
+const uBarLoc=gl.getUniformLocation(prog,'uBar');
+const TASKBAR_PX=30;          // keep in sync with #taskbar height
 let gTime=0;
 
 function allocTexture(){
@@ -1652,7 +1913,7 @@ function blurL(a,tmp,w,h){
 // lookup table gating the full-grid emissive scan: one array read rejects the
 // sky/terrain bulk instead of a 5-way branch chain per cell
 const EMIT=new Uint8Array(256);
-EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;
+EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;EMIT[LAVA]=1;
 function buildLight(){
   const day=dayFactor(), night=1-day;
   EMIT[GLASS]=night>0.25?1:0; // glass only glows after dusk
@@ -1664,6 +1925,7 @@ function buildLight(){
       if(!EMIT[m])continue;
       let r=0,g=0,b=0;
       if(m===FIRE){r=1.0;g=0.45;b=0.08;}
+      else if(m===LAVA){r=0.95;g=0.32;b=0.05;}
       else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
       else if(m===BOMB&&(variant[gi]&0x80)){r=0.7;g=0.10;b=0.05;}
       else if(m===ACID){r=0.10;g=0.22;b=0.02;}
@@ -1698,9 +1960,15 @@ function buildLight(){
 // inline pixel fill — writes RGBA directly to texData, no array allocations
 function fillTexel(x,y){
   const fy=H-1-y; // texture is y-flipped
-  const dst=(fy*W+x)*4;
   const gi=y*W+x;
-  const m=grid[gi],v=variant[gi];
+  matTexel(grid[gi],variant[gi],x,y,texData,(fy*W+x)*4);
+}
+/* ═══ THE WORLD'S PALETTE ═══
+   material + variant + world position -> RGBA, including the per-cell jitter
+   and the micro-texture patterns. Everything the renderer paints goes through
+   here, so anything that wants to look like it is built out of the same stuff
+   the sim is built out of renders through it too (see the evil chest). */
+function matTexel(m,v,x,y,out,dst){
   const j=JITTER[v&7];
   let r=0,g=0,b=0,a=0;
   switch(m){
@@ -1720,6 +1988,14 @@ function fillTexel(x,y){
     case ACID:  r=170+j; g=212+j; b=22+j;  a=235; break;
     case OIL:   r=70+j;  g=58+j;  b=30+j;  a=240; break;
     case SMOKE: r=60+j;  g=60+j;  b=68+j;  a=105; break;
+    case STEAM: r=206+j; g=214+j; b=222+j; a=120; break;
+    case LAVA: {
+      // same trick as fire but slower and heavier — a crust that glows through
+      const f=Math.random();
+      const rr=236+j+(f>0.8?16:0);
+      const gg=96+j+(f>0.85?34:-16);
+      r=rr>255?255:rr; g=gg>255?255:(gg<0?0:gg); b=26; a=255; break;
+    }
     case ASH:   r=96+j;  g=88+j;  b=82+j;  a=255; break;
     case POLLEN:r=238+(j>0?j:0); g=205+j; b=96+j; a=210; break;
     case MOSS:  r=78+j;  g=124+j; b=58+j;  a=255; break;
@@ -1809,6 +2085,10 @@ function fillTexel(x,y){
       if(y%3===0)tj=6;
     } else if(m===ACID){
       if(((x*3)+(y*5))%7===0)tj=10;
+    } else if(m===LAVA){
+      // dark crust flecks floating on the melt
+      const h=((x*5)^(y*3))%11;
+      if(h===0)tj=-46; else if(h===4)tj=-22;
     } else if(m===PLANT){
       if((y&1)===0)tj=8;
     } else if(m===WOOD){
@@ -1829,7 +2109,7 @@ function fillTexel(x,y){
       b=bb<0?0:(bb>255?255:bb);
     }
   }
-  texData[dst]=r;texData[dst+1]=g;texData[dst+2]=b;texData[dst+3]=a;
+  out[dst]=r;out[dst+1]=g;out[dst+2]=b;out[dst+3]=a;
 }
 
 function render(){
@@ -1842,6 +2122,7 @@ function render(){
   gl.uniform1f(uTimeLoc,gTime);
   gl.uniform1f(uDayLoc,dayFactor());
   gl.uniform2f(uGridLoc,W,H);
+  gl.uniform1f(uBarLoc,TASKBAR_PX/SCALE);
   gl.disable(gl.BLEND);
   // iterate dirty chunks: only re-fill+upload pixels that actually changed
   gl.pixelStorei(gl.UNPACK_ROW_LENGTH,W);
@@ -2740,6 +3021,7 @@ function spawnContent(){
   WORK_REGION=null;
 
   // stamp invisible MASK cells under the HTML content so particles collide with it
+  clearAllBurns(); // a reset heals every window that got burnt or melted
   stampDOMMasks();
 
   // wake the whole world for the first sim pass + full first render
@@ -2834,25 +3116,212 @@ function updateWindowMasks(){
       const x=i%W,y=(i/W)|0;
       pixDirty(x,y);wake3(x,y);
     }
+    maskOwner[i]=0;
   }
   _winMaskCells.length=0;
   const cr=canvas.getBoundingClientRect();
   document.querySelectorAll('.win-app').forEach(el=>{
     if(el.style.display==='none'||el.dataset.minimized==='1')return;
     const r=el.getBoundingClientRect();
+    if(r.width<=0||r.height<=0)return;
+    const b=burnableFor(el,r,cr);
     const x0=Math.max(0,Math.floor((r.left-cr.left)/SCALE));
     const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE));
     const x1=Math.min(W-1,Math.ceil((r.right-cr.left)/SCALE));
     const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE));
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
       const i=idx(x,y);
-      if(grid[i]===EMPTY){
-        grid[i]=MASK;variant[i]=0;
-        _winMaskCells.push(i);
-        pixDirty(x,y);wake3(x,y);
-      }
+      if(grid[i]!==EMPTY)continue;
+      // a cell that already burned through stays open — the hole travels with
+      // the window when it's dragged, because damage is stored element-local
+      if(b.gone&&b.dmg[lcell(b,x,y)])continue;
+      grid[i]=MASK;variant[i]=0;maskOwner[i]=b.id;
+      _winMaskCells.push(i);
+      pixDirty(x,y);wake3(x,y);
     }
   });
+}
+
+/* ═══════════════════════════════════════════════════════
+   BURNING / MELTING THE PAGE ITSELF
+   Windows are already stamped into the grid as MASK, and maskOwner[]
+   remembers which window each of those cells belongs to. So when fire
+   or acid eats one we can do three things at once:
+     · the sim cell opens up, so sand pours through the hole
+     · the cell is cut out of the element's clip-path, which punches the
+       hole in the REAL HTML (clip-path, not a mask image: it applies
+       synchronously, where swapping a mask bitmap flashes the window
+       back to whole for a frame while the new one decodes)
+     · a char overlay canvas scorches whatever survives around the rim
+   Damage is stored in element-local cells, so a burnt window keeps its
+   holes when you drag it. Eat enough of one and it collapses into ash.
+═══════════════════════════════════════════════════════ */
+const burnables=[];                                                 // index+1 == b.id == maskOwner value
+const BURN_COLLAPSE=0.62;                                           // share of footprint gone → the window crumbles
+const CHAR_RIM =['rgba(216,88,16,0.85)','rgba(150,214,26,0.80)'];   // [fire, acid] glowing edge
+const CHAR_DEEP=['rgba(22,13,9,0.92)',  'rgba(46,66,14,0.85)'];     // [fire, acid] burnt-out edge
+const CLIP_MS=60;                                                   // rebuilding the clip path is the expensive bit
+const BURN_RATE=22;                                                 // cells a window can lose per sim tick
+
+// One record per live window. Created on the first stamp, re-anchored on
+// every restamp so dx/dy always match where the element is right now.
+function burnableFor(el,r,cr){
+  let b=el._burn;
+  if(!b){
+    const cw=Math.max(1,Math.ceil(r.width/SCALE)),ch=Math.max(1,Math.ceil(r.height/SCALE));
+    b={el,cw,ch,pw:Math.max(1,Math.round(r.width)),ph:Math.max(1,Math.round(r.height)),
+       dmg:new Uint8Array(cw*ch),gone:0,total:cw*ch,kind:0,
+       char:null,cx:null,dx:0,dy:0,clipDirty:false,last:0,dead:false,id:0,
+       tick:0,hits:0};
+    b.id=burnables.push(b); // push returns the new length → id is index+1
+    el._burn=b;
+  } else if(b.gone&&(Math.abs(r.width-b.pw)>1||Math.abs(r.height-b.ph)>1)) reshape(b,r);
+  b.dx=r.left-cr.left;b.dy=r.top-cr.top;
+  return b;
+}
+// Maximize/restore resizes the element under its own damage map: resample the
+// holes into the new cell grid so they stay where they were on the window.
+function reshape(b,r){
+  const cw=Math.max(1,Math.ceil(r.width/SCALE)),ch=Math.max(1,Math.ceil(r.height/SCALE));
+  b.pw=Math.max(1,Math.round(r.width));b.ph=Math.max(1,Math.round(r.height));
+  if(cw!==b.cw||ch!==b.ch){
+    const nd=new Uint8Array(cw*ch);let gone=0;
+    for(let y=0;y<ch;y++){
+      const sy=Math.min(b.ch-1,(y*b.ch/ch)|0)*b.cw,ny=y*cw;
+      for(let x=0;x<cw;x++){
+        if(b.dmg[sy+Math.min(b.cw-1,(x*b.cw/cw)|0)]){nd[ny+x]=1;gone++;}
+      }
+    }
+    b.dmg=nd;b.cw=cw;b.ch=ch;b.gone=gone;b.total=cw*ch;
+  }
+  if(b.char){ // the scorch canvas is sized in px — repaint it at the new scale
+    b.char.width=b.pw;b.char.height=b.ph;
+    for(let ly=0;ly<b.ch;ly++)for(let lx=0;lx<b.cw;lx++){
+      if(!b.dmg[ly*b.cw+lx])continue;
+      charRing(b,lx,ly,2,CHAR_DEEP[b.kind]);
+      charRing(b,lx,ly,1,CHAR_RIM[b.kind]);
+    }
+  }
+  b.clipDirty=true;
+}
+// global sim cell → element-local damage cell (nearest, clamped: the stamped
+// footprint can overhang the element by a cell on the far edges)
+function lcell(b,x,y){
+  let lx=Math.floor((x*SCALE+SCALE*0.5-b.dx)/SCALE);
+  let ly=Math.floor((y*SCALE+SCALE*0.5-b.dy)/SCALE);
+  if(lx<0)lx=0;else if(lx>=b.cw)lx=b.cw-1;
+  if(ly<0)ly=0;else if(ly>=b.ch)ly=b.ch-1;
+  return ly*b.cw+lx;
+}
+// the scorch overlay only exists once something has actually burned
+function ensureChar(b){
+  if(b.char)return;
+  const c=document.createElement('canvas');
+  c.className='burn-char';c.width=b.pw;c.height=b.ph;
+  b.el.appendChild(c);
+  b.char=c;b.cx=c.getContext('2d');
+}
+// ring of cells at chebyshev distance `rad` from the hole, skipping cells that
+// are already gone — radius 1 is the live rim, radius 2 the older burnt edge
+function charRing(b,lx,ly,rad,col){
+  b.cx.fillStyle=col;
+  for(let dy=-rad;dy<=rad;dy++)for(let dx=-rad;dx<=rad;dx++){
+    if(Math.abs(dx)!==rad&&Math.abs(dy)!==rad)continue;
+    const nx=lx+dx,ny=ly+dy;
+    if(nx<0||ny<0||nx>=b.cw||ny>=b.ch)continue;
+    if(b.dmg[ny*b.cw+nx])continue;
+    if(rad>1&&Math.random()<0.45)continue; // ragged, not a neat outline
+    b.cx.fillRect(nx*SCALE,ny*SCALE,SCALE,SCALE);
+  }
+}
+// kind: 0 = fire, leaves a flame burning in the hole
+//       1 = acid, leaves it open so the rest of the pool drips through
+//       2 = lava, scorches like fire but stays open so the flow pours in
+function burnMask(x,y,kind){
+  const i=idx(x,y),o=maskOwner[i];
+  if(!o)return false;
+  const b=burnables[o-1];
+  if(!b||b.dead)return false;
+  // A lava pool sits against a whole row of cells at once. Without a per-tick
+  // budget the window would vanish inside a single frame — capping it keeps the
+  // burn something you can watch travel, and keeps the clip-path rebuild cheap.
+  if(b.tick!==frameId){b.tick=frameId;b.hits=0;}
+  if(b.hits>=BURN_RATE)return false;
+  b.hits++;
+  maskOwner[i]=0;
+  setMat(x,y,kind===0?FIRE:EMPTY);
+  const li=lcell(b,x,y);
+  if(b.dmg[li])return true; // two sim cells can round onto one element cell
+  ensureChar(b);
+  const ci=kind===1?1:0; // acid etches green, fire and lava scorch black
+  b.dmg[li]=1;b.gone++;b.kind=ci;
+  const lx=li%b.cw,ly=(li/b.cw)|0;
+  b.cx.clearRect(lx*SCALE,ly*SCALE,SCALE,SCALE);
+  charRing(b,lx,ly,2,CHAR_DEEP[ci]);
+  charRing(b,lx,ly,1,CHAR_RIM[ci]);
+  b.clipDirty=true;
+  if(b.gone>b.total*BURN_COLLAPSE)collapseBurnable(b);
+  return true;
+}
+/* Rebuild the element's clip path: the border box wound clockwise, then one
+   counter-clockwise rectangle per run of burnt cells. Opposite winding is what
+   makes those runs read as holes under the default nonzero fill rule. Holes are
+   merged along each row first, so a big burn is a few dozen subpaths, not one
+   per cell. */
+function flushClip(b){
+  b.clipDirty=false;
+  let p='M0 0H'+b.pw+'V'+b.ph+'H0Z';
+  for(let ly=0;ly<b.ch;ly++){
+    const row=ly*b.cw,y0=ly*SCALE,y1=Math.min(b.ph,y0+SCALE);
+    let lx=0;
+    while(lx<b.cw){
+      if(!b.dmg[row+lx]){lx++;continue;}
+      let e=lx+1;
+      while(e<b.cw&&b.dmg[row+e])e++;
+      p+='M'+(lx*SCALE)+' '+y0+'V'+y1+'H'+Math.min(b.pw,e*SCALE)+'V'+y0+'Z';
+      lx=e;
+    }
+  }
+  b.el.style.webkitClipPath=b.el.style.clipPath='path("'+p+'")';
+}
+function updateBurns(now){
+  for(let k=0;k<burnables.length;k++){
+    const b=burnables[k];
+    if(b.dead)continue;
+    if(!b.el.isConnected){b.dead=true;b.el._burn=null;continue;} // closed by hand mid-burn
+    if(!b.clipDirty||now-b.last<CLIP_MS)continue;
+    b.last=now;flushClip(b);
+  }
+}
+// Too much of the window is gone to hold together: shed the rest of the
+// footprint as ash and embers and take the window (and its taskbar button) out.
+function collapseBurnable(b){
+  if(b.dead)return;
+  b.dead=true;
+  for(const i of _winMaskCells){ // every stamped window cell, not the whole grid
+    if(maskOwner[i]!==b.id)continue;
+    maskOwner[i]=0;
+    if(grid[i]!==MASK)continue;
+    const x=i%W,y=(i/W)|0,rn=Math.random();
+    setMat(x,y,rn<0.14?ASH:rn<0.20?(b.kind?SMOKE:FIRE):EMPTY);
+  }
+  const el=b.el;el._burn=null;
+  if(window.__closeWindowEl)window.__closeWindowEl(el);else el.remove();
+  _winMaskHash=''; // the survivors need a fresh stamp
+}
+// reset / resize: every window comes back whole
+function clearAllBurns(){
+  for(const b of burnables){
+    b.dead=true;
+    if(b.char&&b.char.parentNode)b.char.remove();
+    if(b.el){
+      b.el._burn=null;
+      b.el.style.webkitClipPath=b.el.style.clipPath='';
+    }
+  }
+  burnables.length=0;
+  maskOwner.fill(0);
+  _winMaskCells.length=0;_winMaskHash='';
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2983,9 +3452,10 @@ function paintUnits(cx,cy,b,m){
   }
 }
 
-function paint(cx,cy,pm){
+// pb overrides the HUD brush radius — the rogue cursors each carry their own
+function paint(cx,cy,pm,pb){
   const m=(pm===undefined)?curMat:pm;
-  const b=+document.getElementById('brushSlider').value;
+  const b=(pb===undefined)?+document.getElementById('brushSlider').value:pb;
   if(m===BIRD){
     // throttle: don't carpet-bomb on every mousemove event
     const want=Math.max(1,Math.floor(b*0.4));
@@ -3091,13 +3561,14 @@ function selectMat(m){
   curMat=m;
   document.querySelectorAll('.mat-opt').forEach(o=>o.classList.remove('active'));
   const t=document.querySelector(`.mat-opt[data-mat="${m}"]`);if(t)t.classList.add('active');
+  refreshMatTag();   // the tag trailing your cursor names the loaded material
 }
 document.querySelectorAll('.mat-opt').forEach(el=>el.addEventListener('click',()=>selectMat(+el.dataset.mat)));
 document.addEventListener('keydown',e=>{
   const k={'1':SAND,'2':WATER,'3':FIRE,'4':STONE,'5':PLANT,'6':ACID,'7':OIL,
            '8':POLLEN,'9':MOSS,'g':SEED,'0':EMPTY,
            'w':WOOD,'l':LEAF,'b':BRICK,'t':THATCH,'r':BERRY,'i':BIRD,
-           'f':FUSE,'x':BOMB};
+           'f':FUSE,'x':BOMB,'e':STEAM,'v':LAVA};
   if(k[e.key]!==undefined)selectMat(k[e.key]);
   if(e.key===' '){e.preventDefault();togglePhysics();}
 });
@@ -3164,7 +3635,7 @@ const bctx=birdCanvas.getContext('2d');
 function spawnBird(x,y){
   if(birds.length>=BIRD_MAX)return;
   const a=Math.random()*Math.PI*2;
-  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0});
+  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0,fed:0});
 }
 
 // terrain birds avoid colliding with — any solid stamp counts
@@ -3239,9 +3710,10 @@ function updateBoids(){
     if(isSolidForBird(lookX,lookY)){
       ax-=b.vx*0.4;ay-=b.vy*0.4;ay-=0.35;
     }
-    // also avoid fire below
-    if(grid[idx(Math.max(0,Math.min(W-1,b.x|0)),Math.max(0,Math.min(H-1,(b.y+3)|0)))]===FIRE){
-      ay-=0.6;
+    // also avoid fire and open melt below
+    {
+      const hm=grid[idx(Math.max(0,Math.min(W-1,b.x|0)),Math.max(0,Math.min(H-1,(b.y+3)|0)))];
+      if(hm===FIRE||hm===LAVA)ay-=0.6;
     }
     // soft bounds — keep birds in the upper two-thirds and away from walls
     if(b.x<8)ax+=0.12;
@@ -3264,6 +3736,28 @@ function updateBoids(){
     if(b.x>W-2){b.x=W-2;b.vx=-Math.abs(b.vx);}
     if(b.y<1){b.y=1;b.vy=Math.abs(b.vy);}
     if(b.y>H-2){b.y=H-2;b.vy=-Math.abs(b.vy);}
+    forage(b);
+  }
+}
+
+// A berry brushed in flight gets eaten; a few seconds later the bird drops the
+// pip wherever the flock has drifted to. Plants fruit on their own, so the
+// birds close the loop: thicket → berry → bird → seed → thicket, somewhere else.
+const PECK=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
+function forage(b){
+  const sx=b.x|0,sy=b.y|0;
+  if(b.fed>0){
+    if(--b.fed===0&&eFree(sx,sy+1))setMat(sx,sy+1,SEED);
+    return;
+  }
+  if(sx<1||sx>=W-1||sy<1||sy>=H-1)return;
+  for(const[ox,oy]of PECK){
+    const px=sx+ox,py=sy+oy,pi=idx(px,py);
+    if(grid[pi]!==BERRY)continue;
+    grid[pi]=EMPTY;variant[pi]=0;frozen[pi]=0;
+    updated[pi]=frameId;wake3(px,py);pixDirty(px,py);
+    b.fed=200+(Math.random()*280|0);
+    return;
   }
 }
 
@@ -3309,7 +3803,7 @@ function drawBirds(){
    zoomies with playful hops.
 ═══════════════════════════════════════════════════════ */
 const cats=[];
-function isAvoidForCat(m){return m===WATER||m===OIL||m===ACID||m===FIRE||m===SMOKE;}
+function isAvoidForCat(m){return m===WATER||m===OIL||m===ACID||m===FIRE||m===SMOKE||m===LAVA||m===STEAM;}
 // MASK is invisible HTML-collision — cats shouldn't stand on the title letters
 function isSupportForCat(m){return m!==EMPTY&&m!==MASK&&!isAvoidForCat(m);}
 // surface y at column x: first cell from the top whose contents would
@@ -3547,6 +4041,9 @@ let resizeTimer=null;
 window.addEventListener('resize',()=>{
   clearTimeout(resizeTimer);
   resizeTimer=setTimeout(()=>{
+    // a hidden/collapsed viewport reports 0, which would floor the grid to 0x0
+    // and blank the canvas until the next resize — keep the current world
+    if(!window.innerWidth||!window.innerHeight)return;
     computeDims();allocArrays();allocChunks();allocTexture();allocLight();
     spawnContent();buildBodies();syncBrushRing();
   },200);
@@ -3584,9 +4081,11 @@ function loop(ts){
     applyHoverFreeze();
   }
   lastSim=ts;
+  updateBurns(ts); // push fresh burn holes into the DOM even while paused
   renderAll();
   drawBirds();
   drawCats();
+  updateEvil();
   updateStats(ts);
   requestAnimationFrame(loop);
 }
@@ -3754,24 +4253,40 @@ requestAnimationFrame(loop);
         <a class="ic" data-launch="rsg"><span class="ic-img">⚙</span><span>RemoteSvcGW</span></a>
       </div>
     `},
-    awards: { title:'Awards', icon:'📁', theme:'arcade', html:`
-      <h2>📁 Awards</h2>
-      <p>Hackathon-winning prototypes and a GDC-finalist installation.</p>
-      <div class="award-list">
-        <a class="award-row" data-launch="catiator"><span class="award-icon">🐱</span><span class="award-info"><span class="award-event">Stanford TreeHacks 2021</span><span class="award-prize">🏆 Moonshot Prize · Best Hackathon Project</span><span class="award-title">Catiator</span></span></a>
-        <a class="award-row" data-launch="intarnet"><span class="award-icon">🌐</span><span class="award-info"><span class="award-event">CMU TartanHacks 2021</span><span class="award-prize">🏆 Scott Krulcik Grand Prize</span><span class="award-title">IntARnet</span></span></a>
-        <a class="award-row" data-launch="larp"><span class="award-icon">🍄</span><span class="award-info"><span class="award-event">HooHacks 2021</span><span class="award-prize">🏆 Best Art &amp; Gaming Hack</span><span class="award-title">lARp</span></span></a>
-        <a class="award-row" data-launch="snaptrap"><span class="award-icon">🪤</span><span class="award-info"><span class="award-event">Game Developers Conference 2026</span><span class="award-prize">🏆 Alt.Ctrl.GDC Finalist</span><span class="award-title">Snaptrap</span></span></a>
-      </div>
+    awards: { title:'Awards', icon:'🏆', theme:'index', html:`
+      <h2>Awards</h2>
+      <div class="sub">Hackathon wins &amp; a GDC exhibition</div>
+      <div class="meta">4 projects · 2021–2026</div>
+      <p>Three of these were built over a single weekend each, all inside the spring of 2021. The fourth is a physical installation and took considerably longer.</p>
+      <h3>Hackathons</h3>
+      <ul>
+        <li><b><a data-launch="catiator">Catiator</a></b> — Moonshot Prize · Best Hackathon Project, Stanford TreeHacks 2021. VR sign-language trainer: fingerspell the ASL alphabet to fend off chonky cat gladiators.</li>
+        <li><b><a data-launch="intarnet">IntARnet</a></b> — Scott Krulcik Grand Prize, CMU TartanHacks 2021. Social posts nailed to real-world coordinates — the timeline is the sidewalk.</li>
+        <li><b><a data-launch="larp">lARp</a></b> — Best Art &amp; Gaming Hack, HooHacks 2021. GPT-3 mushrooms you can fight or befriend; your step count is the XP bar.</li>
+      </ul>
+      <h3>Exhibitions</h3>
+      <ul>
+        <li><b><a data-launch="snaptrap">Snaptrap</a></b> — Alt.Ctrl.GDC Finalist, Game Developers Conference 2026. A room-sized Venus flytrap: you play the fly, it plays the trap.</li>
+      </ul>
+      <p><b>Select a name to open its write-up.</b></p>
+      <div class="tags"><span class="tag">VR</span><span class="tag">AR</span><span class="tag">Unity</span><span class="tag">GPT-3</span><span class="tag">Alt-control</span></div>
     `},
-    games: { title:'Games', icon:'🎮', theme:'arcade', html:`
-      <h2>🎮 Games</h2>
-      <p>Jam games and student projects. Double-click to explore.</p>
-      <div class="award-list">
-        <a class="award-row" data-launch="retrovirus-vr"><span class="award-icon">💾</span><span class="award-info"><span class="award-title">RetroVirus VR</span><span class="award-event">VR Jam 2020</span></span></a>
-        <a class="award-row" data-launch="songbird"><span class="award-icon">🎷</span><span class="award-info"><span class="award-title">Songbird</span><span class="award-event">GMTK Jam 2020</span></span></a>
-        <a class="award-row" data-launch="nira"><span class="award-icon">🪄</span><span class="award-info"><span class="award-title">Nira</span><span class="award-event">EECS 494 · UMich</span></span></a>
-      </div>
+    games: { title:'Games', icon:'🎮', theme:'index', html:`
+      <h2>Games</h2>
+      <div class="sub">Jam games &amp; a student project</div>
+      <div class="meta">3 titles · Unity · all free to play</div>
+      <p>Two came out of game jams; one out of a semester of EECS 494 at Michigan.</p>
+      <h3>Game Jams</h3>
+      <ul>
+        <li><b><a data-launch="retrovirus-vr">RetroVirus VR</a></b> — VR Jam 2020 · SteamVR. Telekinetic prison break: rip the guards' guns out of the air and grapple through the walls.</li>
+        <li><b><a data-launch="songbird">Songbird</a></b> — GMTK Jam 2020 · PC / Mac. Bullet hell where every spell is a melody on the numpad; flub the notes and your saxophone takes the damage.</li>
+      </ul>
+      <h3>Coursework</h3>
+      <ul>
+        <li><b><a data-launch="nira">Nira</a></b> — EECS 494, University of Michigan · PC / Mac. A girl, a hoverstaff named Kane, and a grandfather who left something at the observatory.</li>
+      </ul>
+      <p><b>Select a name to open its write-up</b> — or play them on itch.io: <a href="https://trisol.itch.io" target="_blank" rel="noopener">trisol.itch.io</a> · <a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">starvingdevs.itch.io</a>.</p>
+      <div class="tags"><span class="tag">Unity</span><span class="tag">VR</span><span class="tag">Bullet Hell</span><span class="tag">Action-Adventure</span><span class="tag">Game Jam</span></div>
     `},
     'retrovirus-vr': { title:'RetroVirus VR', icon:'💾', theme:'arcade', html:`
       <h2>RetroVirus VR</h2>
@@ -4293,9 +4808,580 @@ requestAnimationFrame(loop);
     focusWindow(win);
   }
 
+  // the sim calls this when a window has burned past saving, so the taskbar
+  // button goes with it and the panel can be relaunched from scratch
+  window.__closeWindowEl = function(el){
+    for(const [id, info] of openWindows){
+      if(info.el===el){ if(info.taskBtn) info.taskBtn.remove(); openWindows.delete(id); break; }
+    }
+    el.remove();
+  };
+
   // open Overview at boot so people see the directory right away
   setTimeout(()=>launchPanel('overview'), 200);
 })();
+
+/* ═══════════════════════════════════════════════════════
+   EVIL CHEST — "DO NOT OPEN"
+   A chained, padlocked chest sits in the pine grove, twitching.
+   Clicking it unlatches the lid and lets loose a pack of rogue
+   cursors: each one flies up to the Materials window, hovers a
+   random material and clicks it, then scribbles that material
+   across the world with its own brush size. They wander for a
+   while, swap materials a few times, then flee off-screen and
+   the chest latches itself shut again. Clicking the OPEN chest
+   banishes the pack early.
+
+   The chest is a sprite on the same canvas as the birds and the
+   cat — one sprite pixel per sim cell, no DOM, no filters — so it
+   sits in the world's pixel layer rather than on top of it. Only
+   the cursors are DOM, because they have to visit real menu rows;
+   their painting converts back to sim cells against the canvas
+   rect and reuses paint() with a per-cursor brush override.
+═══════════════════════════════════════════════════════ */
+const evilCursorLayer=document.getElementById('evilCursors');
+// standing in the pine grove, clear of the pond (which ends at 0.795W) and
+// placed so a pine still shows either side of it
+const EVIL_CHEST_AT=0.90;
+// sized against the scenery — the cottage is 26x24 cells and the pines 15x22,
+// so 30x27 reads as the biggest thing in the clearing without being absurd
+const EVIL_W=30,EVIL_H=27;
+const EVIL_FEET=26;         // sprite row that sits on the ground
+const EVIL_PAD=8;           // headroom above row 0 for the lid to swing into
+const EVIL_BH=EVIL_H+EVIL_PAD;
+const evilCursors=[];
+let evilOpen=false,evilArming=false;
+let evilOpenT=0,evilTick=0,evilDirty=true;
+let evilSX=-999,evilSY=-999;   // sprite origin in sim cells
+let evilShakeT=0,evilTwitchT=200,evilBurstT=0;
+
+/* ── pixel art ────────────────────────────────────────────
+   The chest is drawn as MATERIALS, not colours: every cell picks a sim
+   material + variant, and the sprite is coloured through matTexel — the same
+   palette, jitter and micro-texture the world is painted with. So its planks
+   are the timber the cottage is built from, its bands are stone, its warning
+   board is thatch and its eyes are fire. */
+const EC={
+  wood:WOOD, woodLit:2, woodShade:1, woodDeep:3,    // variant = shade index
+  iron:STONE, ironLit:ASH, ironDark:BODY,
+  board:THATCH, ink:BERRY,
+  glow:FIRE, ember:LAVA, dark:BODY, bone:SAND, moss:MOSS
+};
+// 3x5 pixel glyphs — only the letters "DO NOT OPEN" needs
+const EVIL_FONT={
+  D:[0b110,0b101,0b101,0b101,0b110],
+  O:[0b111,0b101,0b101,0b101,0b111],
+  N:[0b101,0b111,0b111,0b111,0b101],
+  T:[0b111,0b010,0b010,0b010,0b010],
+  P:[0b111,0b101,0b111,0b100,0b100],
+  E:[0b111,0b100,0b110,0b100,0b111],
+  ' ':[0,0,0,0,0]
+};
+// lid silhouette (rows 0-9): the arch narrows toward the crown
+function evilLidSpan(r){
+  const s=[[10,19],[7,22],[5,24],[3,26],[2,27]];
+  return r<s.length?s[r]:[1,28];
+}
+// the sprite is rendered once into an offscreen buffer and blitted onto the
+// bird canvas every frame, so a redraw only happens when the chest changes
+let evilCtx=null,evilImg=null;
+const evilMat=new Uint8Array(EVIL_W*EVIL_BH);
+const evilVar=new Uint8Array(EVIL_W*EVIL_BH);
+function drawEvilChest(){
+  const g=evilCtx;
+  if(!g)return;
+  evilMat.fill(0);evilVar.fill(0);
+  const o=evilOpenT;                       // 0 = latched, 1 = wide open
+  // Hinging the lid back = squash it toward its own top edge and lift it clear.
+  // Both are whole-cell, so every row still lands on the grid — shearing it
+  // into a parallelogram read as a broken sprite.
+  const lift=Math.round(o*3), sq=1-0.35*o;
+  const lidY=r=>Math.round(r*sq)-lift;
+  // sprite rows are chest-relative; the buffer carries EVIL_PAD rows of sky
+  // above row 0 so the lid has somewhere to go
+  const px=(x,y,m,v)=>{
+    if(x<0||x>=EVIL_W||y<-EVIL_PAD||y>=EVIL_H)return;
+    const i=(y+EVIL_PAD)*EVIL_W+x;evilMat[i]=m;evilVar[i]=v||0;
+  };
+  const row=(x0,x1,y,m,v)=>{for(let x=x0;x<=x1;x++)px(x,y,m,v);};
+  const box=(x0,y0,x1,y1,m,v)=>{for(let y=y0;y<=y1;y++)row(x0,x1,y,m,v);};
+  // chain + lock dissolve pixel by pixel as the lid comes up
+  const held=(x,y)=>o<=0||(hash2i(x+31,y*7)%997)/997>o;
+  // one 2-wide iron band, flat — the scenery sprites don't shade finer than this
+  const strap=(x0,y,dx)=>{px(x0+dx,y,EC.iron);px(x0+1+dx,y,EC.ironDark);};
+  // 2-row run of links: light/dark alternating pairs read as interlocking rings
+  const chain=(x0,x1,y,dx)=>{
+    for(let x=x0;x<=x1;x++){
+      if(!held(x,y))continue;
+      const a=((x-x0)&3)<2;
+      px(x+dx,y,a?EC.ironLit:EC.iron);
+      px(x+dx,y+1,a?EC.iron:EC.ironLit);
+    }
+  };
+
+  /* ── the maw: the gap between the hinged lid and the body ── */
+  if(o>0){
+    box(2,lidY(9)+1,27,10,EC.dark);
+    for(let x=4;x<26;x+=2)if(Math.random()>0.35)px(x,10,EC.ember);
+  }
+
+  /* ── lid (rows 0-9) ── */
+  for(let r=0;r<=9;r++){
+    const [x0,x1]=evilLidSpan(r);
+    const y=lidY(r);
+    if(r===0||r===9){row(x0,x1,y,WOOD,EC.woodDeep);continue;}
+    row(x0,x1,y,WOOD,r<=2?EC.woodLit:0);                 // one lit band, then base
+    px(x0,y,WOOD,EC.woodDeep);px(x1,y,WOOD,EC.woodDeep);
+    if(r>=2){strap(4,y,0);strap(24,y,0);}                // straps arc over the lid
+  }
+
+  /* ── body (rows 10-24) ── */
+  row(1,28,10,WOOD,EC.woodDeep);
+  box(1,11,28,24,WOOD,0);
+  for(let y=11;y<=24;y++){px(1,y,WOOD,EC.woodDeep);px(28,y,WOOD,EC.woodDeep);}
+  for(let y=11;y<=24;y++){strap(4,y,0);strap(24,y,0);}
+  row(1,28,25,WOOD,EC.woodDeep);                         // foot rail
+
+  /* ── warning board nailed across the front ── */
+  box(2,12,27,24,EC.board);
+  row(2,27,12,EC.board,3);row(2,27,24,EC.board,3);
+  for(let y=12;y<=24;y++){px(2,y,EC.board,3);px(27,y,EC.board,3);}
+  const word=(s,sx,sy)=>{
+    for(let i=0;i<s.length;i++){
+      const gl=EVIL_FONT[s[i]];
+      if(!gl)continue;
+      for(let r=0;r<5;r++)for(let c=0;c<3;c++)
+        if(gl[r]&(4>>c))px(sx+i*4+c,sy+r,EC.ink,3);
+    }
+  };
+  word('DO NOT',3,14);       // 6 glyphs -> 23 wide, centred in the board
+  word('OPEN',7,20);         // 4 glyphs -> 15 wide
+
+  /* ── chain + padlock ── */
+  chain(2,27,10,0);
+  if(o<1){
+    const drop=Math.round(o*o*18);                       // the lock falls away
+    const lk=(x,y,m,v)=>{if(held(x,y))px(x,y+drop,m,v);};
+    // the lock straddles the lid seam and stops clear of the warning board
+    for(let x=14;x<=15;x++)lk(x,lidY(4),EC.iron);        // shackle rides the lid
+    for(const x of [13,16])for(let y=5;y<=7;y++)lk(x,lidY(y),EC.iron);
+    for(let y=7;y<=11;y++)for(let x=12;x<=17;x++)
+      lk(x,y,(y===7||y===11||x===12||x===17)?EC.ironDark:EC.iron);
+    lk(14,9,EC.dark);lk(15,9,EC.dark);                   // keyhole
+  }
+
+  /* ── colour it through the world's palette, under the world's light ──
+     matTexel gives the raw material colour; the shader then multiplies every
+     particle by the ambient day factor and posterizes it to 8 levels. Doing
+     the same here is what keeps the chest from glowing on a night meadow. */
+  if(!evilImg)evilImg=g.createImageData(EVIL_W,EVIL_BH);
+  const d=evilImg.data;
+  const amb=0.16+0.84*dayFactor();
+  for(let y=0;y<EVIL_BH;y++)for(let x=0;x<EVIL_W;x++){
+    const i=y*EVIL_W+x, o4=i*4;
+    matTexel(evilMat[i],evilVar[i],evilSX+x,evilSY+y-EVIL_PAD,d,o4);
+    if(!d[o4+3])continue;
+    for(let k=0;k<3;k++){
+      const lv=Math.floor((d[o4+k]/255)*amb*7.99)/7;
+      d[o4+k]=Math.min(255,Math.round(lv*255));
+    }
+  }
+  g.putImageData(evilImg,0,0);
+  evilDirty=false;
+}
+
+/* ── placement: the chest sits on the forest floor ────── */
+// the SOIL line at a column, not the canopy: bushes, flowers, trunks and
+// leaves all stand on the ground, so skipping them is what stops the chest
+// perching on top of a shrub
+function evilSoilY(x){
+  if(x<0||x>=W)return H;
+  for(let y=0;y<H;y++){
+    const m=grid[idx(x,y)];
+    if(m===DIRT||m===GRASS||m===SAND||m===STONE||m===MOSS||m===ASH||m===BRICK)return y;
+  }
+  return H;
+}
+function placeEvilChest(){
+  if(!W||!H)return;
+  evilSX=Math.max(4,Math.min(W-EVIL_W-1,Math.round(W*EVIL_CHEST_AT)-(EVIL_W>>1)));
+  // median soil height across the footprint: a lone dip or mound doesn't tip it
+  const gs=[];
+  for(let x=evilSX+2;x<=evilSX+EVIL_W-3;x++)gs.push(Math.min(H-1,evilSoilY(x)));
+  gs.sort((a,b)=>a-b);
+  const gy=gs.length?gs[gs.length>>1]:H-1;
+  // The near plane isn't sim particles at all — the shader lays a turf berm
+  // over the bottom of the frame, cresting a cell above the taskbar (uBar) and
+  // ragged from there. Down here that berm IS the ground you see, so the chest
+  // stands on its lowest crest line; on a rise the soil wins instead.
+  const bermTop=H-Math.ceil(TASKBAR_PX/SCALE)-1;
+  evilSY=Math.min(gy-EVIL_FEET+2,bermTop-(EVIL_FEET-1));
+}
+// invisible collision under the chest body so sand piles on the lid
+function stampEvilChestMask(){
+  if(!W||!H||evilSX<0)return;
+  for(let y=evilSY;y<=evilSY+EVIL_FEET-1;y++)for(let x=evilSX+1;x<=evilSX+28;x++){
+    if(x<0||x>=W||y<0||y>=H)continue;
+    if(y<evilSY+10){                // the arched lid: skip the sky either side
+      const [lx0,lx1]=evilLidSpan(y-evilSY);
+      if(x<evilSX+lx0||x>evilSX+lx1)continue;
+    }
+    const i=idx(x,y);
+    if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
+  }
+}
+// is this sim cell on the chest? (used for click + hover)
+function evilChestHit(sx,sy){
+  if(evilSX<0)return false;
+  const x=sx-evilSX,y=sy-evilSY;
+  if(x<1||x>28||y<0||y>EVIL_FEET)return false;
+  if(y<10){const [a,b]=evilLidSpan(y);return x>=a&&x<=b;}
+  return true;
+}
+/* ── blit onto the world's sprite layer ───────────────── */
+function drawEvilChestSprite(){
+  if(!evilCtx||evilSX<0||birdCanvas.width!==W)return;
+  // whole-cell offsets, held for a few frames each: flipping every frame just
+  // reads as a blur, and anything sub-cell would break the pixel grid
+  let jx=0,jy=0;
+  if(evilShakeT>0){                              // rattling before it bursts open
+    const k=((evilShakeT/3)|0)&3;
+    jx=(k===0||k===3)?-1:1;
+    jy=(k===1)?-1:0;
+  }else if(evilTwitchT<8&&!evilOpen){            // the odd restless shudder
+    jx=(((evilTwitchT/4)|0)&1)?1:-1;
+  }
+  bctx.drawImage(evilCtx.canvas,evilSX+jx,evilSY-EVIL_PAD+jy);
+  if(evilBurstT>0){                              // pixel shockwave off the lid
+    const cx=evilSX+15,cy=evilSY+6,r=(26-evilBurstT)*1.0;
+    const col=matColor(evilBurstT>16?LAVA:FIRE,0);
+    bctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+    for(let a=0;a<38;a++){
+      const t=a/38*Math.PI*2;
+      bctx.fillRect(Math.round(cx+Math.cos(t)*r*1.5),Math.round(cy+Math.sin(t)*r),1,1);
+    }
+  }
+}
+
+/* ── material pool: read straight off the Materials window ── */
+const EVIL_RARE=new Set([3,30,6,28]); // fire/lava/acid/bomb — funnier when rare
+function evilRows(){
+  return [...document.querySelectorAll('#matPicker .mat-opt')].filter(o=>+o.dataset.mat!==0);
+}
+function evilPickRow(){
+  const rows=evilRows();
+  if(!rows.length)return null;
+  for(let t=0;t<8;t++){
+    const r=rows[Math.random()*rows.length|0];
+    if(EVIL_RARE.has(+r.dataset.mat)&&Math.random()<0.75)continue;
+    return r;
+  }
+  return rows[0];
+}
+function evilRowInfo(row){
+  const dot=row.querySelector('.mat-dot');
+  return {
+    mat:+row.dataset.mat,
+    name:(row.textContent||'').replace(/\s*\[.\]\s*$/,'').trim(),
+    color:dot?dot.style.background:'#fff'
+  };
+}
+
+/* ── the cursors ──────────────────────────────────────── */
+// the stock arrow, pixel for pixel, at 2x so it reads at desktop size
+const EVIL_ARROW=[
+  'X..........',
+  'XX.........',
+  'XWX........',
+  'XWWX.......',
+  'XWWWX......',
+  'XWWWWX.....',
+  'XWWWWWX....',
+  'XWWWWWWX...',
+  'XWWWWWWWX..',
+  'XWWWWWWWWX.',
+  'XWWWWWXXXXX',
+  'XWWXWWX....',
+  'XWX.XWWX...',
+  'XX..XWWX...',
+  'X....XWWX..',
+  '.....XWWX..',
+  '......XX...'
+];
+function evilArrowCanvas(z){
+  z=z||2;                                  // baked in, so nothing is CSS-scaled
+  const c=document.createElement('canvas');
+  c.width=11*z;c.height=17*z;
+  const g=c.getContext('2d');
+  for(let y=0;y<EVIL_ARROW.length;y++)for(let x=0;x<EVIL_ARROW[y].length;x++){
+    const ch=EVIL_ARROW[y][x];
+    if(ch==='.')continue;
+    g.fillStyle=ch==='X'?'#000':'#fdfdfd';
+    g.fillRect(x*z,y*z,z,z);
+  }
+  return c;
+}
+function spawnEvilCursor(hold){
+  const cr=canvas.getBoundingClientRect();
+  const originX=cr.left+(evilSX+15)*SCALE, originY=cr.top+(evilSY+6)*SCALE;
+  const el=document.createElement('div');
+  el.className='evil-cursor';
+  el.style.opacity='0';
+  el.innerHTML=`<span class="mat-tag"><i></i><b>…</b></span>`;
+  el.insertBefore(evilArrowCanvas(),el.firstChild);
+  evilCursorLayer.appendChild(el);
+  const c={
+    el, tag:el.querySelector('.mat-tag'),
+    x:originX+(Math.random()*24-12),
+    y:originY,
+    vx:(Math.random()*2-1)*7, vy:-4-Math.random()*4,
+    tx:0, ty:0, phase:'hold', t:0, hold:hold|0,
+    mat:1, brush:2+Math.random()*4|0,
+    row:null, strokes:0, want:2+Math.random()*4|0,
+    life:1200+Math.random()*800|0, lx:-1, ly:-1,
+    wob:0.9+Math.random()*1.8, wobT:Math.random()*6.28, speed:5+Math.random()*4
+  };
+  evilCursors.push(c);
+  evilDrawCursor(c);
+}
+function evilDrawCursor(c){
+  c.el.style.transform=`translate(${c.x.toFixed(1)}px,${(c.y+(c.press||0)).toFixed(1)}px)`;
+}
+function evilSeek(c,speed){
+  const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.hypot(dx,dy);
+  if(d<2.5){c.x=c.tx;c.y=c.ty;return true;}
+  const s=Math.min(speed,d);
+  c.x+=dx/d*s;c.y+=dy/d*s;
+  return false;
+}
+function evilRoam(cr){
+  return {x:cr.left+24+Math.random()*Math.max(40,cr.width-48),
+          y:cr.top+cr.height*0.14+Math.random()*cr.height*0.66};
+}
+function evilClearRow(c){
+  if(c.row){c.row.classList.remove('evil-pick','evil-click');c.row=null;}
+}
+function evilTakeMaterial(c,row){
+  const info=row?evilRowInfo(row):{mat:1,name:'sand',color:'#cda852'};
+  c.mat=info.mat;
+  c.tag.querySelector('i').style.background=info.color;
+  c.tag.querySelector('b').textContent=info.name;
+}
+// stroke interpolation, per cursor — mirrors paintStroke but with its own
+// last-position latch and brush so the pack doesn't fight over the HUD state
+function evilPaint(c,cr){
+  const sx=Math.floor((c.x-cr.left)/SCALE),sy=Math.floor((c.y-cr.top)/SCALE);
+  if(sx<0||sx>=W||sy<0||sy>=H){c.lx=-1;return;}
+  if(c.lx<0){paint(sx,sy,c.mat,c.brush);}
+  else{
+    const dx=sx-c.lx,dy=sy-c.ly,dist=Math.max(Math.abs(dx),Math.abs(dy));
+    const step=Math.max(1,c.brush>>1);
+    if(dist<=step)paint(sx,sy,c.mat,c.brush);
+    else{
+      const n=Math.ceil(dist/step);
+      for(let k=1;k<=n;k++)paint(Math.round(c.lx+dx*k/n),Math.round(c.ly+dy*k/n),c.mat,c.brush);
+    }
+  }
+  c.lx=sx;c.ly=sy;
+}
+function updateEvilCursors(){
+  if(!evilCursors.length)return;
+  const cr=canvas.getBoundingClientRect();
+  for(let i=evilCursors.length-1;i>=0;i--){
+    const c=evilCursors[i];
+    c.t++;
+    if(c.life>0)c.life--;
+
+    switch(c.phase){
+      case 'hold':                       // staggered burst out of the chest
+        if(c.hold-->0)break;
+        c.el.style.opacity='1';
+        c.phase='burst';c.t=0;
+        break;
+
+      case 'burst':                      // ballistic pop, then off to the menu
+        c.x+=c.vx;c.y+=c.vy;c.vy+=0.55;c.vx*=0.97;
+        if(c.t>16){c.phase='toMenu';evilAimAtMenu(c);}
+        break;
+
+      case 'toMenu':
+        if(evilSeek(c,c.speed+2)){
+          c.phase='pick';c.t=0;
+          if(c.row)c.row.classList.add('evil-pick');
+        }
+        break;
+
+      case 'pick':                       // hover the row, click it, take the material
+        if(c.t===14&&c.row)c.row.classList.add('evil-click');
+        c.press=(c.t>=14&&c.t<20)?2:0;   // the little downward jab of a click
+        if(c.t>=24){
+          evilTakeMaterial(c,c.row||c.pending);
+          c.pending=null;
+          evilClearRow(c);
+          c.phase='draw';c.lx=-1;c.strokes=0;
+          c.want=2+Math.random()*4|0;
+          const p=evilRoam(cr);c.tx=p.x;c.ty=p.y;
+        }
+        break;
+
+      case 'draw':{                      // scribble: seek the target, wiggling
+        const arrived=evilSeek(c,c.speed);
+        c.wobT+=0.24;
+        const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.hypot(dx,dy)||1;
+        c.x+=(-dy/d)*Math.sin(c.wobT)*c.wob;
+        c.y+=( dx/d)*Math.sin(c.wobT)*c.wob;
+        evilPaint(c,cr);
+        if(arrived){
+          c.strokes++;
+          if(c.life<=0){c.phase='flee';c.el.style.opacity='0';c.t=0;evilFleeTarget(c);}
+          else if(c.strokes>=c.want){c.phase='toMenu';c.lx=-1;evilAimAtMenu(c);}
+          else{const p=evilRoam(cr);c.tx=p.x;c.ty=p.y;}
+        }
+        break;
+      }
+
+      case 'flee':
+        evilSeek(c,11);
+        if(c.t>40)c.dead=true;
+        break;
+    }
+
+    evilDrawCursor(c);
+    if(c.dead){evilClearRow(c);c.el.remove();evilCursors.splice(i,1);}
+  }
+  if(!evilCursors.length&&evilOpen)closeEvilChest();
+}
+function evilAimAtMenu(c){
+  const row=evilPickRow();
+  const picker=document.getElementById('matPicker');
+  const r=row?row.getBoundingClientRect():null;
+  if(r&&r.width>2&&r.height>2){
+    c.row=row;
+    c.tx=r.left+r.width*0.45+(Math.random()*10-5);
+    c.ty=r.top+r.height*0.5;
+  }else{
+    // menu collapsed or off-screen: nudge the picker chrome and pick blind
+    const pr=picker.getBoundingClientRect();
+    c.row=null;c.pending=row;
+    c.tx=pr.left+pr.width*0.5;c.ty=pr.top+pr.height*0.5;
+  }
+  c.lx=-1;
+}
+function evilFleeTarget(c){
+  const side=Math.random();
+  c.tx=side<0.5?-60:window.innerWidth+60;
+  c.ty=c.y+(Math.random()*200-100);
+}
+
+/* ── opening / closing ────────────────────────────────── */
+function openEvilChest(){
+  if(evilOpen||evilArming)return;
+  evilArming=true;
+  evilShakeT=38;                                 // rattle, then burst
+  setTimeout(()=>{
+    evilShakeT=0;evilBurstT=26;
+    evilOpen=true;evilArming=false;
+    const n=window.innerWidth<900?4:6;
+    for(let k=0;k<n;k++)spawnEvilCursor(k*7);
+  },640);
+}
+function closeEvilChest(){evilOpen=false;}
+function toggleEvilChest(){
+  if(evilOpen||evilCursors.length)banishEvilCursors();
+  else openEvilChest();
+}
+// per-frame: ease the lid open/shut, run the blink + fidget timers
+function updateEvil(){
+  const want=evilOpen?1:0;
+  if(evilOpenT!==want){
+    evilOpenT+=Math.sign(want-evilOpenT)*(want?0.055:0.035);
+    if(Math.abs(want-evilOpenT)<0.03)evilOpenT=want;
+    evilDirty=true;
+  }
+  if(evilShakeT>0)evilShakeT--;
+  if(evilBurstT>0)evilBurstT--;
+  if(--evilTwitchT<0)evilTwitchT=340+(Math.random()*160|0);
+  // the only live pixels are the embers in its throat, so it only needs
+  // re-rendering while it is open — plus a slow tick to follow the day/night
+  // light the rest of the world is shaded by
+  if(--evilTick&7){}else if(evilOpenT>0)evilDirty=true;
+  if((evilTick&31)===0)evilDirty=true;
+  if(evilDirty)drawEvilChest();
+  drawEvilChestSprite();
+  updateEvilCursors();
+}
+function banishEvilCursors(){
+  for(const c of evilCursors){
+    if(c.phase==='flee')continue;
+    evilClearRow(c);
+    c.phase='flee';c.t=0;c.el.style.opacity='0';evilFleeTarget(c);
+  }
+}
+(function(){
+  const cv=document.createElement('canvas');
+  cv.width=EVIL_W;cv.height=EVIL_BH;
+  evilCtx=cv.getContext('2d');
+  drawEvilChest();
+})();
+/* ── clicking the sprite ──────────────────────────────
+   The chest lives on the canvas, so it has to steal the press before the
+   paint handlers get it — capture phase, and only when the cell is actually
+   part of the sprite. */
+canvas.addEventListener('mousedown',e=>{
+  if(e.button!==0||!evilChestHit(...simXY(e)))return;
+  e.stopImmediatePropagation();e.preventDefault();
+  toggleEvilChest();
+},true);
+canvas.addEventListener('touchstart',e=>{
+  if(!evilChestHit(...simXY(e.touches[0])))return;
+  e.stopImmediatePropagation();e.preventDefault();
+  toggleEvilChest();
+},{capture:true,passive:false});
+
+/* ── YOUR cursor gets the same treatment ──────────────
+   The arrow is a real CSS cursor built from the same bitmap, so the pointer
+   never lags behind itself, and the tag that trails it is the same Win95
+   tooltip the rogue cursors carry — it just reads the live material instead
+   of a stolen one. */
+const userTag=document.getElementById('userTag');
+const USER_CURSOR=`url(${evilArrowCanvas().toDataURL()}) 1 1, crosshair`;
+function refreshMatTag(){
+  if(!userTag)return;
+  const rowEl=document.querySelector(`#matPicker .mat-opt[data-mat="${curMat}"]`);
+  const info=rowEl?evilRowInfo(rowEl):{name:'erase',color:'#111'};
+  userTag.querySelector('i').style.background=info.color;
+  userTag.querySelector('b').textContent=info.name;
+}
+// A touch device has no pointer to dress up, and mobile browsers synthesise a
+// mousemove on tap — which would strand the tag under the finger with no
+// mouseleave to ever clear it. So the whole thing is desktop-only.
+const hasFinePointer=!window.matchMedia||window.matchMedia('(hover:hover) and (pointer:fine)').matches;
+if(hasFinePointer){
+  refreshMatTag();
+  canvas.style.cursor=USER_CURSOR;
+  canvas.addEventListener('mousemove',e=>{
+    canvas.style.cursor=evilChestHit(...simXY(e))?'pointer':USER_CURSOR;
+  },true);
+  // tracked on the document, not the canvas: the canvas covers the whole stage,
+  // so hovering a window never fires its mouseleave and the tag would hang there
+  document.addEventListener('mousemove',e=>{
+    const overWorld=e.target===canvas;
+    userTag.style.opacity=overWorld?'1':'0';
+    if(overWorld)userTag.style.transform=`translate(${e.clientX+15}px,${e.clientY+19}px)`;
+  });
+  document.addEventListener('mouseleave',()=>{userTag.style.opacity='0';});
+}else{
+  userTag.style.display='none';
+}
+// place it once the world exists, and again whenever the world is rebuilt
+function refreshEvilChest(){placeEvilChest();stampEvilChestMask();}
+requestAnimationFrame(()=>requestAnimationFrame(refreshEvilChest));
+document.getElementById('btnReset').addEventListener('click',()=>requestAnimationFrame(refreshEvilChest));
+let evilResizeTimer=null;
+window.addEventListener('resize',()=>{
+  clearTimeout(evilResizeTimer);
+  evilResizeTimer=setTimeout(refreshEvilChest,320);
+});
 </script>
 <script src="robot.js" defer></script>
 </body>
