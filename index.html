@@ -45,7 +45,7 @@ html,body{
   color:#fff;font-weight:700;font-size:11px;
   padding:2px 3px 2px 5px;
   display:flex;align-items:center;justify-content:space-between;
-  user-select:none;
+  user-select:none;touch-action:none;
 }
 .win95-title .tbtns{display:flex;gap:2px}
 .win95-title .tbtn{
@@ -55,7 +55,7 @@ html,body{
   font-size:9px;font-weight:700;line-height:9px;text-align:center;
   font-family:'Tahoma','MS Sans Serif',sans-serif;
   display:flex;align-items:center;justify-content:center;
-  padding-bottom:2px;
+  padding-bottom:2px;touch-action:manipulation;
 }
 .win95-body{padding:6px 7px}
 
@@ -346,7 +346,13 @@ html,body{
   content:"";position:absolute;top:-4px;bottom:-4px;left:-16px;width:18px;
   background:transparent;
 }
-.smenu-item:hover > .smenu-sub{display:block}
+/* Hover-to-open is gated behind a real hover pointer: on touch there is no
+   hover, so category rows would open nothing at all. There, a tap sets
+   .is-open on the row instead (see the click handler in the menu builder). */
+@media (hover:hover){ .smenu-item:hover > .smenu-sub{display:block} }
+.smenu-item.smenu-cat.is-open > .smenu-sub{display:block}
+.smenu-item.smenu-cat.is-open{background:#000080;color:#fff}
+.smenu-item.smenu-cat.is-open > .smenu-ico{color:#000080;background:#dfdfdf}
 
 /* ── Floating launched windows ── */
 #windowsLayer{position:absolute;inset:0;pointer-events:none;z-index:8}
@@ -357,8 +363,13 @@ html,body{
   box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 #000;
   font-family:'Tahoma','MS Sans Serif',sans-serif;color:#000;
   display:flex;flex-direction:column;
-  min-width:280px;max-width:560px;
-  width:420px;max-height:70vh;max-height:70dvh;
+  /* Every width is capped against the viewport so a launched window can never
+     hang off the right edge — on a 375px phone the old flat 420px put the whole
+     title bar, close button included, out of reach. */
+  min-width:min(280px, calc(100vw - 16px));
+  max-width:min(560px, calc(100vw - 16px));
+  width:min(420px, calc(100vw - 16px));
+  max-height:70vh;max-height:70dvh;
 }
 /* Scorch overlay for a window that fire, acid or lava has gotten into. Sized to
    the BORDER box (the -2px cancels the 2px chrome border) so its cells line up
@@ -374,6 +385,9 @@ html,body{
   padding:2px 3px 2px 5px;
   display:flex;align-items:center;justify-content:space-between;
   user-select:none;cursor:move;flex-shrink:0;
+  /* the drag handle owns the gesture: without this a title-bar drag on touch
+     also scrolls the page / triggers pull-to-refresh */
+  touch-action:none;
 }
 .win-app.is-focus .win-title{
   background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
@@ -385,7 +399,7 @@ html,body{
   box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
   font-size:9px;font-weight:700;line-height:9px;text-align:center;
   display:flex;align-items:center;justify-content:center;
-  padding-bottom:2px;cursor:pointer;
+  padding-bottom:2px;cursor:pointer;touch-action:manipulation;
 }
 .win-app .win-title .tbtn:active{
   border-color:#000000 #ffffff #ffffff #000000;
@@ -394,6 +408,9 @@ html,body{
 .win-app .win-body{
   padding:10px 12px;overflow-y:auto;font-size:12px;line-height:1.45;
   background:#c0c0c0;flex:1;
+  /* stop a flick that runs past the end of the window from scrolling the page
+     (and on iOS, from rubber-banding the whole document) behind it */
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
 .win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080}
 .win-app .win-body h3{font-size:12px;margin:10px 0 4px;color:#000;font-weight:700}
@@ -748,6 +765,63 @@ html,body{
 @media (hover:none),(pointer:coarse){ #userTag{display:none} }
 .mat-opt.evil-pick{background:#000080;color:#fff}
 .mat-opt.evil-click{background:#b8e000;color:#000}
+
+/* ══ TOUCH + SMALL SCREENS ══
+   Two separate axes, deliberately not merged: pointer coarseness decides how
+   BIG things need to be (a finger is a finger on a tablet too), viewport width
+   decides how much room there is to put them. */
+
+/* ── coarse pointer: grow the hit targets ── */
+@media (hover:none),(pointer:coarse){
+  /* 15x13px title buttons are untappable. Keep the drawn chrome modest but give
+     each button a real finger-sized box. */
+  .win-app .win-title .tbtn,
+  .win95-title .tbtn{
+    width:26px;height:22px;font-size:12px;line-height:12px;padding-bottom:3px;
+  }
+  .win-app .win-title .tbtns,
+  .win95-title .tbtns{gap:4px}
+  .win-app .win-title,
+  .win95-title{padding:3px 3px 3px 6px;font-size:12px}
+  .smenu-item{padding:10px 8px}
+  .mat-opt{padding:5px 4px}
+  .taskbar-start,.taskbar-btn{height:26px;touch-action:manipulation}
+  .win-app.theme-desktop .ic{padding:8px 4px}
+  /* :hover sticks after a tap on touch, leaving rows stuck highlighted */
+  .win-app.theme-desktop .ic:hover{background:transparent;color:#000}
+  .win-app.theme-desktop .ic:hover .ic-img{background:#c0c0c0}
+  .taskbar-btn:hover{background:#c0c0c0}
+  .taskbar-btn.is-active:hover{background:#a8a8a8}
+}
+
+/* ── narrow viewport: fit the furniture ── */
+@media (max-width:600px){
+  .win-app{
+    width:calc(100vw - 12px);
+    max-width:calc(100vw - 12px);
+    min-width:0;
+    /* taskbar is 30px; leave it and a little air clear */
+    max-height:calc(100dvh - 88px);
+  }
+  /* the fixed 130px floor overflowed the bar at two windows open. Buttons now
+     share the space, down to a 44px floor — past that the strip scrolls rather
+     than squeezing them into unreadable slivers. */
+  .taskbar-btn{min-width:44px;max-width:none;flex:1 1 44px;padding:1px 5px}
+  .taskbar-tasks{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+  .taskbar-tasks::-webkit-scrollbar{display:none}
+  .taskbar-clock{padding:2px 5px}
+  .taskbar-sep{margin:0 1px}
+  #matPicker{top:8px;right:8px;width:146px}
+  /* expanded, the 20-row list would run under the taskbar */
+  #matPicker .mat-list{max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain}
+  #startMenu{width:min(240px,calc(100vw - 8px))}
+  .smenu-sub{width:min(220px,calc(100vw - 12px))}
+  /* the hover bridges are dead weight without a hover pointer and only
+     get in the way of taps at this width */
+  .smenu-item.smenu-cat::before,.smenu-sub::before{display:none}
+  #hud{left:6px;right:6px;transform:none;bottom:36px}
+  #hud .win95-body{flex-wrap:wrap;justify-content:center;row-gap:4px}
+}
 </style>
 </head>
 <body>
@@ -3537,6 +3611,7 @@ function release(){if(dragBody){dragBody.dragging=false;dragBody=null;}painting=
 
 canvas.addEventListener('mousedown',e=>{
   const p=simXY(e);
+  if(e.button===0&&evilChestHit(...p)){e.preventDefault();toggleEvilChest();return;}
   if(e.button===0&&grabAt(...p))return;
   painting=true;
   strokeMat=(e.button===2)?EMPTY:curMat; // right button = quick erase
@@ -3547,7 +3622,7 @@ canvas.addEventListener('mousemove',e=>{const p=simXY(e);if(dragBody){dragTo(...
 canvas.addEventListener('mouseup',release);
 canvas.addEventListener('mouseleave',release);
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(grabAt(...p))return;painting=true;strokeMat=curMat;lastPX=-1;lastPY=-1;paintStroke(...p);},{passive:false});
+canvas.addEventListener('touchstart',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(evilChestHit(...p)){toggleEvilChest();return;}if(grabAt(...p))return;painting=true;strokeMat=curMat;lastPX=-1;lastPY=-1;paintStroke(...p);},{passive:false});
 canvas.addEventListener('touchmove',e=>{e.preventDefault();const p=simXY(e.touches[0]);if(dragBody){dragTo(...p);return;}if(painting)paintStroke(...p);},{passive:false});
 canvas.addEventListener('touchend',release);
 canvas.addEventListener('touchcancel',release);
@@ -4121,6 +4196,25 @@ requestAnimationFrame(loop);
   clockEl.addEventListener('click',()=>{dayWarp+=Math.PI;});
   const tasks = new Map(); // window el -> taskbar btn
 
+  const TASKBAR_H = 30;
+
+  /* Where a window's top-left corner is allowed to sit.
+     The old clamp let a window's LEFT edge roam to innerWidth-40, which on a
+     phone parked the entire title bar — close button included — off the right
+     side. Instead clamp against the window's own size: when it fits, it stays
+     fully on screen; when it is wider or taller than the viewport (a maximised
+     window, a long panel) the range inverts so you can still pan to the far
+     edge rather than being pinned. */
+  function clampWinPos(win, x, y){
+    const w = win.offsetWidth, h = win.offsetHeight;
+    const spareX = window.innerWidth - w;
+    const spareY = window.innerHeight - TASKBAR_H - h;
+    return [
+      Math.max(Math.min(0, spareX), Math.min(Math.max(0, spareX), x)),
+      Math.max(Math.min(0, spareY), Math.min(Math.max(0, spareY), y)),
+    ];
+  }
+
   function titleOf(win){
     if(win.classList.contains('r-block')){
       const h3 = win.querySelector('h3');
@@ -4181,8 +4275,7 @@ requestAnimationFrame(loop);
     }
     function move(cx, cy){
       if(!dragging) return;
-      const nx=Math.max(0, Math.min(window.innerWidth-40, cx-ox));
-      const ny=Math.max(0, Math.min(window.innerHeight-40, cy-oy));
+      const [nx, ny] = clampWinPos(win, cx-ox, cy-oy);
       win.style.left=nx+'px'; win.style.top=ny+'px';
     }
     handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
@@ -4653,13 +4746,13 @@ requestAnimationFrame(loop);
         row.appendChild(sub);
         // Align submenu's top with parent row so a purely horizontal cursor
         // move lands on the first submenu item, then clamp into viewport.
-        row.addEventListener('mouseenter', ()=>{
+        function placeSub(){
           const rRect = row.getBoundingClientRect();
           const menuRect = startMenu.getBoundingClientRect();
           sub.style.left = menuRect.right + 'px';
           sub.style.top  = rRect.top + 'px';
           sub.style.bottom = 'auto';
-          // measure after display via :hover
+          // measure once the submenu is actually displayed
           requestAnimationFrame(()=>{
             const sRect = sub.getBoundingClientRect();
             const taskbarTop = window.innerHeight - 30;
@@ -4667,7 +4760,26 @@ requestAnimationFrame(loop);
             if(top + sRect.height > taskbarTop) top = Math.max(2, taskbarTop - sRect.height);
             if(top < 2) top = 2;
             sub.style.top = top + 'px';
+            // On a phone the menu is 240 wide and the submenu 220 — parking it
+            // at menuRect.right puts it past the edge. Flip it back over the
+            // parent menu (Win95 does the same when it runs out of room).
+            let left = menuRect.right;
+            if(left + sRect.width > window.innerWidth - 2){
+              left = Math.max(2, window.innerWidth - sRect.width - 2);
+            }
+            sub.style.left = left + 'px';
           });
+        }
+        row.addEventListener('mouseenter', placeSub);
+        // Touch has no hover, so the CSS rule never fires and these rows would
+        // be inert. A tap on the row (not on a child item) toggles it open.
+        row.addEventListener('click', e=>{
+          if(e.target.closest('.smenu-sub')) return;   // let child items through
+          e.stopPropagation();
+          const wasOpen = row.classList.contains('is-open');
+          container.querySelectorAll(':scope > .smenu-cat.is-open')
+                   .forEach(r=>r.classList.remove('is-open'));
+          if(!wasOpen){ row.classList.add('is-open'); placeSub(); }
         });
       }
       container.appendChild(row);
@@ -4682,6 +4794,8 @@ requestAnimationFrame(loop);
   function closeStartMenu(){
     startMenu.style.display='none';
     startBtn.classList.remove('is-open');
+    // drop any tap-opened submenus so the menu reopens collapsed
+    startMenu.querySelectorAll('.smenu-cat.is-open').forEach(r=>r.classList.remove('is-open'));
   }
   function toggleStartMenu(){
     if(startMenu.style.display==='none') openStartMenu(); else closeStartMenu();
@@ -4715,8 +4829,7 @@ requestAnimationFrame(loop);
     }
     function move(cx, cy){
       if(!dragging) return;
-      const nx=Math.max(0, Math.min(window.innerWidth-40, cx-ox));
-      const ny=Math.max(0, Math.min(window.innerHeight-60, cy-oy));
+      const [nx, ny] = clampWinPos(win, cx-ox, cy-oy);
       win.style.left=nx+'px'; win.style.top=ny+'px';
     }
     handle.addEventListener('mousedown', e=>start(e.clientX, e.clientY, e));
@@ -4754,6 +4867,29 @@ requestAnimationFrame(loop);
     return btn;
   }
 
+  function fitMaximized(win){
+    win.style.left='4px'; win.style.top='4px';
+    win.style.width=(window.innerWidth-12)+'px';
+    win.style.height=(window.innerHeight-TASKBAR_H-10)+'px';
+  }
+
+  /* Rotating a phone (or the URL bar sliding away) changes innerWidth/Height
+     under windows that were positioned against the old one, which used to
+     strand them off-screen with no way back. */
+  window.addEventListener('resize', ()=>{
+    openWindows.forEach(info=>{
+      const win = info.el;
+      if(win.dataset.maxed==='1'){ fitMaximized(win); return; }
+      const [nx, ny] = clampWinPos(win, parseFloat(win.style.left)||0, parseFloat(win.style.top)||0);
+      win.style.left=nx+'px'; win.style.top=ny+'px';
+    });
+    document.querySelectorAll('.win95').forEach(win=>{
+      if(win.style.display==='none' || !win.style.left) return;
+      const [nx, ny] = clampWinPos(win, parseFloat(win.style.left)||0, parseFloat(win.style.top)||0);
+      win.style.left=nx+'px'; win.style.top=ny+'px';
+    });
+  });
+
   function launchPanel(id){
     const panel = PANELS[id];
     if(!panel) return;
@@ -4766,8 +4902,6 @@ requestAnimationFrame(loop);
     }
     const win=document.createElement('div');
     win.className='win-app is-focus theme-'+(panel.theme||'desktop');
-    win.style.left = (60 + (openWindows.size%6)*32) + 'px';
-    win.style.top  = (50 + (openWindows.size%6)*28) + 'px';
     win.style.zIndex = ++zTop;
     win.innerHTML = `
       <div class="win-title">
@@ -4781,10 +4915,23 @@ requestAnimationFrame(loop);
       <div class="win-body">${panel.html}</div>
     `;
     winLayer.appendChild(win);
+    // Cascade as before, but only as far as the viewport allows — measured
+    // after append so the clamp sees the real, CSS-capped size.
+    const step = openWindows.size % 6;
+    let lx = 60 + step*32, ly = 50 + step*28;
+    // when the window all but fills the width there is no room to cascade
+    // sideways — centre it rather than shoving it against the right edge
+    const spareX = window.innerWidth - win.offsetWidth;
+    if(spareX < lx) lx = Math.round(spareX/2);
+    [lx, ly] = clampWinPos(win, lx, ly);
+    win.style.left = lx+'px'; win.style.top = ly+'px';
     if(id==='about' && typeof window.initRobot==='function') window.initRobot();
     const titleBar = win.querySelector('.win-title');
     makeDraggable(win, titleBar);
     win.addEventListener('mousedown', ()=>focusWindow(win));
+    // touch raises focus immediately instead of waiting on the synthetic
+    // mousedown that only arrives after the tap resolves
+    win.addEventListener('touchstart', ()=>focusWindow(win), {passive:true});
 
     const taskBtn = ensureTaskBtn(id, panel, win);
     openWindows.set(id, { el:win, taskBtn });
@@ -4812,14 +4959,16 @@ requestAnimationFrame(loop);
         win.style.left=win.dataset.preL; win.style.top=win.dataset.preT;
         win.style.width=win.dataset.preW; win.style.height='';
         win.style.maxHeight='';   // fall back to the stylesheet's 70dvh
+        win.style.maxWidth='';
         win.dataset.maxed='';
       } else {
         win.dataset.preL=win.style.left; win.dataset.preT=win.style.top;
         win.dataset.preW=win.style.width;
-        win.style.left='4px'; win.style.top='4px';
-        win.style.width=(window.innerWidth-12)+'px';
-        win.style.height=(window.innerHeight-40)+'px';
+        // maxWidth has to go too, or the stylesheet's cap (560px / 100vw-16px)
+        // quietly shrinks the "maximised" window back down
+        win.style.maxWidth='none';
         win.style.maxHeight='none';
+        fitMaximized(win);
         win.dataset.maxed='1';
       }
     });
@@ -4835,6 +4984,14 @@ requestAnimationFrame(loop);
     }
     el.remove();
   };
+
+  // On a phone the Materials palette is ~350px tall in the top-right corner —
+  // it sat on top of every window that launched. Boot it collapsed to its title
+  // bar; the □ button opens it, and it still remembers position if dragged.
+  if(window.matchMedia('(max-width:600px)').matches){
+    const mp = document.getElementById('matPicker');
+    if(mp) mp.classList.add('is-min');
+  }
 
   // open Overview at boot so people see the directory right away
   setTimeout(()=>launchPanel('overview'), 200);
@@ -5343,19 +5500,13 @@ function banishEvilCursors(){
   drawEvilChest();
 })();
 /* ── clicking the sprite ──────────────────────────────
-   The chest lives on the canvas, so it has to steal the press before the
-   paint handlers get it — capture phase, and only when the cell is actually
-   part of the sprite. */
-canvas.addEventListener('mousedown',e=>{
-  if(e.button!==0||!evilChestHit(...simXY(e)))return;
-  e.stopImmediatePropagation();e.preventDefault();
-  toggleEvilChest();
-},true);
-canvas.addEventListener('touchstart',e=>{
-  if(!evilChestHit(...simXY(e.touches[0])))return;
-  e.stopImmediatePropagation();e.preventDefault();
-  toggleEvilChest();
-},{capture:true,passive:false});
+   The chest lives on the canvas, so the press is claimed inside the paint
+   handlers themselves (mousedown/touchstart), which check evilChestHit first
+   and toggle instead of painting. Doing it there — rather than a separate
+   capture-phase listener on the same element — avoids depending on listener
+   ordering, which browsers resolve by registration order on the target node,
+   not by the capture flag. That inconsistency is what left mobile taps
+   pouring material onto the chest instead of opening it. */
 
 /* ── YOUR cursor gets the same treatment ──────────────
    The arrow is a real CSS cursor built from the same bitmap, so the pointer
