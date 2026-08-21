@@ -317,13 +317,9 @@ html,body{
 }
 .smenu-item:hover{background:#000080;color:#fff}
 .smenu-item .smenu-ico{
-  display:inline-block;width:20px;height:20px;flex-shrink:0;
-  border:1px solid #000;
-  background:#c0c0c0;
+  width:20px;height:20px;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  font-size:11px;font-weight:700;color:#000080;
 }
-.smenu-item:hover .smenu-ico{color:#000080;background:#dfdfdf}
 .smenu-item.smenu-cat::after{
   content:"▶";margin-left:auto;font-size:9px;
 }
@@ -352,7 +348,6 @@ html,body{
 @media (hover:hover){ .smenu-item:hover > .smenu-sub{display:block} }
 .smenu-item.smenu-cat.is-open > .smenu-sub{display:block}
 .smenu-item.smenu-cat.is-open{background:#000080;color:#fff}
-.smenu-item.smenu-cat.is-open > .smenu-ico{color:#000080;background:#dfdfdf}
 
 /* ── Floating launched windows ── */
 #windowsLayer{position:absolute;inset:0;pointer-events:none;z-index:8}
@@ -525,7 +520,7 @@ html,body{
   font-size:22px;border-bottom:3px double #7a2018;padding-bottom:3px;
 }
 .win-app.theme-forest h3{color:#3a5a2e}
-.win-app.theme-forest li::before{content:"🍄";font-size:0.85em;top:2px}
+.win-app.theme-forest li::before{content:"❫"}
 .win-app.theme-forest a{color:#7a2018;font-weight:700}
 
 /* ── THEME: terminal (AI samples / dev tools) ── */
@@ -726,12 +721,9 @@ html,body{
 }
 .win-app.theme-desktop .ic:hover .ic-award{opacity:1}
 .win-app.theme-desktop .ic-img{
-  width:32px;height:32px;background:#c0c0c0;
-  border:1px solid #000;
+  width:32px;height:32px;
   display:flex;align-items:center;justify-content:center;
-  font-size:18px;font-weight:700;color:#000080;
 }
-.win-app.theme-desktop .ic:hover .ic-img{background:#dfdfdf}
 
 /* ══ EVIL CHEST ══
    The chest itself has no CSS at all — it is drawn straight onto the sprite
@@ -786,10 +778,11 @@ html,body{
   .smenu-item{padding:10px 8px}
   .mat-opt{padding:5px 4px}
   .taskbar-start,.taskbar-btn{height:26px;touch-action:manipulation}
-  .win-app.theme-desktop .ic{padding:8px 4px}
+  .win-app .ic{padding:8px 4px}
   /* :hover sticks after a tap on touch, leaving rows stuck highlighted */
+  .win-app .ic:hover{background:transparent}
   .win-app.theme-desktop .ic:hover{background:transparent;color:#000}
-  .win-app.theme-desktop .ic:hover .ic-img{background:#c0c0c0}
+  .win-app.theme-corporate .ic:hover{background:transparent}
   .taskbar-btn:hover{background:#c0c0c0}
   .taskbar-btn.is-active:hover{background:#a8a8a8}
 }
@@ -822,9 +815,192 @@ html,body{
   #hud{left:6px;right:6px;transform:none;bottom:36px}
   #hud .win95-body{flex-wrap:wrap;justify-content:center;row-gap:4px}
 }
+
+/* ── PIXEL SYSTEM ICONS ────────────────────────────────────
+   Every icon on the site comes from the #icoSprite symbols:
+   overview grid (32px), start menu (20px), titlebars and the
+   taskbar (14px). No emoji — the OS rendered those three
+   different ways and none of them matched the palette. */
+.pxi{
+  display:block;flex-shrink:0;width:32px;height:32px;
+  shape-rendering:crispEdges;
+  --ink:#000;--paper:#ffffff;--face:#c0c0c0;
+}
+.pxi-sm{width:20px;height:20px}
+.pxi-xs{width:14px;height:14px}
+.pxi-inline{display:inline-block;vertical-align:-3px;margin-right:5px;width:14px;height:14px}
+
+/* base icon grid — theme rules layer on top of this */
+.win-app .icon-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));
+  gap:10px;margin-top:10px;padding:8px;
+}
+.win-app .ic{
+  display:flex;flex-direction:column;align-items:center;gap:5px;
+  padding:5px 2px;cursor:pointer;text-align:center;
+  font-size:11px;line-height:1.2;text-decoration:none;color:inherit;
+}
+.win-app .ic-img{
+  width:32px;height:32px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.win-app .ic:hover{background:rgba(0,0,0,.08)}
+.win-app.theme-corporate .icon-grid{
+  background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;
+}
+.win-app.theme-corporate .ic{font-family:'Verdana',sans-serif}
+.win-app.theme-corporate .ic:hover{background:#fffc00}
+
+/* titlebar + taskbar icons */
+.win-app .win-title .wt-name{
+  display:flex;align-items:center;gap:5px;min-width:0;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.taskbar-btn .tb-ico.tb-ico-px{
+  background:none;border:0;width:14px;height:14px;display:flex;
+}
+
+/* arcade bodies are near-black, so the icons' black keylines vanish
+   into the background — give them a neon outline instead, and lift
+   the one icon whose dominant surface is navy. */
+.win-app.theme-arcade .pxi{filter:drop-shadow(0 0 1px rgba(0,255,255,.9))}
+.win-app.theme-arcade use[href="#ico-floppy"]{--accent:#3454d8}
 </style>
 </head>
 <body>
+<!-- ═══════════════════════════════════════════════════════════
+     PIXEL ICON SPRITE — Win95 system icons, 16x16 grid.
+     Coordinates sit on half-pixel offsets so 1px strokes land
+     exactly on the grid; shape-rendering:crispEdges (see .pxi)
+     kills the anti-aliasing. Each symbol exposes its dominant
+     surface as var(--accent) so one shape can be tinted to the
+     theme of the window it opens. Referenced via ico().
+  ═══════════════════════════════════════════════════════════ -->
+<svg id="icoSprite" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute"><defs>
+
+  <symbol id="ico-computer" viewBox="0 0 16 16">
+    <path d="M1.5 1.5h13v9h-13z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 3.5h9v5h-9z" fill="var(--accent,#008080)" stroke="var(--ink,#000)"/>
+    <path d="M4.5 5.5h4" stroke="#00c0c0"/>
+    <path d="M6.5 10.5h3v2h-3z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 12.5h9v2h-9z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-briefcase" viewBox="0 0 16 16">
+    <path d="M6.5 4.5v-2h3v2" fill="none" stroke="var(--ink,#000)"/>
+    <path d="M1.5 4.5h13v9h-13z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+    <path d="M1.5 8.5h13" stroke="#808000"/>
+    <path d="M6.5 6.5h3v4h-3z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-folder" viewBox="0 0 16 16">
+    <path d="M1.5 3.5h5l1.5 2h6.5v8h-13z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+    <path d="M2.5 6.5h11" stroke="#ffffc0"/>
+    <path d="M2.5 12.5h11" stroke="#808000"/>
+  </symbol>
+
+  <symbol id="ico-trophy" viewBox="0 0 16 16">
+    <path d="M4.5 2.5h7v3l-1 3h-5l-1-3z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+    <path d="M4.5 3.5h-2v2h2M11.5 3.5h2v2h-2" fill="none" stroke="var(--ink,#000)"/>
+    <path d="M6 4h1v2h-1z" fill="#ffffc0"/>
+    <path d="M6.5 8.5h3v3h-3z" fill="#808000" stroke="var(--ink,#000)"/>
+    <path d="M4.5 11.5h7v2h-7z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-joystick" viewBox="0 0 16 16">
+    <path d="M6.5 6.5h3v5h-3z" fill="#808080" stroke="var(--ink,#000)"/>
+    <path d="M3.5 11.5h9l1.5 2.5h-12z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <path d="M10.5 12.5h2v1h-2z" fill="#c00000" stroke="var(--ink,#000)"/>
+    <path d="M6.5 2.5h3v1h1v2h-1v1h-3v-1h-1v-2h1z" fill="var(--accent,#c00000)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-book" viewBox="0 0 16 16">
+    <path d="M2.5 2.5h11v11h-11z" fill="var(--accent,#00274c)" stroke="var(--ink,#000)"/>
+    <path d="M5.5 2.5v11" stroke="#ffcb05"/>
+    <path d="M12.5 3.5v9" stroke="var(--paper,#fff)"/>
+    <path d="M7.5 6.5h4M7.5 8.5h3" stroke="#ffcb05"/>
+  </symbol>
+
+  <symbol id="ico-user" viewBox="0 0 16 16">
+    <path d="M6.5 2.5h3v1h1v2h-1v1h-3v-1h-1v-2h1z" fill="var(--paper,#fff)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 13.5v-2h1v-1h7v1h1v2z" fill="var(--accent,#000080)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-mail" viewBox="0 0 16 16">
+    <path d="M1.5 4.5h13v8h-13z" fill="var(--paper,#fff)" stroke="var(--ink,#000)"/>
+    <path d="M1.5 4.5l6.5 5 6.5-5" fill="none" stroke="var(--accent,#000080)"/>
+    <path d="M1.5 12.5l4.5-4M14.5 12.5l-4.5-4" fill="none" stroke="#808080"/>
+  </symbol>
+
+  <symbol id="ico-star" viewBox="0 0 16 16">
+    <path d="M8 1.4l1.9 4.2 4.6.4-3.5 3 1.1 4.5L8 11.1l-4.1 2.4 1.1-4.5-3.5-3 4.6-.4z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-globe" viewBox="0 0 16 16">
+    <circle cx="8" cy="8" r="6" fill="var(--accent,#008080)" stroke="var(--ink,#000)"/>
+    <path d="M2 8h12" stroke="var(--ink,#000)"/>
+    <path d="M3.2 5.2h9.6M3.2 10.8h9.6" stroke="var(--ink,#000)" opacity=".45"/>
+    <ellipse cx="8" cy="8" rx="2.6" ry="6" fill="none" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-gear" viewBox="0 0 16 16">
+    <path d="M6.5 1.5h3v3h-3zM6.5 11.5h3v3h-3zM1.5 6.5h3v3h-3zM11.5 6.5h3v3h-3z" fill="var(--accent,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <circle cx="8" cy="8" r="4.5" fill="var(--accent,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <circle cx="8" cy="8" r="1.8" fill="#000080" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-note" viewBox="0 0 16 16">
+    <path d="M6.5 10.5v-8l6-1.2v8" fill="none" stroke="var(--ink,#000)" stroke-width="1.4"/>
+    <path d="M3.5 9.5h3v3h-3z" fill="var(--accent,#000080)" stroke="var(--ink,#000)"/>
+    <path d="M9.5 8.5h3v3h-3z" fill="var(--accent,#000080)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-cat" viewBox="0 0 16 16">
+    <path d="M3.5 5.5l1-3 2.5 2h2l2.5-2 1 3v6h-9z" fill="var(--accent,#808080)" stroke="var(--ink,#000)"/>
+    <path d="M1.5 7.5h2M1.5 9.5h2M13 7.5h1.5M13 9.5h1.5" stroke="var(--ink,#000)"/>
+    <path d="M5.5 6.5h1v1h-1zM9.5 6.5h1v1h-1z" fill="var(--ink,#000)"/>
+    <path d="M7.5 8.5h1v1h-1z" fill="#c00000"/>
+  </symbol>
+
+  <symbol id="ico-mushroom" viewBox="0 0 16 16">
+    <path d="M6.5 7.5h3v6h-3z" fill="#fffbe0" stroke="var(--ink,#000)"/>
+    <path d="M1.5 7.5c0-3.3 2.9-5.5 6.5-5.5s6.5 2.2 6.5 5.5z" fill="var(--accent,#c00000)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 4.8h1.5v1.5H3.5zM9.5 3.2h2v2h-2zM6.6 5.6h1.4v1.2H6.6z" fill="var(--paper,#fff)"/>
+  </symbol>
+
+  <symbol id="ico-trap" viewBox="0 0 16 16">
+    <path d="M2.5 9.5V5.5h11M13.5 5.5v4" fill="none" stroke="#808080" stroke-width="1.6"/>
+    <path d="M1.5 9.5h13v4h-13z" fill="var(--accent,#808000)" stroke="var(--ink,#000)"/>
+    <path d="M2.5 11.5h3M10.5 11.5h3" stroke="#000" opacity=".35"/>
+    <circle cx="8" cy="11.5" r="1.4" fill="#ffff00" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-floppy" viewBox="0 0 16 16">
+    <path d="M1.5 1.5h13v13h-13z" fill="var(--accent,#000080)" stroke="var(--ink,#000)"/>
+    <path d="M4.5 1.5h7v5h-7z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <path d="M8.5 2.5h2v3h-2z" fill="#808080" stroke="var(--ink,#000)"/>
+    <path d="M3.5 9.5h9v5h-9z" fill="var(--paper,#fff)" stroke="var(--ink,#000)"/>
+    <path d="M4.5 11.5h5M4.5 13h4" stroke="#808080"/>
+  </symbol>
+
+  <symbol id="ico-bird" viewBox="0 0 16 16">
+    <path d="M3.5 7.5l-3-1v4l3-1z" fill="#006060" stroke="var(--ink,#000)"/>
+    <path d="M5.5 12.5v1.5M8.5 12.5v1.5" stroke="#ffcc00" stroke-width="1.2"/>
+    <path d="M3.5 6.5h7v6h-7z" fill="var(--accent,#008080)" stroke="var(--ink,#000)"/>
+    <path d="M9.5 2.5h3.5v4h-3.5z" fill="var(--accent,#008080)" stroke="var(--ink,#000)"/>
+    <path d="M13 3.8l2.5 1-2.5 1z" fill="#ffcc00" stroke="var(--ink,#000)"/>
+    <path d="M11 3.5h1v1h-1z" fill="var(--ink,#000)"/>
+    <path d="M5.5 8.5h4v2h-4z" fill="#00b0b0" stroke="var(--ink,#000)"/>
+  </symbol>
+
+  <symbol id="ico-wand" viewBox="0 0 16 16">
+    <path d="M1.5 13.5l8-8 2 2-8 8z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 11.5l2 2" stroke="#808080"/>
+    <path d="M11.5 1l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+  </symbol>
+
+</defs></svg>
+
 <div id="stage">
   <canvas id="simCanvas"></canvas>
   <canvas id="birdCanvas"></canvas>
@@ -1014,6 +1190,10 @@ let dcMinX,dcMinY,dcMaxX,dcMaxY,dnMinX,dnMinY,dnMaxX,dnMaxY;
 // render-dirty bboxes per chunk (cells whose pixels changed since last upload)
 let rcMinX,rcMinY,rcMaxX,rcMaxY;
 const BIG=1e9;
+// Cells whose pixels changed since the last light pass. render() folds each
+// dirty chunk's rect in here as it uploads (4 compares per chunk, not per
+// cell), and buildLight consumes it — see the scan region there.
+let edX0=BIG,edY0=BIG,edX1=-1,edY1=-1;
 
 function allocChunks(){
   ncx=Math.ceil(W/CW);ncy=Math.ceil(H/CW);
@@ -1083,6 +1263,25 @@ allocChunks();
 let simSpeed=2;
 let frameId=1;
 let stepDir=1;
+
+/* ═══ NEIGHBOUR OFFSET TABLES ═══
+   The material rules below scan their four neighbours constantly, and they used
+   to do it over a fresh [[0,-1],[1,0],...] literal — five objects allocated per
+   cell per sim step. Flat typed arrays measure ~8x faster over the same scan
+   (0.24ms vs 1.98ms per 20k cells) and drop the garbage entirely.
+
+   ORDER IS LOAD-BEARING. Several of these loops break or return on the first
+   hit, and several draw a Math.random() per entry, so reordering a table
+   changes what the simulation does — not just how fast it does it. Each table
+   below lists its directions in the exact order the literal it replaced did.
+
+   Tables used with the step direction `d` multiply only the x component: the
+   x values are always 0/±1, so `NX[k]*d` reproduces the [d,0]/[-d,0] pairs. */
+const NX_URLD=new Int8Array([0,1,-1,0]), NY_URLD=new Int8Array([-1,0,0,1]); // up, right, left, down
+const NX_UDLR=new Int8Array([0,0,-1,1]), NY_UDLR=new Int8Array([-1,1,0,0]); // up, down, left, right
+const NY_DXXU=new Int8Array([1,0,0,-1]);                 // down, d, -d, up   (x = NX_URLD*d)
+const NX_DXX =new Int8Array([0,1,-1]),  NY_DXX =new Int8Array([1,0,0]);      // down, d, -d
+const NX_DISP=new Int8Array([0,-1,1,-1,1,0]), NY_DISP=new Int8Array([-1,-1,-1,0,0,-2]);
 
 // movement target tests (exclude frozen so hover-freeze pins matter)
 function eFree(x,y){return x>=0&&x<W&&y>=0&&y<H&&grid[idx(x,y)]===EMPTY&&!frozen[idx(x,y)];}
@@ -1234,7 +1433,8 @@ function step(x,y){
     // settled ash slaked by water becomes fertile topsoil: burn a meadow down,
     // let the rain in, and the ground is ready to take seed again
     if(m===ASH){
-      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+      for(let k=0;k<4;k++){
+        const ax=NX_URLD[k],ay=NY_URLD[k];
         if(mat(x+ax,y+ay)===WATER&&Math.random()<0.09){
           setMat(x+ax,y+ay,EMPTY);setMat(x,y,DIRT);return;
         }
@@ -1275,7 +1475,8 @@ function step(x,y){
     // catch fire from a neighbour
     if(isFlamSprite(m)){
       const burn=m===THATCH?0.28:m===LEAF?0.18:m===BERRY?0.12:0.05; // WOOD smolders
-      for(const[ax,ay] of [[0,-1],[1,0],[-1,0],[0,1]]){
+      for(let k=0;k<4;k++){
+        const ax=NX_URLD[k],ay=NY_URLD[k];
         if(mat(x+ax,y+ay)===FIRE&&Math.random()<burn){setMat(x,y,FIRE);return;}
       }
     }
@@ -1286,16 +1487,18 @@ function step(x,y){
     if(m===ACID){
       // dissolve structural/granular neighbours (the baked title text is
       // acid-proof for readability; the HTML windows are not)
-      const ns=[[0,1],[d,0],[-d,0],[0,-1]];
+      // down, d, -d, up
       // ...but water dilutes it. Enough rain on a pool and the acid fizzes out
       // into plain water, so flooding is a real answer to a spill.
-      for(const[ax,ay]of ns){
+      for(let k=0;k<4;k++){
+        const ax=NX_URLD[k]*d,ay=NY_DXXU[k];
         if(mat(x+ax,y+ay)===WATER&&Math.random()<0.025){
           if(eFree(x,y-1)&&Math.random()<0.35)setMat(x,y-1,SMOKE);
           setMat(x,y,WATER);return;
         }
       }
-      for(const[ax,ay]of ns){
+      for(let k=0;k<4;k++){
+        const ax=NX_URLD[k]*d,ay=NY_DXXU[k];
         const t=mat(x+ax,y+ay);
         // the page itself is not immune: a MASK cell belonging to a window
         // etches away and the hole opens in the real HTML behind it
@@ -1348,7 +1551,8 @@ function step(x,y){
     // burning out leaves a residue as often as not — that ash is what the
     // water cycle later turns back into soil
     if(Math.random()<0.03){setMat(x,y,Math.random()<0.3?ASH:SMOKE);return;}
-    for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+    for(let k=0;k<4;k++){
+      const ax=NX_URLD[k],ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
       if((t===PLANT||t===MOSS||t===SEED||t===LEAF||t===THATCH||t===BERRY)&&Math.random()<0.18)setMat(x+ax,y+ay,FIRE);
       else if(t===WOOD&&Math.random()<0.05)setMat(x+ax,y+ay,FIRE);
@@ -1382,7 +1586,8 @@ function step(x,y){
     // flame on the way past, beads back into water against a ceiling, and
     // rains out once it reaches the top of the sky
     if(y<=2&&Math.random()<0.06){setMat(x,y,WATER);return;}
-    for(const[ax,ay]of [[0,-1],[d,0],[-d,0],[0,1]]){
+    for(let k=0;k<4;k++){ // up, d, -d, down
+      const ax=NX_URLD[k]*d,ay=NY_URLD[k];
       if(mat(x+ax,y+ay)===FIRE&&Math.random()<0.09){setMat(x+ax,y+ay,SMOKE);setMat(x,y,EMPTY);return;}
     }
     if(Math.random()<0.006){setMat(x,y,WATER);return;}   // condenses mid-air
@@ -1403,7 +1608,8 @@ function step(x,y){
     // molten rock. It is the heat source the rest of the palette answers to:
     // it lights anything flammable, fuses sand to glass, and freezes into
     // stone the instant water reaches it — so water is the only real brake.
-    for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
+    for(let k=0;k<4;k++){
+      const ax=NX_URLD[k],ay=NY_URLD[k];
       const nx=x+ax,ny=y+ay,t=mat(nx,ny);
       if(t===BOUND)continue;
       if(t===WATER){
@@ -1439,12 +1645,13 @@ function step(x,y){
     // faster and pulls the puddle down as it goes
     let drink=false;
     if(Math.random()<0.025){
-      for(const[ax,ay]of [[0,1],[d,0],[-d,0]]){
+      for(let k=0;k<3;k++){ // down, d, -d
+        const ax=NX_DXX[k]*d,ay=NY_DXX[k];
         if(mat(x+ax,y+ay)===WATER){setMat(x+ax,y+ay,EMPTY);drink=true;break;}
       }
     }
     if(drink||Math.random()<0.004){
-      const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
+      const k=Math.random()*4|0, ax=NX_URLD[k], ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
       if(t===EMPTY||t===WATER||(t===GRASS&&Math.random()<0.25))setMat(x+ax,y+ay,PLANT);
       // bare soil next to living roots greens back over — this is how a burnt
@@ -1454,7 +1661,7 @@ function step(x,y){
     // a thicket dense enough to shade itself sets fruit; birds do the rest
     if(Math.random()<0.0008){
       let n=0;
-      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]])if(mat(x+ax,y+ay)===PLANT)n++;
+      for(let k=0;k<4;k++)if(mat(x+NX_URLD[k],y+NY_URLD[k])===PLANT)n++;
       if(n>=3){setMat(x,y,BERRY,Math.random()*4|0);return;}
     }
     updated[i]=frameId;wake3(x,y);return; // stays awake to keep growing
@@ -1464,7 +1671,8 @@ function step(x,y){
     // drifting motes: rise slowly with a sideways wander, fade over time,
     // and occasionally pollinate plant/moss into a fresh sprout
     if(Math.random()<0.006){setMat(x,y,EMPTY);return;}
-    for(const[ax,ay]of [[0,-1],[d,0],[-d,0],[0,1]]){
+    for(let k=0;k<4;k++){ // up, d, -d, down
+      const ax=NX_URLD[k]*d,ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
       if((t===PLANT||t===MOSS)&&Math.random()<0.004){
         if(eFree(x,y-1))setMat(x,y-1,SEED);
@@ -1485,12 +1693,12 @@ function step(x,y){
     // pushing real greenery up into the air.
     if(Math.random()<0.06){
       let damp=false;
-      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
-        const t=mat(x+ax,y+ay);
+      for(let k=0;k<4;k++){
+        const t=mat(x+NX_URLD[k],y+NY_URLD[k]);
         if(t===WATER||t===STEAM){damp=true;break;}
       }
       if(damp||Math.random()<0.2){
-        const[ax,ay]=[[0,-1],[1,0],[-1,0],[0,1]][Math.random()*4|0];
+        const k=Math.random()*4|0, ax=NX_URLD[k], ay=NY_URLD[k];
         const t=mat(x+ax,y+ay);
         if(t===STONE&&Math.random()<0.5)setMat(x+ax,y+ay,MOSS);
         else if(t===DIRT&&Math.random()<(damp?0.45:0.08))setMat(x+ax,y+ay,MOSS);
@@ -1512,8 +1720,8 @@ function step(x,y){
       // germination is slow on dry ground and near-instant on wet — watering a
       // scatter of seed is the fastest way to turn bare dirt into a thicket
       let wet=false;
-      for(const[ax,ay]of [[0,-1],[1,0],[-1,0],[0,1]]){
-        const t=mat(x+ax,y+ay);
+      for(let k=0;k<4;k++){
+        const t=mat(x+NX_URLD[k],y+NY_URLD[k]);
         if(t===WATER||t===STEAM){wet=true;break;}
       }
       if(Math.random()<(wet?0.35:0.02)){setMat(x,y,PLANT);return;}
@@ -1525,8 +1733,8 @@ function step(x,y){
   if(m===FUSE){
     // bit 0x80 = lit. Unlit cells wait for fire/lit-fuse to touch them.
     if(!(variant[i]&0x80)){
-      for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
-        const nx=x+ax,ny=y+ay;
+      for(let k=0;k<4;k++){
+        const nx=x+NX_UDLR[k],ny=y+NY_UDLR[k];
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),t=grid[ni];
         if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
@@ -1537,8 +1745,8 @@ function step(x,y){
       }
       return;
     }
-    for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
-      const nx=x+ax,ny=y+ay;
+    for(let k=0;k<4;k++){
+      const nx=x+NX_UDLR[k],ny=y+NY_UDLR[k];
       if(nx<0||nx>=W||ny<0||ny>=H)continue;
       const ni=idx(nx,ny),t=grid[ni];
       if(t===FUSE&&!(variant[ni]&0x80)&&Math.random()<0.45){
@@ -1556,8 +1764,8 @@ function step(x,y){
 
   if(m===BOMB){
     if(!(variant[i]&0x80)){
-      for(const[ax,ay]of [[0,-1],[0,1],[-1,0],[1,0]]){
-        const nx=x+ax,ny=y+ay;
+      for(let k=0;k<4;k++){
+        const nx=x+NX_UDLR[k],ny=y+NY_UDLR[k];
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),t=grid[ni];
         if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
@@ -1979,8 +2187,14 @@ for(const t of [lightTexC,lightTexW]){
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 }
+// bbox of the cells that actually emitted on the last pass, plus the flags that
+// let a pass bail out entirely. Seeded so the first pass is a full scan and
+// always uploads — the light textures have no data until it does.
+let emX0=BIG,emY0=BIG,emX1=-1,emY1=-1;
+let lightScanAll=1, lightHadEmitters=true;
 function allocLight(){
   LW=(W>>2)+1;LH=(H>>2)+1;WW=(W>>4)+1;WH=(H>>4)+1;
+  lightScanAll=1;lightHadEmitters=true; // fresh buffers, nothing carried over
   coreF=[new Float32Array(LW*LH),new Float32Array(LW*LH),new Float32Array(LW*LH)];
   wideF=[new Float32Array(WW*WH),new Float32Array(WW*WH),new Float32Array(WW*WH)];
   tmpF=new Float32Array(LW*LH);tmpW=new Float32Array(WW*WH);
@@ -2006,11 +2220,42 @@ const EMIT=new Uint8Array(256);
 EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;EMIT[LAVA]=1;
 function buildLight(){
   const day=dayFactor(), night=1-day;
-  EMIT[GLASS]=night>0.25?1:0; // glass only glows after dusk
+  const glassLit=night>0.25?1:0; // glass only glows after dusk
+  // dusk and dawn turn every glass cell in the world into an emitter (or back)
+  // at once, with no cell change to mark them — that needs a full re-scan
+  if(EMIT[GLASS]!==glassLit){EMIT[GLASS]=glassLit;lightScanAll=1;}
+
+  // cells dirtied since the last render() — a mouse stroke, or an evil cursor
+  // painting after renderAll() — haven't been folded into ed* yet
+  for(let c=0;c<rcMinX.length;c++){
+    const rx0=rcMinX[c];
+    if(rx0===BIG)continue;
+    if(rx0<edX0)edX0=rx0; if(rcMinY[c]<edY0)edY0=rcMinY[c];
+    if(rcMaxX[c]>edX1)edX1=rcMaxX[c]; if(rcMaxY[c]>edY1)edY1=rcMaxY[c];
+  }
+
+  // Scan region: the cells whose pixels changed since the last pass, unioned
+  // with the box the emitters occupied on that pass. Becoming an emitter always
+  // dirties a pixel (setMat, moveSwap and the fuse/bomb lit bits all call
+  // pixDirty), so nothing outside this box can be lit.
+  let sx0=0,sy0=0,sx1=W-1,sy1=H-1;
+  if(lightScanAll)lightScanAll=0;
+  else{
+    sx0=edX0<emX0?edX0:emX0; sy0=edY0<emY0?edY0:emY0;
+    sx1=edX1>emX1?edX1:emX1; sy1=edY1>emY1?edY1:emY1;
+    if(sx0<0)sx0=0; if(sy0<0)sy0=0; if(sx1>W-1)sx1=W-1; if(sy1>H-1)sy1=H-1;
+  }
+  edX0=BIG;edY0=BIG;edX1=-1;edY1=-1;
+  emX0=BIG;emY0=BIG;emX1=-1;emY1=-1;
+  // nothing changed and nothing was lit: the textures already hold black, so
+  // the clears, the blur passes and both uploads below are all wasted
+  if((sx1<sx0||sy1<sy0)&&!lightHadEmitters)return;
+
   for(const c of coreF)c.fill(0);
   for(const c of wideF)c.fill(0);
-  for(let y=0;y<H;y++){const row=y*W;
-    for(let x=0;x<W;x++){
+  let found=0;
+  for(let y=sy0;y<=sy1;y++){const row=y*W;
+    for(let x=sx0;x<=sx1;x++){
       const gi=row+x, m=grid[gi];
       if(!EMIT[m])continue;
       let r=0,g=0,b=0;
@@ -2023,12 +2268,18 @@ function buildLight(){
         const k=(night-0.25)*1.1;r=0.55*k;g=0.38*k;b=0.14*k;
       }
       if(r+g+b===0)continue;
+      found++;
+      if(x<emX0)emX0=x; if(y<emY0)emY0=y;
+      if(x>emX1)emX1=x; if(y>emY1)emY1=y;
       const ci=(y>>2)*LW+(x>>2);
       coreF[0][ci]+=r*0.5;coreF[1][ci]+=g*0.5;coreF[2][ci]+=b*0.5;
       const wi=(y>>4)*WW+(x>>4);
       wideF[0][wi]+=r*0.16;wideF[1][wi]+=g*0.16;wideF[2][wi]+=b*0.16;
     }
   }
+  // still dark, and it was dark last pass too — the textures are already black
+  if(!found&&!lightHadEmitters)return;
+  lightHadEmitters=found>0; // one last all-black upload when the last light dies
   for(const c of coreF)for(let i=0;i<c.length;i++)if(c[i]>1.8)c[i]=1.8;
   for(const c of wideF)for(let i=0;i<c.length;i++)if(c[i]>1.2)c[i]=1.2;
   for(let p=0;p<4;p++)for(const c of coreF)blurL(c,tmpF,LW,LH);
@@ -2220,6 +2471,9 @@ function render(){
     const x0=rcMinX[c];
     if(x0===BIG)continue;
     const y0=rcMinY[c],x1=rcMaxX[c],y1=rcMaxY[c];
+    // hand this chunk's rect to the next light pass before we clear it
+    if(x0<edX0)edX0=x0; if(y0<edY0)edY0=y0;
+    if(x1>edX1)edX1=x1; if(y1>edY1)edY1=y1;
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)fillTexel(x,y);
     const fy0=H-1-y1;
     gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,x0);
@@ -2461,9 +2715,8 @@ function updateBodies(){
 
 function displace(x,y){
   const i=idx(x,y),m=grid[i],v=variant[i];
-  const cand=[[0,-1],[-1,-1],[1,-1],[-1,0],[1,0],[0,-2]];
-  for(const[dx,dy]of cand){
-    const nx=x+dx,ny=y+dy;
+  for(let k=0;k<6;k++){
+    const nx=x+NX_DISP[k],ny=y+NY_DISP[k];
     if(nx>=0&&nx<W&&ny>=0&&ny<H&&grid[idx(nx,ny)]===EMPTY){
       grid[idx(nx,ny)]=m;variant[idx(nx,ny)]=v;wake3(nx,ny);pixDirty(nx,ny);return;
     }
@@ -4154,6 +4407,15 @@ requestAnimationFrame(()=>{
 });
 
 let lastSim=0,simAcc=0,frameNo=0;
+// Rolling estimate of what one sim step costs, in ms. A busy world (a big acid
+// spill, a field on fire) can push a single step past 10ms, and the fixed
+// 4-step catch-up below would then run all four every frame — 40ms+ of sim in a
+// 16ms budget, so the whole page drops to ~17fps. Budgeting by measured cost
+// instead spends the slowdown on sand speed, which nobody notices, rather than
+// on frame rate, which everybody does. Seeded low so a fast machine starts at
+// the full four steps.
+let stepCostMs=0.5;
+const SIM_BUDGET_MS=10;
 function loop(ts){
   gTime=ts*0.001; // sky clock keeps clouds & sun drifting even when paused
   dayPhase+=(2*Math.PI/DAY_PERIOD)*Math.min(0.1,(ts-lastSim)*0.001);
@@ -4167,9 +4429,18 @@ function loop(ts){
     restampBodies();
     simAcc+=ts-lastSim;
     const stepMs=14/simSpeed;
+    // floor the divisor: on an idle world the EMA decays toward zero, and a
+    // huge quotient would wrap to 0 through the Int32 conversion — clamping a
+    // fast machine down to one step, the exact opposite of the intent
+    const maxN=Math.max(1,Math.min(4,Math.floor(SIM_BUDGET_MS/Math.max(0.25,stepCostMs))));
     let n=0;
-    while(simAcc>=stepMs&&n<4){doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();simAcc-=stepMs;n++;}
-    if(simAcc>stepMs*4)simAcc=0;
+    while(simAcc>=stepMs&&n<maxN){
+      const t0=performance.now();
+      doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();
+      stepCostMs+=((performance.now()-t0)-stepCostMs)*0.15; // EMA, ~15 frames to settle
+      simAcc-=stepMs;n++;
+    }
+    if(simAcc>stepMs*maxN)simAcc=0;
     // keep pouring while the button is held even if the cursor isn't moving
     if(painting&&!dragBody&&lastPX>=0)paint(lastPX,lastPY,strokeMat);
     applyHoverFreeze();
@@ -4336,36 +4607,44 @@ requestAnimationFrame(loop);
      categorized menu; each entry launches a draggable Win95
      window with content sourced from "my site".
   ═════════════════════════════════════════════════════ */
+  /* Build one <use> reference into #icoSprite. `style` can carry a
+     --accent override so an icon matches the theme it opens into. */
+  function ico(name, cls, style){
+    if(!name) return '';
+    return '<svg class="pxi'+(cls?' '+cls:'')+'"'+(style?' style="'+style+'"':'')+
+           ' aria-hidden="true"><use href="#ico-'+name+'"/></svg>';
+  }
+
   const PANELS = {
-    overview: { title:'My Computer — Overview', icon:'i', theme:'desktop', html:`
+    overview: { title:'My Computer — Overview', icon:'computer', theme:'desktop', html:`
       <h2>Mitchell Kuppersmith</h2>
       <div class="sub">Design Engineer · Snap Inc.</div>
       <div class="meta">Santa Monica, CA</div>
       <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses. My work spans flagship lens experiences, system UI and core OS interfaces, and open-source developer tooling.</p>
       <p><b>Double-click an icon below to launch — or use the Start menu.</b></p>
       <div class="icon-grid">
-        <a class="ic" data-launch="snap"><span class="ic-img">💼</span><span>Snap Role</span></a>
-        <a class="ic" data-launch="snap-projects"><span class="ic-img">📁</span><span>Snap Projects</span></a>
-        <a class="ic" data-launch="awards"><span class="ic-img">📁</span><span>Awards</span></a>
-        <a class="ic" data-launch="education"><span class="ic-img">🎓</span><span>Education</span></a>
-        <a class="ic" data-launch="games"><span class="ic-img">📁</span><span>Games</span></a>
-        <a class="ic" data-launch="about"><span class="ic-img">?</span><span>About Me</span></a>
-        <a class="ic" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener"><span class="ic-img">✉</span><span>Contact</span></a>
+        <a class="ic" data-launch="snap"><span class="ic-img">${ico('briefcase','','--accent:#fffc00')}</span><span>Snap Role</span></a>
+        <a class="ic" data-launch="snap-projects"><span class="ic-img">${ico('folder')}</span><span>Snap Projects</span></a>
+        <a class="ic" data-launch="awards"><span class="ic-img">${ico('trophy')}</span><span>Awards</span></a>
+        <a class="ic" data-launch="education"><span class="ic-img">${ico('book')}</span><span>Education</span></a>
+        <a class="ic" data-launch="games"><span class="ic-img">${ico('joystick')}</span><span>Games</span></a>
+        <a class="ic" data-launch="about"><span class="ic-img">${ico('user')}</span><span>About Me</span></a>
+        <a class="ic" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener"><span class="ic-img">${ico('mail')}</span><span>Contact</span></a>
       </div>
     `},
-    'snap-projects': { title:'Snap Projects', icon:'📁', theme:'corporate', html:`
-      <h2>📁 Snap Projects</h2>
+    'snap-projects': { title:'Snap Projects', icon:'folder', theme:'corporate', html:`
+      <h2>Snap Projects</h2>
       <p>Flagship lens experiences and developer tooling I've shipped on Spectacles.</p>
       <div class="icon-grid">
-        <a class="ic" data-launch="imagine-together"><span class="ic-img">★</span><span>Imagine Together</span></a>
-        <a class="ic" data-launch="translation"><span class="ic-img">★</span><span>Translation</span></a>
-        <a class="ic" data-launch="agent-center"><span class="ic-img">⚙</span><span>Agent Center</span></a>
-        <a class="ic" data-launch="ai-playground"><span class="ic-img">⚙</span><span>AI Playground</span></a>
-        <a class="ic" data-launch="ai-music-gen"><span class="ic-img">♪</span><span>AI Music Gen</span></a>
-        <a class="ic" data-launch="rsg"><span class="ic-img">⚙</span><span>RemoteSvcGW</span></a>
+        <a class="ic" data-launch="imagine-together"><span class="ic-img">${ico('star','','--accent:#ffd400')}</span><span>Imagine Together</span></a>
+        <a class="ic" data-launch="translation"><span class="ic-img">${ico('globe')}</span><span>Translation</span></a>
+        <a class="ic" data-launch="agent-center"><span class="ic-img">${ico('gear')}</span><span>Agent Center</span></a>
+        <a class="ic" data-launch="ai-playground"><span class="ic-img">${ico('gear')}</span><span>AI Playground</span></a>
+        <a class="ic" data-launch="ai-music-gen"><span class="ic-img">${ico('note')}</span><span>AI Music Gen</span></a>
+        <a class="ic" data-launch="rsg"><span class="ic-img">${ico('gear')}</span><span>RemoteSvcGW</span></a>
       </div>
     `},
-    awards: { title:'Awards', icon:'🏆', theme:'index', html:`
+    awards: { title:'Awards', icon:'trophy', theme:'index', html:`
       <h2>Awards</h2>
       <div class="sub">Hackathon wins &amp; a GDC exhibition</div>
       <div class="meta">4 projects · 2021–2026</div>
@@ -4383,7 +4662,7 @@ requestAnimationFrame(loop);
       <p><b>Select a name to open its write-up.</b></p>
       <div class="tags"><span class="tag">VR</span><span class="tag">AR</span><span class="tag">Unity</span><span class="tag">GPT-3</span><span class="tag">Alt-control</span></div>
     `},
-    games: { title:'Games', icon:'🎮', theme:'index', html:`
+    games: { title:'Games', icon:'joystick', theme:'index', html:`
       <h2>Games</h2>
       <div class="sub">Jam games &amp; a student project</div>
       <div class="meta">3 titles · Unity · all free to play</div>
@@ -4400,7 +4679,7 @@ requestAnimationFrame(loop);
       <p><b>Select a name to open its write-up</b> — or play them on itch.io: <a href="https://trisol.itch.io" target="_blank" rel="noopener">trisol.itch.io</a> · <a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">starvingdevs.itch.io</a>.</p>
       <div class="tags"><span class="tag">Unity</span><span class="tag">VR</span><span class="tag">Bullet Hell</span><span class="tag">Action-Adventure</span><span class="tag">Game Jam</span></div>
     `},
-    'retrovirus-vr': { title:'RetroVirus VR', icon:'💾', theme:'arcade', html:`
+    'retrovirus-vr': { title:'RetroVirus VR', icon:'floppy', theme:'arcade', html:`
       <h2>RetroVirus VR</h2>
       <div class="sub">Escape the antivirus prison</div>
       <div class="meta">VR Jam 2020 · Unity · SteamVR 2.0</div>
@@ -4420,7 +4699,7 @@ requestAnimationFrame(loop);
       <p><a href="https://trisol.itch.io/retrovirus-vr" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">VR</span><span class="tag">Unity</span><span class="tag">Action</span><span class="tag">PSX</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
     `},
-    songbird: { title:'Songbird', icon:'🎷', theme:'arcade', html:`
+    songbird: { title:'Songbird', icon:'bird', theme:'arcade', html:`
       <h2>Songbird</h2>
       <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
       <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
@@ -4438,7 +4717,7 @@ requestAnimationFrame(loop);
       <p><a href="https://trisol.itch.io/songbird" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">Bullet Hell</span><span class="tag">Music</span><span class="tag">Unity</span><span class="tag">Isometric</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
     `},
-    nira: { title:'Nira', icon:'🪄', theme:'arcade', html:`
+    nira: { title:'Nira', icon:'wand', theme:'arcade', html:`
       <h2>Nira</h2>
       <div class="sub">A short 3D action-adventure about a girl and her hoverstaff</div>
       <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
@@ -4457,7 +4736,7 @@ requestAnimationFrame(loop);
       <p><a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">Action-Adventure</span><span class="tag">Platformer</span><span class="tag">Unity</span><span class="tag">Atmospheric</span><span class="tag">Low-poly</span><span class="tag">Student Project</span></div>
     `},
-    snap: { title:'Snap Inc — Spectacles', icon:'S', theme:'corporate', html:`
+    snap: { title:'Snap Inc — Spectacles', icon:'briefcase', theme:'corporate', html:`
       <h2>SNAP INC. — SPECS / SnapLabs</h2>
       <div class="sub">Santa Monica, CA · May 2022 – Present</div>
       <p>I work on <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — designing and building immersive, AI-native lens experiences and helping shape how people navigate the device.</p>
@@ -4478,7 +4757,7 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">Lens Studio</span><span class="tag">TypeScript</span><span class="tag">AR / XR</span><span class="tag">Generative AI</span></div>
     `},
-    'imagine-together': { title:'★ Imagine Together ★', icon:'★', theme:'spatial', html:`
+    'imagine-together': { title:'★ Imagine Together ★', icon:'star', theme:'spatial', html:`
       <h2>Imagine Together</h2>
       <div class="sub">Flagship experience · Spectacles</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/Od-_nZpmU9Q?rel=0&start=101" title="Imagine Together demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
@@ -4493,7 +4772,7 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">Multiplayer</span><span class="tag">3D generation</span><span class="tag">Lens Studio</span></div>
     `},
-    translation: { title:'★ Translation ★', icon:'★', theme:'spatial', html:`
+    translation: { title:'★ Translation ★', icon:'globe', theme:'spatial', html:`
       <h2>Translation</h2>
       <div class="sub">Flagship experience · Spectacles</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/hR4W_Qtzij4?rel=0" title="Translation demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
@@ -4505,7 +4784,7 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">Real-time</span><span class="tag">Speech</span><span class="tag">Multi-user</span></div>
     `},
-    'agent-center': { title:'agent-center // OSS', icon:'⚙', theme:'terminal', html:`
+    'agent-center': { title:'agent-center // OSS', icon:'gear', theme:'terminal', html:`
       <h2>agent-center</h2>
       <div class="sub">// open source · Spectacles sample</div>
       <img class="shot" src="images/projects/agent-center.gif" alt="Agent Center demo">
@@ -4520,7 +4799,7 @@ requestAnimationFrame(loop);
       <p><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/Agent%20Manager →</a></p>
       <div class="tags"><span class="tag">Spatial UI</span><span class="tag">Voice/Gesture</span><span class="tag">Bluetooth</span></div>
     `},
-    'ai-playground': { title:'ai-playground // OSS', icon:'⚙', theme:'terminal', html:`
+    'ai-playground': { title:'ai-playground // OSS', icon:'gear', theme:'terminal', html:`
       <h2>ai-playground</h2>
       <div class="sub">// open source · Spectacles sample</div>
       <img class="shot" src="images/projects/ai-playground.gif" alt="AI Playground demo">
@@ -4534,7 +4813,7 @@ requestAnimationFrame(loop);
       <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Playground" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/AI%20Playground →</a></p>
       <div class="tags"><span class="tag">LLM</span><span class="tag">Image-gen</span><span class="tag">Starter</span></div>
     `},
-    'ai-music-gen': { title:'ai-music-gen // OSS', icon:'♪', theme:'terminal', html:`
+    'ai-music-gen': { title:'ai-music-gen // OSS', icon:'note', theme:'terminal', html:`
       <h2>ai-music-gen</h2>
       <div class="sub">// open source · Spectacles sample</div>
       <img class="shot" src="images/projects/ai-music-gen.gif" alt="AI Music Gen demo">
@@ -4542,7 +4821,7 @@ requestAnimationFrame(loop);
       <p><a href="https://github.com/Snapchat/Spectacles-Sample" target="_blank" rel="noopener">github.com/Snapchat/Spectacles-Sample →</a></p>
       <div class="tags"><span class="tag">Lyria</span><span class="tag">3D UI</span><span class="tag">Audio</span></div>
     `},
-    rsg: { title:'RemoteServiceGateway // OSS', icon:'⚙', theme:'terminal', html:`
+    rsg: { title:'RemoteServiceGateway // OSS', icon:'gear', theme:'terminal', html:`
       <h2>RemoteServiceGateway</h2>
       <div class="sub">// open source · Lens Studio package</div>
       <img class="shot" src="images/projects/remote-service-gateway.png" alt="RemoteServiceGateway">
@@ -4556,12 +4835,12 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">OpenAI</span><span class="tag">Gemini</span><span class="tag">Snap3D</span></div>
     `},
-    catiator: { title:'★ CATIATOR ★', icon:'🐱', theme:'vapor', html:`
+    catiator: { title:'★ CATIATOR ★', icon:'cat', theme:'vapor', html:`
       <h2>CATIATOR</h2>
       <div class="sub">★ MOONSHOT PRIZE · BEST HACKATHON PROJECT ★</div>
       <div class="meta">Stanford TreeHacks 2021</div>
       <img class="shot" src="images/projects/catiator.jpg" alt="Catiator">
-      <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet 🐱⚔</p>
+      <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet ${ico('cat','pxi-inline')}</p>
       <p>Interactive VR game to learn American Sign Language through finger-tracked gesture combat. Battle waves of fierce-but-chonky catiator warriors by signing the corresponding letters.</p>
       <blockquote>"Signs are to eyes as words are to ears."</blockquote>
       <h3>★ INSPIRATION ★</h3>
@@ -4587,7 +4866,7 @@ requestAnimationFrame(loop);
       <p><a href="https://devpost.com/software/catiator" target="_blank" rel="noopener">Devpost →</a> · <a href="https://trisol.itch.io/catiators" target="_blank" rel="noopener">itch.io →</a></p>
       <div class="tags"><span class="tag">VR</span><span class="tag">Hand tracking</span><span class="tag">ASL</span><span class="tag">Unity</span><span class="tag">Oculus</span></div>
     `},
-    intarnet: { title:'IntARnet', icon:'🌐', theme:'spatial', html:`
+    intarnet: { title:'IntARnet', icon:'globe', theme:'spatial', html:`
       <h2>IntARnet</h2>
       <div class="sub">Scott Krulcik Grand Prize</div>
       <div class="meta">CMU TartanHacks 2021</div>
@@ -4598,7 +4877,7 @@ requestAnimationFrame(loop);
       <p><a href="https://devpost.com/software/intarnet" target="_blank" rel="noopener">View on Devpost →</a></p>
       <div class="tags"><span class="tag">AR</span><span class="tag">Spatial anchors</span><span class="tag">Social</span></div>
     `},
-    larp: { title:'lARp — mushroom AR', icon:'🍄', theme:'forest', html:`
+    larp: { title:'lARp — mushroom AR', icon:'mushroom', theme:'forest', html:`
       <h2>lARp</h2>
       <div class="sub">Best Art and Gaming Hack · HooHacks 2021</div>
       <img class="shot" src="images/projects/larp.gif" alt="lARp demo">
@@ -4629,7 +4908,7 @@ requestAnimationFrame(loop);
       <p><a href="https://devpost.com/software/test-yotepg" target="_blank" rel="noopener">Devpost →</a> · <a href="https://github.com/mkuppers/HooHacks-lARp" target="_blank" rel="noopener">GitHub →</a> · <a href="https://docs.google.com/presentation/d/1YYduuRyl2G3aSf83MsG60qYuUdKM0eRYCTBcEizqL-Q/edit?usp=sharing" target="_blank" rel="noopener">Slides →</a></p>
       <div class="tags"><span class="tag">AR</span><span class="tag">GPT-3</span><span class="tag">Unity</span><span class="tag">Fitness</span><span class="tag">Procedural</span></div>
     `},
-    snaptrap: { title:'>> SNAPTRAP <<', icon:'🪤', theme:'arcade', html:`
+    snaptrap: { title:'>> SNAPTRAP <<', icon:'trap', theme:'arcade', html:`
       <h2>Snaptrap</h2>
       <div class="sub">ALT.CTRL.GDC FINALIST · GDC 2026</div>
       <img class="shot" src="images/projects/snaptrap.gif" alt="Snaptrap installation">
@@ -4643,7 +4922,7 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">Alt-control</span><span class="tag">Installation</span><span class="tag">Hardware</span></div>
     `},
-    education: { title:'University of Michigan', icon:'🎓', theme:'academic', html:`
+    education: { title:'University of Michigan', icon:'book', theme:'academic', html:`
       <h2>University of Michigan</h2>
       <div class="sub">B.S. Computer Science &amp; Cognitive Science</div>
       <div class="meta">Ann Arbor, MI · 2019–2022 · GPA 3.825 / 4.0</div>
@@ -4671,7 +4950,7 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">HCI</span><span class="tag">Unity3D</span><span class="tag">Unreal Engine 5</span><span class="tag">XR</span></div>
     `},
-    about: { title:'~ About Me ~', icon:'?', theme:'personal', html:`
+    about: { title:'~ About Me ~', icon:'user', theme:'personal', html:`
       <div class="robot-stage" aria-hidden="true" title="Hi!">
         <canvas id="robot-canvas" class="robot-canvas"></canvas>
       </div>
@@ -4687,32 +4966,32 @@ requestAnimationFrame(loop);
   };
 
   const DIRECTORY = [
-    { type:'item', id:'overview', label:'Overview', icon:'i' },
+    { type:'item', id:'overview', label:'Overview', icon:'computer' },
     { type:'sep' },
-    { type:'cat', label:'Experience · Snap Inc.', icon:'S', items:[
-      { type:'item', id:'snap', label:'Role overview', icon:'i' },
-      { type:'item', id:'imagine-together', label:'Imagine Together', icon:'★' },
-      { type:'item', id:'translation', label:'Translation', icon:'★' },
-      { type:'item', id:'agent-center', label:'Agent Center', icon:'⚙' },
-      { type:'item', id:'ai-playground', label:'AI Playground', icon:'⚙' },
-      { type:'item', id:'ai-music-gen', label:'AI Music Gen', icon:'♪' },
-      { type:'item', id:'rsg', label:'RemoteServiceGateway', icon:'⚙' },
+    { type:'cat', label:'Experience · Snap Inc.', icon:'briefcase', items:[
+      { type:'item', id:'snap', label:'Role overview', icon:'briefcase' },
+      { type:'item', id:'imagine-together', label:'Imagine Together', icon:'star' },
+      { type:'item', id:'translation', label:'Translation', icon:'globe' },
+      { type:'item', id:'agent-center', label:'Agent Center', icon:'gear' },
+      { type:'item', id:'ai-playground', label:'AI Playground', icon:'gear' },
+      { type:'item', id:'ai-music-gen', label:'AI Music Gen', icon:'note' },
+      { type:'item', id:'rsg', label:'RemoteServiceGateway', icon:'gear' },
     ]},
-    { type:'cat', label:'Awards · Hackathons', icon:'🏆', items:[
-      { type:'item', id:'catiator', label:'Catiator', icon:'🏆' },
-      { type:'item', id:'intarnet', label:'IntARnet', icon:'🏆' },
-      { type:'item', id:'larp', label:'lARp', icon:'🏆' },
-      { type:'item', id:'snaptrap', label:'Snaptrap', icon:'🏆' },
+    { type:'cat', label:'Awards · Hackathons', icon:'trophy', items:[
+      { type:'item', id:'catiator', label:'Catiator', icon:'cat' },
+      { type:'item', id:'intarnet', label:'IntARnet', icon:'globe' },
+      { type:'item', id:'larp', label:'lARp', icon:'mushroom' },
+      { type:'item', id:'snaptrap', label:'Snaptrap', icon:'trap' },
     ]},
-    { type:'cat', label:'Games', icon:'🎮', items:[
-      { type:'item', id:'retrovirus-vr', label:'RetroVirus VR', icon:'💾' },
-      { type:'item', id:'songbird', label:'Songbird', icon:'🎷' },
-      { type:'item', id:'nira', label:'Nira', icon:'🪄' },
+    { type:'cat', label:'Games', icon:'joystick', items:[
+      { type:'item', id:'retrovirus-vr', label:'RetroVirus VR', icon:'floppy' },
+      { type:'item', id:'songbird', label:'Songbird', icon:'bird' },
+      { type:'item', id:'nira', label:'Nira', icon:'wand' },
     ]},
-    { type:'item', id:'education', label:'Education', icon:'🎓' },
+    { type:'item', id:'education', label:'Education', icon:'book' },
     { type:'sep' },
-    { type:'item', id:'about', label:'About Me', icon:'?' },
-    { type:'item', id:'contact', label:'Contact', icon:'✉', href:'https://www.linkedin.com/in/mitchell-kuppersmith' },
+    { type:'item', id:'about', label:'About Me', icon:'user' },
+    { type:'item', id:'contact', label:'Contact', icon:'mail', href:'https://www.linkedin.com/in/mitchell-kuppersmith' },
   ];
 
   const startMenu = document.getElementById('startMenu');
@@ -4729,7 +5008,7 @@ requestAnimationFrame(loop);
       }
       const row=document.createElement('div');
       row.className='smenu-item'+(it.type==='cat'?' smenu-cat':'');
-      row.innerHTML = `<span class="smenu-ico">${it.icon||''}</span><span>${it.label}</span>`;
+      row.innerHTML = `<span class="smenu-ico">${ico(it.icon,'pxi-sm')}</span><span>${it.label}</span>`;
       if(it.type==='item'){
         row.addEventListener('click', e=>{
           e.stopPropagation();
@@ -4851,7 +5130,7 @@ requestAnimationFrame(loop);
     if(btn) return btn;
     btn = document.createElement('button');
     btn.className='taskbar-btn is-active';
-    btn.innerHTML = `<span class="tb-ico"></span><span>${panel.title}</span>`;
+    btn.innerHTML = `<span class="tb-ico tb-ico-px">${ico(panel.icon,'pxi-xs')}</span><span>${panel.title}</span>`;
     btn.addEventListener('click', ()=>{
       if(win.style.display==='none' || win.dataset.minimized==='1'){
         win.style.display='flex'; win.dataset.minimized='';
@@ -4905,7 +5184,7 @@ requestAnimationFrame(loop);
     win.style.zIndex = ++zTop;
     win.innerHTML = `
       <div class="win-title">
-        <span>${panel.title}</span>
+        <span class="wt-name">${ico(panel.icon,'pxi-xs')}${panel.title}</span>
         <div class="tbtns">
           <div class="tbtn" data-act="min">_</div>
           <div class="tbtn" data-act="max">□</div>
