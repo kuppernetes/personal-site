@@ -469,8 +469,11 @@ html,body{
   font-family:'Arial Black','Impact',sans-serif;letter-spacing:0.5px;
   margin:0 3px 3px 0;
 }
+/* Height cap as well as width: maximised, a window is wide enough that a
+   full-bleed hero pushes every word of the write-up below the fold — and the
+   portrait clips (Snaptrap) are the worst offenders. */
 .shot{
-  display:block;margin:6px 0;max-width:100%;
+  display:block;margin:6px 0;max-width:100%;max-height:44vh;width:auto;
   border:2px solid #000;box-shadow:3px 3px 0 #000;
 }
 .shot-vid{
@@ -478,6 +481,117 @@ html,body{
   border:2px solid #000;box-shadow:3px 3px 0 #000;background:#000;
 }
 .shot-vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0;}
+/* clips replaced the demo GIFs: same look, ~10x less bytes, and unlike a GIF
+   they can actually be paused when nobody is looking at them */
+.shot-clip{
+  display:block;margin:6px 0;max-width:100%;max-height:44vh;width:auto;
+  border:2px solid #000;box-shadow:3px 3px 0 #000;background:#000;
+}
+
+/* ── THEME: gallery (My Work — the visual index of every project) ──
+   Wider than the other windows: three columns is the point of the grid, and
+   at the standard 420px it would degrade into the same one-per-row list it
+   replaced. */
+.win-app.theme-gallery{
+  width:min(760px, calc(100vw - 16px));
+  max-width:min(880px, calc(100vw - 16px));
+}
+.win-app.theme-gallery .win-body{background:#c0c0c0}
+/* Win95 tab control: the active tab loses its bottom border and grows a
+   couple of pixels so it reads as continuous with the panel below it. */
+.gal-tabs{display:flex;gap:2px;margin:8px 0 0;padding-left:3px;flex-wrap:wrap}
+.gal-tab{
+  font-family:'Tahoma','MS Sans Serif',sans-serif;font-size:11px;color:#000;
+  padding:3px 11px 4px;background:#c0c0c0;cursor:pointer;position:relative;top:2px;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;border-bottom:none;
+  box-shadow:inset 1px 1px 0 #dfdfdf;
+}
+.gal-tab.is-on{top:0;padding-bottom:6px;font-weight:700;z-index:2}
+.gal-panel{
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+  background:#c0c0c0;padding:8px;position:relative;z-index:1;
+}
+.gal-intro{font-size:11px;color:#404040;margin:0 2px 8px;font-style:italic}
+/* identity block — the site boots here, so this is the masthead.
+   These links used to sit as a row of raised buttons directly above the tab
+   strip, which made two lookalike control rows with completely different jobs:
+   one opens other windows, one filters the grid. Tabs now own the only button
+   chrome in the window; these are ordinary links, sitting up beside the name
+   under their own label so the two never read as peers. */
+.gal-id{margin:0 0 2px}
+.gal-id-top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px 18px}
+.gal-id-who{min-width:180px}
+.gal-id p{font-size:11px;line-height:1.4;margin:7px 0 0;max-width:64ch}
+.gal-links{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;padding-top:3px;max-width:100%}
+.gal-links-lbl{
+  flex-basis:100%;font-size:9px;letter-spacing:.6px;text-transform:uppercase;
+  color:#606060;font-weight:700;margin-bottom:1px;
+}
+.win-app .win-body .gal-links a{
+  display:inline-flex;align-items:center;gap:4px;font-size:11px;
+  color:#000080;text-decoration:underline;cursor:pointer;
+}
+.win-app .win-body .gal-links a:hover{color:#1084d0}
+.gal-links a:focus-visible{outline:1px dotted #000;outline-offset:1px}
+/* Win95 etched groove: closes off the masthead so the tab strip below reads as
+   belonging to the grid it is attached to, not to the identity block */
+.gal-rule{height:2px;margin:10px 0 0;border-top:1px solid #808080;border-bottom:1px solid #fff}
+.gal-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));
+  gap:8px;padding:8px;background:#fff;border:2px inset #808080;
+}
+/* the .win-body anchor rule outranks a bare .gal-card, and these cards ARE
+   anchors — without matching its specificity every tile renders as blue
+   underlined link text */
+.win-app .win-body .gal-card{
+  display:flex;flex-direction:column;cursor:pointer;text-decoration:none;
+  color:#000;background:#c0c0c0;padding:4px;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080;
+}
+.win-app .win-body .gal-card:hover{background:#d4d0c8;color:#000}
+.gal-card:hover .gal-name{color:#000080;text-decoration:underline}
+.gal-card:active{border-color:#000000 #ffffff #ffffff #000000}
+.gal-card:focus-visible{outline:2px dotted #000;outline-offset:1px}
+.gal-shot{
+  position:relative;width:100%;aspect-ratio:4/3;overflow:hidden;
+  background:#000;border:1px solid #000;
+  display:flex;align-items:center;justify-content:center;
+}
+.gal-shot img,.gal-shot video{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+}
+/* the clip sits on top of its own poster and only fades up once it is truly
+   playing — swapping on the click alone shows a black frame while it buffers */
+.gal-shot video{opacity:0;transition:opacity .2s}
+.gal-card.is-playing .gal-shot video{opacity:1}
+/* projects whose art has not landed yet: a deliberate empty slot rather than a
+   broken image. Also the fallback if a remote poster fails to load. */
+.gal-tbd{display:none}
+.gal-shot.is-tbd{background:repeating-linear-gradient(45deg,#101034 0 7px,#181848 7px 14px)}
+.gal-shot.is-tbd .gal-tbd{display:flex;flex-direction:column;align-items:center;gap:3px;z-index:1}
+.gal-shot.is-tbd .gal-tbd b{font-size:8px;letter-spacing:1px;color:#8a8ac8;font-weight:700}
+.gal-shot.is-tbd .pxi{width:34px;height:34px;--ink:#8a8ac8;--paper:#101034;--face:#252560}
+.gal-shot.is-tbd img,.gal-shot.is-tbd video{display:none}
+.gal-badge{
+  position:absolute;left:0;bottom:0;z-index:2;max-width:100%;
+  font-family:'Arial Black','Impact',sans-serif;font-size:8px;letter-spacing:.4px;
+  background:#ffd700;color:#000;padding:2px 5px;
+  border-top:1px solid #000;border-right:1px solid #000;
+}
+.win-app .win-body .gal-name{font-size:11px;font-weight:700;margin:5px 2px 0;line-height:1.25;color:#000;text-decoration:none}
+.win-app .win-body .gal-blurb{font-size:10px;line-height:1.35;color:#202020;margin:3px 2px 4px;text-decoration:none}
+.win-app .win-body .gal-meta{font-size:9px;color:#505050;font-style:italic;margin:auto 2px 1px;text-decoration:none}
+@media (max-width:600px){
+  .gal-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;padding:6px}
+  .gal-tab{padding:3px 8px 4px;font-size:10px}
+  /* the masthead has to stay short here or the first tile never shows on load */
+  .gal-id p{font-size:10px;line-height:1.35}
+  .gal-id-top{gap:4px}
+  .gal-links{padding-top:0}
+  .win-app .win-body .gal-links a{font-size:10px}
+}
 
 /* ── THEME: vapor (vaporwave — Catiator) ── */
 .win-app.theme-vapor .win-body{
@@ -546,26 +660,52 @@ html,body{
 .win-app.theme-terminal blockquote{background:#001100;color:#33ff66;border-color:#33ff66}
 .win-app.theme-terminal .tag{background:#001a00;color:#33ff66;border:1px solid #33ff66;box-shadow:none}
 
-/* ── THEME: arcade (Snaptrap / GDC) ── */
-.win-app.theme-arcade .win-body{
-  background:#0a0014;color:#fff;
-  font-family:'Courier New',monospace;
-  background-image:
-    repeating-linear-gradient(0deg,transparent 0,transparent 3px,rgba(255,0,170,0.06) 3px,rgba(255,0,170,0.06) 4px),
-    repeating-linear-gradient(90deg,transparent 0,transparent 3px,rgba(0,255,255,0.05) 3px,rgba(0,255,255,0.05) 4px);
+/* ── THEME: project (the four game/installation detail pages) ──
+   One readable dark base; the personality is a single hue per project,
+   passed in as --proj (accent) and --proj-bar (title bar) from the panel
+   definition. Rules of the house: prose stays proportional, mono is only
+   for the spec/credit line, and nothing is textured underneath a
+   paragraph. Adding a project means picking two colors, not writing a
+   new costume. ── */
+.win-app.theme-project .win-body{
+  background:#14131c;color:#e9e7f0;
+  font-family:'Verdana','Tahoma',sans-serif;font-size:12.5px;line-height:1.55;
 }
-.win-app.theme-arcade .win-title{
-  background:linear-gradient(90deg,#ff0066 0%,#ffcc00 100%) !important;
+.win-app.theme-project .win-title{
+  /* Win95 focused bars run dark→light; the raw accent is too bright to hold
+     white title text, so the light end is the accent cut with the body ink */
+  background:linear-gradient(90deg,var(--proj-bar,#2a2840) 0%,#4a4866 100%) !important;
+  background:linear-gradient(90deg,var(--proj-bar,#2a2840) 0%,
+             color-mix(in srgb, var(--proj,#8f8bb0) 45%, #14131c) 100%) !important;
 }
-.win-app.theme-arcade h2{
-  color:#ffcc00;font-family:'Impact','Arial Black',sans-serif;
-  font-size:20px;letter-spacing:3px;text-transform:uppercase;
-  text-shadow:2px 0 0 #ff0066, -2px 0 0 #00ffff;
+.win-app.theme-project h2{
+  color:var(--proj,#e9e7f0);
+  font-family:'Arial Black','Helvetica',sans-serif;
+  font-size:19px;letter-spacing:1px;
+  border-bottom:2px solid var(--proj,#e9e7f0);padding-bottom:4px;margin-bottom:6px;
 }
-.win-app.theme-arcade h3{color:#ff66cc;letter-spacing:1px;text-transform:uppercase}
-.win-app.theme-arcade a{color:#00ffff}
-.win-app.theme-arcade li::before{content:"▸";color:#ffcc00}
-.win-app.theme-arcade .tag{background:#ff0066;color:#fff;border-color:#fff #000 #000 #fff}
+.win-app.theme-project h3{
+  color:#fff;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 5px;
+}
+/* the base .sub/.meta greys are tuned for the #c0c0c0 default body and go
+   invisible on a dark one — every dark theme has to restate them */
+.win-app.theme-project .sub{color:#c9c5da;font-size:12px}
+.win-app.theme-project .meta{
+  color:#9a95ad;font-family:'Courier New',monospace;
+  font-size:11px;font-style:normal;
+}
+.win-app.theme-project a{color:var(--proj,#9fd0ff)}
+.win-app.theme-project a:hover{color:#fff}
+.win-app.theme-project li::before{content:"▪";color:var(--proj,#9a95ad);font-size:0.8em;top:3px}
+.win-app.theme-project blockquote{
+  background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.18);
+  border-left:3px solid var(--proj,#9a95ad);color:#e9e7f0;
+}
+.win-app.theme-project .tag{
+  background:transparent;color:var(--proj,#e9e7f0);
+  border:1px solid var(--proj,#9a95ad);box-shadow:none;
+}
 
 /* ── THEME: spatial (AR projects — IntARnet, flagship lenses) ── */
 .win-app.theme-spatial .win-body{
@@ -860,11 +1000,11 @@ html,body{
   background:none;border:0;width:14px;height:14px;display:flex;
 }
 
-/* arcade bodies are near-black, so the icons' black keylines vanish
-   into the background — give them a neon outline instead, and lift
+/* project bodies are near-black, so the icons' black keylines vanish
+   into the background — give them a soft light halo instead, and lift
    the one icon whose dominant surface is navy. */
-.win-app.theme-arcade .pxi{filter:drop-shadow(0 0 1px rgba(0,255,255,.9))}
-.win-app.theme-arcade use[href="#ico-floppy"]{--accent:#3454d8}
+.win-app.theme-project .pxi{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
+.win-app.theme-project use[href="#ico-floppy"]{--accent:#3454d8}
 </style>
 </head>
 <body>
@@ -1014,23 +1154,16 @@ html,body{
       <div class="mat-list">
       <div class="mat-opt active" data-mat="1"><span class="mat-dot" style="background:#cda852"></span>sand [1]</div>
       <div class="mat-opt" data-mat="2"><span class="mat-dot" style="background:#3076ce"></span>water [2]</div>
-      <div class="mat-opt" data-mat="29"><span class="mat-dot" style="background:#ced6de"></span>steam [e]</div>
+      <div class="mat-opt" data-mat="7"><span class="mat-dot" style="background:#463a1e"></span>oil [7]</div>
+      <div class="mat-opt" data-mat="6"><span class="mat-dot" style="background:#aad416"></span>acid [6]</div>
       <div class="mat-opt" data-mat="3"><span class="mat-dot" style="background:#eb460c"></span>fire [3]</div>
       <div class="mat-opt" data-mat="30"><span class="mat-dot" style="background:#ec601a"></span>lava [v]</div>
-      <div class="mat-opt" data-mat="4"><span class="mat-dot" style="background:#46444a"></span>stone [4]</div>
-      <div class="mat-opt" data-mat="5"><span class="mat-dot" style="background:#2c962e"></span>plant [5]</div>
-      <div class="mat-opt" data-mat="6"><span class="mat-dot" style="background:#aad416"></span>acid [6]</div>
-      <div class="mat-opt" data-mat="7"><span class="mat-dot" style="background:#463a1e"></span>oil [7]</div>
-      <div class="mat-opt" data-mat="14"><span class="mat-dot" style="background:#eecd60"></span>pollen [8]</div>
-      <div class="mat-opt" data-mat="15"><span class="mat-dot" style="background:#4e7c3a"></span>moss [9]</div>
-      <div class="mat-opt" data-mat="16"><span class="mat-dot" style="background:#7e5c2c"></span>seed [g]</div>
-      <div class="mat-opt" data-mat="20"><span class="mat-dot" style="background:#684426"></span>wood [w]</div>
-      <div class="mat-opt" data-mat="21"><span class="mat-dot" style="background:#3c8030"></span>leaf [l]</div>
-      <div class="mat-opt" data-mat="22"><span class="mat-dot" style="background:#a8583e"></span>brick [b]</div>
-      <div class="mat-opt" data-mat="23"><span class="mat-dot" style="background:#d2a856"></span>thatch [t]</div>
-      <div class="mat-opt" data-mat="24"><span class="mat-dot" style="background:#d63444"></span>berry [r]</div>
       <div class="mat-opt" data-mat="27"><span class="mat-dot" style="background:#6a5230"></span>fuse [f]</div>
       <div class="mat-opt" data-mat="28"><span class="mat-dot" style="background:#2a2228"></span>bomb [x]</div>
+      <div class="mat-opt" data-mat="4"><span class="mat-dot" style="background:#46444a"></span>stone [4]</div>
+      <div class="mat-opt" data-mat="20"><span class="mat-dot" style="background:#684426"></span>wood [w]</div>
+      <div class="mat-opt" data-mat="5"><span class="mat-dot" style="background:#2c962e"></span>plant [5]</div>
+      <div class="mat-opt" data-mat="16"><span class="mat-dot" style="background:#7e5c2c"></span>seed [g]</div>
       <div class="mat-opt" data-mat="26"><span class="mat-dot" style="background:#1c1a22"></span>birds [i]</div>
       <div class="mat-opt" data-mat="0"><span class="mat-dot" style="background:#111;outline:1px solid #222"></span>erase [0]</div>
       </div>
@@ -3909,10 +4042,13 @@ function selectMat(m){
 }
 document.querySelectorAll('.mat-opt').forEach(el=>el.addEventListener('click',()=>selectMat(+el.dataset.mat)));
 document.addEventListener('keydown',e=>{
+  // Mirrors the Materials window exactly. The sim still knows POLLEN, MOSS,
+  // LEAF, BRICK, THATCH, STEAM etc. — they're what sprites are built from and
+  // what reactions produce — but none of them are paintable any more: a wall of
+  // 21 rows buried the ones that actually do something when you pour them.
   const k={'1':SAND,'2':WATER,'3':FIRE,'4':STONE,'5':PLANT,'6':ACID,'7':OIL,
-           '8':POLLEN,'9':MOSS,'g':SEED,'0':EMPTY,
-           'w':WOOD,'l':LEAF,'b':BRICK,'t':THATCH,'r':BERRY,'i':BIRD,
-           'f':FUSE,'x':BOMB,'e':STEAM,'v':LAVA};
+           'g':SEED,'0':EMPTY,'w':WOOD,'i':BIRD,
+           'f':FUSE,'x':BOMB,'v':LAVA};
   if(k[e.key]!==undefined)selectMat(k[e.key]);
   if(e.key===' '){e.preventDefault();togglePhysics();}
 });
@@ -4615,74 +4751,153 @@ requestAnimationFrame(loop);
            ' aria-hidden="true"><use href="#ico-'+name+'"/></svg>';
   }
 
+  /* ═════════════════════════════════════════════════════
+     MY WORK — the visual index
+     Every project as a tile: still by default, clip on hover
+     (or on scroll-into-view where there is no hover). One flat
+     grid with tab filters replaces the three link-list panels
+     that used to sit between the desktop and the write-ups.
+     Tiles carry the same one-line hooks those lists used.
+     Thumbs load eagerly — all thirteen together are ~150KB, and lazy ones
+     would pop in a tile at a time as you switch tabs, which is worse than the
+     bytes are worth.
+       clip:  <name>-thumb.webp + <name>.mp4 in images/projects
+       still: <name>-thumb.webp only
+       yt:    poster pulled from the YouTube video already embedded
+       none:  a marked empty slot until the art lands
+  ═════════════════════════════════════════════════════ */
+  const PROJECTS = [
+    { id:'imagine-together', name:'Imagine Together', cat:'snap', icon:'star',
+      yt:'Od-_nZpmU9Q', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
+      blurb:'Co-located multiplayer 3D generation — people in the same room create and share spatial content together.' },
+    { id:'translation', name:'Translation', cat:'snap', icon:'globe',
+      yt:'hR4W_Qtzij4', meta:'Flagship · Spectacles',
+      blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.' },
+    { id:'agent-center', name:'Agent Center', cat:'snap', icon:'gear',
+      clip:'agent-center', badge:'OPEN SOURCE', meta:'Spectacles sample',
+      blurb:'Run coding agents from the glasses — each is a robot avatar whose animation says if it is working or waiting on you.' },
+    { id:'ai-playground', name:'AI Playground', cat:'snap', icon:'gear',
+      clip:'ai-playground', badge:'OPEN SOURCE', meta:'Spectacles sample',
+      blurb:'The starter project for AI on Spectacles — live voice models, image generation and text-to-3D in one sample.' },
+    { id:'ai-music-gen', name:'AI Music Gen', cat:'snap', icon:'note',
+      clip:'ai-music-gen', badge:'OPEN SOURCE', meta:'Spectacles sample',
+      blurb:"A 3D UI for Google's Lyria model — mix genres, vibes and instruments into a track that visualises around you." },
+    { id:'rsg', name:'RemoteServiceGateway', cat:'snap', icon:'gear',
+      still:'remote-service-gateway', badge:'OPEN SOURCE', meta:'Lens Studio package',
+      blurb:'The generative-AI layer for Lens Studio — OpenAI, Gemini, Lyria, Snap3D and DeepSeek behind one interface.' },
+
+    { id:'snaptrap', name:'Snaptrap', cat:'awards', icon:'trap',
+      clip:'snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'GDC 2026',
+      blurb:'A room-sized Venus flytrap: you play the fly, it plays the trap.' },
+    { id:'catiator', name:'Catiator', cat:'awards', icon:'cat',
+      still:'catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021',
+      blurb:'VR sign-language trainer: fingerspell the ASL alphabet to fend off chonky cat gladiators.' },
+    { id:'intarnet', name:'IntARnet', cat:'awards', icon:'globe',
+      still:'intarnet', badge:'GRAND PRIZE', meta:'CMU TartanHacks 2021',
+      blurb:'Social posts nailed to real-world coordinates — the timeline is the sidewalk.' },
+    { id:'larp', name:'lARp', cat:'awards', icon:'mushroom',
+      clip:'larp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021',
+      blurb:'GPT-3 mushrooms you can fight or befriend; your step count is the XP bar.' },
+
+    { id:'retrovirus-vr', name:'RetroVirus VR', cat:'games', icon:'floppy',
+      still:'retrovirus-vr', meta:'VR Jam 2020 · SteamVR',
+      blurb:"Telekinetic prison break: rip the guards' guns out of the air and grapple through the walls." },
+    { id:'songbird', name:'Songbird', cat:'games', icon:'bird',
+      still:'songbird', meta:'GMTK Jam 2020 · PC / Mac',
+      blurb:'Bullet hell where every spell is a melody on the numpad; flub the notes and your saxophone takes the damage.' },
+    { id:'nira', name:'Nira', cat:'games', icon:'wand',
+      still:'nira', meta:'EECS 494 · Michigan',
+      blurb:'A girl, a hoverstaff named Kane, and a grandfather who left something at the observatory.' },
+  ];
+
+  const GAL_TABS = [
+    { cat:'all',    label:'All Work',
+      intro:'Every project, newest work first. Select any tile for the full write-up.' },
+    { cat:'snap',   label:'Snap',
+      intro:'Flagship lens experiences and developer tooling shipped on Spectacles.' },
+    { cat:'awards', label:'Awards',
+      intro:'Three of these were built over a single weekend each, all in the spring of 2021. The fourth is a physical installation and took considerably longer.' },
+    { cat:'games',  label:'Games',
+      intro:'Two came out of game jams; one out of a semester of EECS 494 at Michigan.' },
+  ];
+
+  function galleryTile(p){
+    const media =
+      p.yt    ? `<img src="https://i.ytimg.com/vi/${p.yt}/hqdefault.jpg" alt=""
+                      onerror="this.closest('.gal-shot').classList.add('is-tbd')">`
+    : p.clip  ? `<img src="images/projects/${p.clip}-thumb.webp" alt="">
+                 <video src="images/projects/${p.clip}.mp4" muted loop playsinline preload="none"
+                        disablepictureinpicture tabindex="-1" aria-hidden="true"></video>`
+    : p.still ? `<img src="images/projects/${p.still}-thumb.webp" alt="">`
+    : '';
+    return `
+      <a class="gal-card" data-launch="${p.id}" data-cat="${p.cat}" role="button" tabindex="0"
+         aria-label="${p.name} — open write-up">
+        <span class="gal-shot${media?'':' is-tbd'}">
+          <span class="gal-tbd">${ico(p.icon)}<b>NO PREVIEW YET</b></span>
+          ${media}
+          ${p.badge?`<span class="gal-badge">${p.badge}</span>`:''}
+        </span>
+        <span class="gal-name">${p.name}</span>
+        <span class="gal-blurb">${p.blurb}</span>
+        ${p.meta?`<span class="gal-meta">${p.meta}</span>`:''}
+      </a>`;
+  }
+
+  /* This is the window the site boots into, so it has to answer "who is this"
+     before it answers "what have they made" — hence the identity block above
+     the grid. It is deliberately four lines: any longer and the first row of
+     tiles drops below the fold on a laptop. */
+  function galleryHTML(){
+    return `
+      <div class="gal-id">
+        <div class="gal-id-top">
+          <div class="gal-id-who">
+            <h2>Mitchell Kuppersmith</h2>
+            <div class="sub">Design Engineer · Snap Inc. · Santa Monica, CA</div>
+          </div>
+          <div class="gal-links">
+            <span class="gal-links-lbl">More about me</span>
+            <a data-launch="snap" tabindex="0" role="button">${ico('briefcase','pxi-xs','--accent:#fffc00')}Snap Role</a>
+            <a data-launch="education" tabindex="0" role="button">${ico('book','pxi-xs')}Education</a>
+            <a data-launch="about" tabindex="0" role="button">${ico('user','pxi-xs')}About Me</a>
+            <a href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener">${ico('mail','pxi-xs')}Contact</a>
+          </div>
+        </div>
+        <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.</p>
+      </div>
+      <div class="gal-rule"></div>
+      <div class="gal-tabs">${GAL_TABS.map(t=>
+        `<div class="gal-tab${t.cat==='all'?' is-on':''}" data-cat="${t.cat}" role="button" tabindex="0">${t.label}</div>`
+      ).join('')}</div>
+      <div class="gal-panel">
+        <p class="gal-intro">${GAL_TABS[0].intro}</p>
+        <div class="gal-grid">${PROJECTS.map(galleryTile).join('')}</div>
+      </div>`;
+  }
+
   const PANELS = {
     overview: { title:'My Computer — Overview', icon:'computer', theme:'desktop', html:`
       <h2>Mitchell Kuppersmith</h2>
       <div class="sub">Design Engineer · Snap Inc.</div>
       <div class="meta">Santa Monica, CA</div>
       <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses. My work spans flagship lens experiences, system UI and core OS interfaces, and open-source developer tooling.</p>
-      <p><b>Double-click an icon below to launch — or use the Start menu.</b></p>
+      <p><b>Open <a data-launch="work">My Work</a> to see everything at a glance</b> — or use the Start menu.</p>
       <div class="icon-grid">
+        <a class="ic" data-launch="work"><span class="ic-img">${ico('folder','','--accent:#ffd700')}</span><span>My Work</span></a>
         <a class="ic" data-launch="snap"><span class="ic-img">${ico('briefcase','','--accent:#fffc00')}</span><span>Snap Role</span></a>
-        <a class="ic" data-launch="snap-projects"><span class="ic-img">${ico('folder')}</span><span>Snap Projects</span></a>
-        <a class="ic" data-launch="awards"><span class="ic-img">${ico('trophy')}</span><span>Awards</span></a>
         <a class="ic" data-launch="education"><span class="ic-img">${ico('book')}</span><span>Education</span></a>
-        <a class="ic" data-launch="games"><span class="ic-img">${ico('joystick')}</span><span>Games</span></a>
         <a class="ic" data-launch="about"><span class="ic-img">${ico('user')}</span><span>About Me</span></a>
         <a class="ic" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener"><span class="ic-img">${ico('mail')}</span><span>Contact</span></a>
       </div>
     `},
-    'snap-projects': { title:'Snap Projects', icon:'folder', theme:'corporate', html:`
-      <h2>Snap Projects</h2>
-      <p>Flagship lens experiences and developer tooling I've shipped on Spectacles.</p>
-      <div class="icon-grid">
-        <a class="ic" data-launch="imagine-together"><span class="ic-img">${ico('star','','--accent:#ffd400')}</span><span>Imagine Together</span></a>
-        <a class="ic" data-launch="translation"><span class="ic-img">${ico('globe')}</span><span>Translation</span></a>
-        <a class="ic" data-launch="agent-center"><span class="ic-img">${ico('gear')}</span><span>Agent Center</span></a>
-        <a class="ic" data-launch="ai-playground"><span class="ic-img">${ico('gear')}</span><span>AI Playground</span></a>
-        <a class="ic" data-launch="ai-music-gen"><span class="ic-img">${ico('note')}</span><span>AI Music Gen</span></a>
-        <a class="ic" data-launch="rsg"><span class="ic-img">${ico('gear')}</span><span>RemoteSvcGW</span></a>
-      </div>
-    `},
-    awards: { title:'Awards', icon:'trophy', theme:'index', html:`
-      <h2>Awards</h2>
-      <div class="sub">Hackathon wins &amp; a GDC exhibition</div>
-      <div class="meta">4 projects · 2021–2026</div>
-      <p>Three of these were built over a single weekend each, all inside the spring of 2021. The fourth is a physical installation and took considerably longer.</p>
-      <h3>Hackathons</h3>
-      <ul>
-        <li><b><a data-launch="catiator">Catiator</a></b> — Moonshot Prize · Best Hackathon Project, Stanford TreeHacks 2021. VR sign-language trainer: fingerspell the ASL alphabet to fend off chonky cat gladiators.</li>
-        <li><b><a data-launch="intarnet">IntARnet</a></b> — Scott Krulcik Grand Prize, CMU TartanHacks 2021. Social posts nailed to real-world coordinates — the timeline is the sidewalk.</li>
-        <li><b><a data-launch="larp">lARp</a></b> — Best Art &amp; Gaming Hack, HooHacks 2021. GPT-3 mushrooms you can fight or befriend; your step count is the XP bar.</li>
-      </ul>
-      <h3>Exhibitions</h3>
-      <ul>
-        <li><b><a data-launch="snaptrap">Snaptrap</a></b> — Alt.Ctrl.GDC Finalist, Game Developers Conference 2026. A room-sized Venus flytrap: you play the fly, it plays the trap.</li>
-      </ul>
-      <p><b>Select a name to open its write-up.</b></p>
-      <div class="tags"><span class="tag">VR</span><span class="tag">AR</span><span class="tag">Unity</span><span class="tag">GPT-3</span><span class="tag">Alt-control</span></div>
-    `},
-    games: { title:'Games', icon:'joystick', theme:'index', html:`
-      <h2>Games</h2>
-      <div class="sub">Jam games &amp; a student project</div>
-      <div class="meta">3 titles · Unity · all free to play</div>
-      <p>Two came out of game jams; one out of a semester of EECS 494 at Michigan.</p>
-      <h3>Game Jams</h3>
-      <ul>
-        <li><b><a data-launch="retrovirus-vr">RetroVirus VR</a></b> — VR Jam 2020 · SteamVR. Telekinetic prison break: rip the guards' guns out of the air and grapple through the walls.</li>
-        <li><b><a data-launch="songbird">Songbird</a></b> — GMTK Jam 2020 · PC / Mac. Bullet hell where every spell is a melody on the numpad; flub the notes and your saxophone takes the damage.</li>
-      </ul>
-      <h3>Coursework</h3>
-      <ul>
-        <li><b><a data-launch="nira">Nira</a></b> — EECS 494, University of Michigan · PC / Mac. A girl, a hoverstaff named Kane, and a grandfather who left something at the observatory.</li>
-      </ul>
-      <p><b>Select a name to open its write-up</b> — or play them on itch.io: <a href="https://trisol.itch.io" target="_blank" rel="noopener">trisol.itch.io</a> · <a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">starvingdevs.itch.io</a>.</p>
-      <div class="tags"><span class="tag">Unity</span><span class="tag">VR</span><span class="tag">Bullet Hell</span><span class="tag">Action-Adventure</span><span class="tag">Game Jam</span></div>
-    `},
-    'retrovirus-vr': { title:'RetroVirus VR', icon:'floppy', theme:'arcade', html:`
+    work: { title:'My Work', icon:'folder', theme:'gallery', html: galleryHTML() },
+    'retrovirus-vr': { title:'RetroVirus VR', icon:'floppy', theme:'project',
+      accent:'#ff8163', bar:'#8a2c18', html:`
       <h2>RetroVirus VR</h2>
       <div class="sub">Escape the antivirus prison</div>
       <div class="meta">VR Jam 2020 · Unity · SteamVR 2.0</div>
+      <img class="shot" loading="lazy" src="images/projects/retrovirus-vr.webp" alt="RetroVirus VR">
       <p>You've been quarantined. Fight your way out of an antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
       <h3>Features</h3>
       <ul>
@@ -4693,22 +4908,37 @@ requestAnimationFrame(loop);
       <h3>Built With</h3>
       <ul>
         <li>Unity + SteamVR 2.0</li>
-        <li>HTC Vive · Valve Index · Oculus (via SteamVR)</li>
+        <li>HTC Vive · Valve Index · Oculus (via SteamVR) — Windows Mixed Reality is unreliable</li>
         <li>Custom assets — modeling, animation, FX (music excepted)</li>
+      </ul>
+      <h3>Details</h3>
+      <ul>
+        <li>Windows · free · ~33 MB · built solo over the jam</li>
+        <li>Status: prototype — the jam build is what's up there</li>
       </ul>
       <p><a href="https://trisol.itch.io/retrovirus-vr" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">VR</span><span class="tag">Unity</span><span class="tag">Action</span><span class="tag">PSX</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
     `},
-    songbird: { title:'Songbird', icon:'bird', theme:'arcade', html:`
+    songbird: { title:'Songbird', icon:'bird', theme:'project',
+      accent:'#e8b04b', bar:'#6b4a12', html:`
       <h2>Songbird</h2>
       <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
       <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
+      <img class="shot" loading="lazy" src="images/projects/songbird.webp" alt="Songbird">
       <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit. Take too much damage and rage takes over: harder to aim, easier to break your own instrument.</p>
+      <h3>Controls</h3>
+      <ul>
+        <li><b>WASD</b> to move</li>
+        <li><b>Numpad 1–6</b> to play the saxophone — each spell is its own melody</li>
+        <li>Click a spell name to pull up its sheet music</li>
+      </ul>
       <h3>Modes</h3>
       <ul>
         <li>Story mode</li>
         <li>Endless mode</li>
       </ul>
+      <h3>The Rage Mechanic</h3>
+      <p>Damage builds rage. Rage takes away your control of the saxophone and knocks out one note of every spell — so the worse things get, the harder your own instrument is to play.</p>
       <h3>Credits</h3>
       <ul>
         <li>Programming &amp; art — Trisol (me)</li>
@@ -4717,10 +4947,12 @@ requestAnimationFrame(loop);
       <p><a href="https://trisol.itch.io/songbird" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">Bullet Hell</span><span class="tag">Music</span><span class="tag">Unity</span><span class="tag">Isometric</span><span class="tag">Low-poly</span><span class="tag">Game Jam</span></div>
     `},
-    nira: { title:'Nira', icon:'wand', theme:'arcade', html:`
+    nira: { title:'Nira', icon:'wand', theme:'project',
+      accent:'#7fd4d0', bar:'#1d5250', html:`
       <h2>Nira</h2>
       <div class="sub">A short 3D action-adventure about a girl and her hoverstaff</div>
       <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
+      <img class="shot" loading="lazy" src="images/projects/nira.webp" alt="Nira">
       <p>Your grandfather left something for you at the observatory. Guide Nira through an atmospheric low-poly world using <b>Kane</b>, a magical hoverstaff, and uncover the mystery of what he left behind.</p>
       <h3>Highlights</h3>
       <ul>
@@ -4728,11 +4960,17 @@ requestAnimationFrame(loop);
         <li>Atmospheric low-poly fantasy world</li>
         <li>Short, narrative-driven loop</li>
       </ul>
+      <h3>Controls</h3>
+      <ul>
+        <li><b>WASD</b> to move · <b>Space</b> to jump</li>
+        <li><b>Left click</b> or <b>Left Ctrl</b> to toggle the hoverstaff</li>
+      </ul>
       <h3>Team</h3>
       <ul>
         <li>Ahmad Faiyaz · Adris Jautakas · Mitchell Kuppersmith · Nikhil Ghosh</li>
         <li>With support from Dilan Huang, Kaavya Ramachandran, Lucas Tittle, Amber Renton</li>
       </ul>
+      <div class="meta">Windows &amp; macOS · free · last build v1.01, March 2022</div>
       <p><a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">Play on itch.io →</a></p>
       <div class="tags"><span class="tag">Action-Adventure</span><span class="tag">Platformer</span><span class="tag">Unity</span><span class="tag">Atmospheric</span><span class="tag">Low-poly</span><span class="tag">Student Project</span></div>
     `},
@@ -4787,59 +5025,83 @@ requestAnimationFrame(loop);
     'agent-center': { title:'agent-center // OSS', icon:'gear', theme:'terminal', html:`
       <h2>agent-center</h2>
       <div class="sub">// open source · Spectacles sample</div>
-      <img class="shot" src="images/projects/agent-center.gif" alt="Agent Center demo">
-      <p>A spatial UI for managing coding agents (Claude Code, Codex, Cursor, OpenClaw) via voice, gesture, and Bluetooth.</p>
+      <video class="shot-clip" src="images/projects/agent-center.mp4" poster="images/projects/agent-center-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="Agent Center demo"></video>
+      <p>A spatial UI for running coding agents from the glasses. Each agent is a robot avatar you can place in the room; its animation is its status, so a glance tells you who is working and who is waiting on you.</p>
       <h3>features</h3>
       <ul>
-        <li>multi-agent management from the headset</li>
-        <li>voice + gesture control</li>
-        <li>bluetooth bridge to local dev machine</li>
-        <li>shared session state across devices</li>
+        <li>multi-agent management — claude, codex, cursor cloud, openclaw</li>
+        <li>voice or text in, with on-device speech recognition</li>
+        <li>pinch-to-capture a frame and hand it to an agent as context</li>
+        <li>agents are draggable avatars, themeable (cat, owl, ghost, axolotl, CRT, robot)</li>
+        <li>smart reply suggestions and automatic topic renaming</li>
+        <li>a permission prompt before any agent touches files or runs a shell</li>
+        <li>realtime sync, so a session follows you between devices</li>
       </ul>
-      <p><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/Agent%20Manager →</a></p>
-      <div class="tags"><span class="tag">Spatial UI</span><span class="tag">Voice/Gesture</span><span class="tag">Bluetooth</span></div>
+      <h3>how it fits together</h3>
+      <ul>
+        <li><b>lens</b> — the AR interface on Spectacles</li>
+        <li><b>bridge</b> — a node daemon on your machine that owns the agent CLI processes</li>
+        <li><b>supabase</b> — auth, messaging and the realtime channel between the two</li>
+      </ul>
+      <div class="meta">Lens Studio v5.15.1+ · Spectacles OS v5.64+ · Node 18+ · pair with a 6-digit code</div>
+      <p><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">github.com/specs-devs/samples · Agent Manager →</a></p>
+      <div class="tags"><span class="tag">Spatial UI</span><span class="tag">Voice/Gesture</span><span class="tag">Supabase</span><span class="tag">Realtime</span></div>
     `},
     'ai-playground': { title:'ai-playground // OSS', icon:'gear', theme:'terminal', html:`
       <h2>ai-playground</h2>
       <div class="sub">// open source · Spectacles sample</div>
-      <img class="shot" src="images/projects/ai-playground.gif" alt="AI Playground demo">
+      <video class="shot-clip" src="images/projects/ai-playground.mp4" poster="images/projects/ai-playground-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Playground demo"></video>
       <p>Among the most-used Spectacles starter projects — introduces LLM and image-generation workflows for developers building on the platform.</p>
       <h3>what's inside</h3>
       <ul>
-        <li>LLM prompt &rarr; response loop</li>
-        <li>image generation pipeline</li>
-        <li>UI primitives for AI surfaces in 3D space</li>
+        <li>live voice conversation — gemini live and openai realtime, streaming audio and video to the model</li>
+        <li>text &rarr; image, through both gemini image generation and dall&middot;e</li>
+        <li>text &rarr; 3D via snap3d, generated straight into the room</li>
+        <li>a hand-tracked orb UI, falling back to screen space when hands are out of view</li>
+        <li>connectivity notices — an AI lens that silently stops working is worse than one that says so</li>
       </ul>
-      <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Playground" target="_blank" rel="noopener">https://github.com/specs-devs/samples/tree/main/AI%20Playground →</a></p>
-      <div class="tags"><span class="tag">LLM</span><span class="tag">Image-gen</span><span class="tag">Starter</span></div>
+      <div class="meta">Lens Studio v5.15.4+ · Spectacles OS v5.64+ · needs a Remote Service Gateway token</div>
+      <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Playground" target="_blank" rel="noopener">github.com/specs-devs/samples · AI Playground →</a></p>
+      <div class="tags"><span class="tag">Gemini Live</span><span class="tag">OpenAI Realtime</span><span class="tag">Snap3D</span><span class="tag">Starter</span></div>
     `},
     'ai-music-gen': { title:'ai-music-gen // OSS', icon:'note', theme:'terminal', html:`
       <h2>ai-music-gen</h2>
       <div class="sub">// open source · Spectacles sample</div>
-      <img class="shot" src="images/projects/ai-music-gen.gif" alt="AI Music Gen demo">
-      <p>A 3D UI for Google's Lyria music generation model, running on Spectacles. Shape ambient soundtracks with gesture and gaze.</p>
-      <p><a href="https://github.com/Snapchat/Spectacles-Sample" target="_blank" rel="noopener">github.com/Snapchat/Spectacles-Sample →</a></p>
-      <div class="tags"><span class="tag">Lyria</span><span class="tag">3D UI</span><span class="tag">Audio</span></div>
+      <video class="shot-clip" src="images/projects/ai-music-gen.mp4" poster="images/projects/ai-music-gen-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Music Gen demo"></video>
+      <p>A 3D UI for Google's Lyria music generation model, running on Spectacles. Combine genres, vibes and instruments into a custom track and watch it drive a 3D visualisation around you.</p>
+      <h3>what's inside</h3>
+      <ul>
+        <li>genre / vibe / instrument mixing as a spatial control surface</li>
+        <li>streaming generation — the track changes as you change the inputs</li>
+        <li>3D visualisers driven by the audio</li>
+      </ul>
+      <p>Ships in Snap's public sample collection (190&#8202;★ / 72 forks at last check).</p>
+      <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Music%20Gen" target="_blank" rel="noopener">github.com/specs-devs/samples · AI Music Gen →</a></p>
+      <div class="tags"><span class="tag">Lyria</span><span class="tag">3D UI</span><span class="tag">Audio</span><span class="tag">Generative</span></div>
     `},
     rsg: { title:'RemoteServiceGateway // OSS', icon:'gear', theme:'terminal', html:`
       <h2>RemoteServiceGateway</h2>
       <div class="sub">// open source · Lens Studio package</div>
-      <img class="shot" src="images/projects/remote-service-gateway.png" alt="RemoteServiceGateway">
-      <p>A generative-AI library for Lens Studio that integrates OpenAI, Gemini, Lyria, and Snap3D behind a single interface — used by the AI Playground and Music Gen samples.</p>
+      <img class="shot" loading="lazy" src="images/projects/remote-service-gateway.webp" alt="RemoteServiceGateway">
+      <p>The generative-AI layer for Lens Studio: one interface in front of every model a lens can call, so a developer doesn't stand up their own backend to ship an AI experience. Both the AI Playground and Music Gen samples run on it.</p>
+      <p>It exists because these APIs are used <em>alongside user-sensitive data</em> — the camera frame, location, microphone. Routing them through a gateway is what makes that publishable.</p>
       <h3>integrations</h3>
       <ul>
-        <li>OpenAI (chat + image)</li>
-        <li>Google Gemini</li>
-        <li>Google Lyria (music)</li>
-        <li>Snap3D (3D asset generation)</li>
+        <li><b>OpenAI</b> — chat completions (GPT-5, GPT-4o, GPT-4.1-nano), DALL&middot;E image generation and edit, text-to-speech, and the Realtime websocket</li>
+        <li><b>Google</b> — Gemini and Gemini Live, Imagen for images, Lyria for music</li>
+        <li><b>Snap-hosted</b> — DeepSeek with R1 reasoning, and Snap3D for text-to-3D in GLB</li>
       </ul>
-      <div class="tags"><span class="tag">OpenAI</span><span class="tag">Gemini</span><span class="tag">Snap3D</span></div>
+      <h3>how developers get it</h3>
+      <p>The package sits in the Lens Studio Asset Library under Spectacles. A Token Generator plugin issues per-account tokens for the Snap, OpenAI and Google services; they don't expire and carry across projects.</p>
+      <div class="meta">Lens Studio v5.10.1+ · Spectacles OS v5.062+ · these APIs run on device only</div>
+      <p><a href="https://developers.snap.com/spectacles/about-spectacles-features/apis/remoteservice-gateway" target="_blank" rel="noopener">Developer documentation →</a> · <a href="https://github.com/specs-devs/packages" target="_blank" rel="noopener">github.com/specs-devs/packages →</a></p>
+      <div class="tags"><span class="tag">OpenAI</span><span class="tag">Gemini</span><span class="tag">Lyria</span><span class="tag">Snap3D</span><span class="tag">DeepSeek</span></div>
     `},
     catiator: { title:'★ CATIATOR ★', icon:'cat', theme:'vapor', html:`
       <h2>CATIATOR</h2>
       <div class="sub">★ MOONSHOT PRIZE · BEST HACKATHON PROJECT ★</div>
       <div class="meta">Stanford TreeHacks 2021</div>
-      <img class="shot" src="images/projects/catiator.jpg" alt="Catiator">
+      <img class="shot" loading="lazy" src="images/projects/catiator.webp" alt="Catiator">
       <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet ${ico('cat','pxi-inline')}</p>
       <p>Interactive VR game to learn American Sign Language through finger-tracked gesture combat. Battle waves of fierce-but-chonky catiator warriors by signing the corresponding letters.</p>
       <blockquote>"Signs are to eyes as words are to ears."</blockquote>
@@ -4851,17 +5113,32 @@ requestAnimationFrame(loop);
         <li><b>Custom signs.</b> Define gestures via debug mode — Quizlet flashcards in 3D.</li>
         <li><b>Hand tracking</b> on Oculus Quest for direct, controller-free play.</li>
       </ul>
+      <h3>★ MY ROLE ★</h3>
+      <p>Gesture detection, Unity programming, environment and prop modelling, lighting, game design.</p>
       <h3>★ BUILT WITH ★</h3>
       <ul>
         <li>Oculus Quest · Unity3D · C#</li>
         <li>Autodesk Maya · Photoshop · Procreate</li>
         <li>Figma · Unity2D/3D</li>
       </ul>
+      <h3>★ TEAM ★</h3>
+      <ul>
+        <li><b>Nancy Zuo</b> — UX, graphics, branding, 3D texturing, gesture mapping</li>
+        <li><b>Ryan Davis</b> — character design, modelling, rigging, UV maps, animation</li>
+        <li><b>Mitchell Kuppersmith</b> — gesture detection, Unity, environments, lighting</li>
+        <li><b>Olivia</b> — UI element design</li>
+      </ul>
       <h3>★ CHALLENGES ★</h3>
       <ul>
         <li>Crossed-finger signs (M vs N) hit the limits of Oculus' finger tracking.</li>
         <li>ASL uses facial expressions — no face tracking on Quest 1, so we focused on the manual alphabet.</li>
         <li>Hardware diversity across the team (PC + Quest required to debug live in Unity).</li>
+      </ul>
+      <h3>★ WHAT'S NEXT ★</h3>
+      <ul>
+        <li>More lessons, and gesture definition without dropping into debug mode</li>
+        <li>Two-handed signs — the manual alphabet is only the entry point</li>
+        <li>Further mini-games for drilling ASL</li>
       </ul>
       <p><a href="https://devpost.com/software/catiator" target="_blank" rel="noopener">Devpost →</a> · <a href="https://trisol.itch.io/catiators" target="_blank" rel="noopener">itch.io →</a></p>
       <div class="tags"><span class="tag">VR</span><span class="tag">Hand tracking</span><span class="tag">ASL</span><span class="tag">Unity</span><span class="tag">Oculus</span></div>
@@ -4870,17 +5147,33 @@ requestAnimationFrame(loop);
       <h2>IntARnet</h2>
       <div class="sub">Scott Krulcik Grand Prize</div>
       <div class="meta">CMU TartanHacks 2021</div>
-      <img class="shot" src="images/projects/Intarnet.png" alt="IntARnet">
+      <img class="shot" loading="lazy" src="images/projects/intarnet.webp" alt="IntARnet">
       <p>An AR social media app built around spatial anchors — drop persistent posts at real-world locations and discover what others have left behind.</p>
       <h3>Concept</h3>
-      <p>Twitter, but the timeline is the city. Each post is anchored to a place; you encounter them by walking past them. Awarded the Scott Krulcik Grand Prize at Carnegie Mellon's TartanHacks.</p>
+      <p>Twitter, but the timeline is the city. Post drawings, text or 3D models and they stay pinned to the spot you left them — the only way to read a post is to walk to it. That constraint is the feature: it gets people outdoors and keeps what you see relevant to the block you're standing on.</p>
+      <h3>My Role</h3>
+      <p>AR and UI development.</p>
+      <h3>Built With</h3>
+      <ul>
+        <li>Unity3D · C# · ARFoundation, with ARKit and ARCore underneath</li>
+        <li>Google Poly for the 3D asset library</li>
+        <li>Photoshop · Aseprite · Figma for the deliberately late-90s interface</li>
+      </ul>
+      <h3>Team</h3>
+      <ul>
+        <li><b>Mitchell Kuppersmith</b> — AR and UI development</li>
+        <li><b>Nancy Zuo</b> — UX and graphic design</li>
+        <li><b>Ryan Davis</b> — AR and iOS development</li>
+      </ul>
+      <h3>Challenges</h3>
+      <p>Azure Spatial Anchors were the sticking point — pinning content to a real coordinate and having it still be there later is much harder than it sounds in a demo.</p>
       <p><a href="https://devpost.com/software/intarnet" target="_blank" rel="noopener">View on Devpost →</a></p>
-      <div class="tags"><span class="tag">AR</span><span class="tag">Spatial anchors</span><span class="tag">Social</span></div>
+      <div class="tags"><span class="tag">AR</span><span class="tag">Spatial anchors</span><span class="tag">Social</span><span class="tag">ARFoundation</span><span class="tag">Unity</span></div>
     `},
     larp: { title:'lARp — mushroom AR', icon:'mushroom', theme:'forest', html:`
       <h2>lARp</h2>
       <div class="sub">Best Art and Gaming Hack · HooHacks 2021</div>
-      <img class="shot" src="images/projects/larp.gif" alt="lARp demo">
+      <video class="shot-clip" src="images/projects/larp.mp4" poster="images/projects/larp-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="lARp demo"></video>
       <p>A mushroom-themed AR fitness game that promotes physical activity through gamification — battle or befriend procedurally generated mushroom NPCs while GPT-3 powers open-ended dialogue.</p>
       <blockquote>"The hardest part about exercise is to start doing it. Once you are doing exercise regularly, the hardest part is to stop it." — Erin Grey</blockquote>
       <p><em>lARp</em> makes it easy to start. Use the outdoors (or a treadmill) as your gym and work toward becoming the buff mushroom of your dreams.</p>
@@ -4905,13 +5198,29 @@ requestAnimationFrame(loop);
         <li>Got GPT-3 dialogue running in Unity in 2021 — and had some very questionable conversations</li>
         <li>Pixel art in AR, plus an animated Devpost thumbnail</li>
       </ul>
+      <h3>My Role</h3>
+      <p>Unity/AR development and the GPT-3 integration.</p>
+      <h3>Team</h3>
+      <ul>
+        <li><b>Ryan Davis</b> — character randomization, pixel art, 3D modelling, animation</li>
+        <li><b>Mitchell Kuppersmith</b> — Unity/AR development, GPT-3 integration</li>
+        <li><b>Nancy Zuo</b> — UI/UX design, illustration, character design</li>
+        <li><b>Aidan Riedman</b> — Unity and GPT-3 development</li>
+      </ul>
+      <h3>What Was Hard</h3>
+      <ul>
+        <li>Prompt design — keeping a mushroom in character while a player says anything at all to it</li>
+        <li>Wiring GPT-3 into Unity at a time when nobody had a package for it</li>
+        <li>Pedometer accuracy, and moving the art from textured planes to sprites</li>
+      </ul>
       <p><a href="https://devpost.com/software/test-yotepg" target="_blank" rel="noopener">Devpost →</a> · <a href="https://github.com/mkuppers/HooHacks-lARp" target="_blank" rel="noopener">GitHub →</a> · <a href="https://docs.google.com/presentation/d/1YYduuRyl2G3aSf83MsG60qYuUdKM0eRYCTBcEizqL-Q/edit?usp=sharing" target="_blank" rel="noopener">Slides →</a></p>
       <div class="tags"><span class="tag">AR</span><span class="tag">GPT-3</span><span class="tag">Unity</span><span class="tag">Fitness</span><span class="tag">Procedural</span></div>
     `},
-    snaptrap: { title:'>> SNAPTRAP <<', icon:'trap', theme:'arcade', html:`
+    snaptrap: { title:'Snaptrap', icon:'trap', theme:'project',
+      accent:'#9ede3a', bar:'#3d5a16', html:`
       <h2>Snaptrap</h2>
       <div class="sub">ALT.CTRL.GDC FINALIST · GDC 2026</div>
-      <img class="shot" src="images/projects/snaptrap.gif" alt="Snaptrap installation">
+      <video class="shot-clip" src="images/projects/snaptrap.mp4" poster="images/projects/snaptrap-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="Snaptrap installation"></video>
       <p>A giant Venus flytrap alt-control installation that teaches visitors how flytraps actually snap shut on prey.</p>
       <h3>How It Works</h3>
       <p>Visitors play the role of a fly. Sensors track motion across trigger hairs on the plant; brush enough of them in fast succession and the giant trap snaps shut around you — exactly the mechanism real flytraps use to filter out false alarms (rain, debris) from genuine prey.</p>
@@ -4967,6 +5276,7 @@ requestAnimationFrame(loop);
 
   const DIRECTORY = [
     { type:'item', id:'overview', label:'Overview', icon:'computer' },
+    { type:'item', id:'work', label:'My Work — all projects', icon:'folder' },
     { type:'sep' },
     { type:'cat', label:'Experience · Snap Inc.', icon:'briefcase', items:[
       { type:'item', id:'snap', label:'Role overview', icon:'briefcase' },
@@ -5169,6 +5479,87 @@ requestAnimationFrame(loop);
     });
   });
 
+  /* Tab filtering + clip playback for the My Work window.
+     Filtering hides tiles in place rather than re-rendering the grid: a rebuild
+     would drop every poster the browser has already decoded and restart the
+     clip that is running. */
+  function initGallery(win){
+    const tabs = [...win.querySelectorAll('.gal-tab')];
+    const intro = win.querySelector('.gal-intro');
+    const cards = [...win.querySelectorAll('.gal-card')];
+    const selectTab = tab=>{
+      const cat = tab.dataset.cat;
+      tabs.forEach(t=>t.classList.toggle('is-on', t===tab));
+      cards.forEach(c=>{ c.style.display = (cat==='all'||c.dataset.cat===cat) ? '' : 'none'; });
+      const spec = GAL_TABS.find(t=>t.cat===cat);
+      if(intro && spec) intro.textContent = spec.intro;
+      stop(); // a clip left running inside a now-hidden tile keeps decoding
+    };
+    tabs.forEach(tab=>{
+      tab.addEventListener('click', ()=>selectTab(tab));
+      tab.addEventListener('keydown', e=>{
+        if(e.key==='Enter'||e.key===' '){ e.preventDefault(); selectTab(tab); }
+      });
+    });
+
+    /* Exactly one clip plays at a time. These compete for frames with the sand
+       sim, and eight concurrent <video>s would cost more than the GIFs they
+       replaced — the whole point of the swap. */
+    let playing = null;
+    function stop(){
+      if(!playing) return;
+      playing.pause();
+      const card = playing.closest('.gal-card');
+      if(card) card.classList.remove('is-playing');
+      playing = null;
+    }
+    function play(card){
+      const v = card && card.querySelector('video');
+      if(v===playing) return;   // already the right clip (or nothing, twice over)
+      stop();
+      // Most tiles are stills or art-pending placeholders. Bailing out before
+      // the stop() above let a clip keep running off-screen the moment the
+      // most-visible tile happened to be one of them.
+      if(!v) return;
+      playing = v;
+      // only fade the clip up once it has real frames, or the poster is
+      // replaced by a black rectangle for as long as it takes to buffer
+      v.addEventListener('playing', ()=>{ if(playing===v) card.classList.add('is-playing'); }, {once:true});
+      const p = v.play();
+      if(p && p.catch) p.catch(()=>{ if(playing===v) stop(); });
+    }
+
+    if(window.matchMedia('(hover:hover) and (pointer:fine)').matches){
+      cards.forEach(card=>{
+        card.addEventListener('mouseenter', ()=>play(card));
+        card.addEventListener('mouseleave', ()=>{ if(playing===card.querySelector('video')) stop(); });
+        card.addEventListener('focus', ()=>play(card));
+      });
+    } else {
+      // No hover to key off, and tap has to stay "open the write-up" — so the
+      // most-visible tile is the one that animates.
+      // The callback only reports tiles whose visibility CHANGED, so the choice
+      // is made against a running tally of all of them: judging by `entries`
+      // alone leaves a clip playing after its tile has scrolled away, whenever
+      // nothing else happens to cross a threshold on the way out.
+      const body = win.querySelector('.win-body');
+      const ratios = new Map();
+      const io = new IntersectionObserver(entries=>{
+        entries.forEach(e=>ratios.set(e.target, e.isIntersecting ? e.intersectionRatio : 0));
+        let best=null, bestR=0.6; // below this nothing is worth animating
+        ratios.forEach((r,card)=>{
+          if(r>bestR && card.style.display!=='none'){ best=card; bestR=r; }
+        });
+        if(best) play(best); else stop();
+      }, { root: body, threshold:[0, 0.25, 0.5, 0.75, 1] });
+      cards.forEach(c=>io.observe(c));
+      // the observer outlives the window otherwise, holding on to every tile
+      win.addEventListener('win-destroy', ()=>io.disconnect());
+    }
+    win.addEventListener('win-destroy', stop);
+    win.addEventListener('win-hide', stop);
+  }
+
   function launchPanel(id){
     const panel = PANELS[id];
     if(!panel) return;
@@ -5181,6 +5572,9 @@ requestAnimationFrame(loop);
     }
     const win=document.createElement('div');
     win.className='win-app is-focus theme-'+(panel.theme||'desktop');
+    /* themed detail pages carry their own hue rather than their own stylesheet */
+    if(panel.accent) win.style.setProperty('--proj', panel.accent);
+    if(panel.bar) win.style.setProperty('--proj-bar', panel.bar);
     win.style.zIndex = ++zTop;
     win.innerHTML = `
       <div class="win-title">
@@ -5205,6 +5599,7 @@ requestAnimationFrame(loop);
     [lx, ly] = clampWinPos(win, lx, ly);
     win.style.left = lx+'px'; win.style.top = ly+'px';
     if(id==='about' && typeof window.initRobot==='function') window.initRobot();
+    if(id==='work') initGallery(win);
     const titleBar = win.querySelector('.win-title');
     makeDraggable(win, titleBar);
     win.addEventListener('mousedown', ()=>focusWindow(win));
@@ -5219,9 +5614,12 @@ requestAnimationFrame(loop);
       e.stopPropagation();
       win.dataset.minimized='1'; win.style.display='none';
       taskBtn.classList.remove('is-active');
+      // a hidden window still runs its media — tell the panel to settle down
+      win.dispatchEvent(new CustomEvent('win-hide'));
     });
     win.querySelector('[data-act="close"]').addEventListener('click', e=>{
       e.stopPropagation();
+      win.dispatchEvent(new CustomEvent('win-destroy'));
       win.remove(); taskBtn.remove();
       openWindows.delete(id);
     });
@@ -5231,6 +5629,15 @@ requestAnimationFrame(loop);
         e.preventDefault(); e.stopPropagation();
         launchPanel(ic.getAttribute('data-launch'));
       });
+      // gallery tiles and desktop icons are <a> without href, so they get no
+      // keyboard activation for free
+      if(ic.hasAttribute('tabindex')){
+        ic.addEventListener('keydown', e=>{
+          if(e.key!=='Enter' && e.key!==' ') return;
+          e.preventDefault(); e.stopPropagation();
+          launchPanel(ic.getAttribute('data-launch'));
+        });
+      }
     });
     win.querySelector('[data-act="max"]').addEventListener('click', e=>{
       e.stopPropagation();
@@ -5258,13 +5665,14 @@ requestAnimationFrame(loop);
   // the sim calls this when a window has burned past saving, so the taskbar
   // button goes with it and the panel can be relaunched from scratch
   window.__closeWindowEl = function(el){
+    el.dispatchEvent(new CustomEvent('win-destroy'));
     for(const [id, info] of openWindows){
       if(info.el===el){ if(info.taskBtn) info.taskBtn.remove(); openWindows.delete(id); break; }
     }
     el.remove();
   };
 
-  // On a phone the Materials palette is ~350px tall in the top-right corner —
+  // On a phone the Materials palette is ~240px tall in the top-right corner —
   // it sat on top of every window that launched. Boot it collapsed to its title
   // bar; the □ button opens it, and it still remembers position if dragged.
   if(window.matchMedia('(max-width:600px)').matches){
@@ -5272,8 +5680,11 @@ requestAnimationFrame(loop);
     if(mp) mp.classList.add('is-min');
   }
 
-  // open Overview at boot so people see the directory right away
-  setTimeout(()=>launchPanel('overview'), 200);
+  // Boot straight into the work itself. Overview used to open here, but it was
+  // a directory of names — a visitor had to click twice before seeing anything
+  // that had been built. My Work carries its own identity header so this still
+  // opens on who as well as what.
+  setTimeout(()=>launchPanel('work'), 200);
 })();
 
 /* ═══════════════════════════════════════════════════════
