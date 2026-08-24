@@ -271,14 +271,9 @@ html,body{
   font-size:11px;font-weight:700;padding:1px 8px 2px;height:22px;
   display:flex;align-items:center;gap:5px;cursor:pointer;
 }
-.taskbar-start .ts-logo{
-  display:inline-block;width:14px;height:14px;
-  background:
-    linear-gradient(135deg,#ff3030 50%,#30c030 50%) top left/7px 7px no-repeat,
-    linear-gradient(135deg,#3060ff 50%,#ffcc00 50%) top right/7px 7px no-repeat,
-    linear-gradient(135deg,#3060ff 50%,#ffcc00 50%) bottom left/7px 7px no-repeat,
-    linear-gradient(135deg,#ff3030 50%,#30c030 50%) bottom right/7px 7px no-repeat;
-}
+/* the Start button wears the site's own cat rather than a knock-off
+   flag; tabby orange so it reads against the #c0c0c0 button face. */
+.taskbar-start .ts-logo{--accent:#f0a030}
 .taskbar-sep{width:2px;height:22px;border-left:1px solid #808080;border-right:1px solid #ffffff;margin:0 2px;flex-shrink:0}
 .taskbar-tasks{display:flex;align-items:center;gap:3px;flex:1;overflow:hidden}
 .taskbar-btn{
@@ -1280,7 +1275,7 @@ html,body{
     <div id="stats"></div>
 
     <div id="taskbar">
-      <div class="taskbar-start"><span class="ts-logo"></span>Mitchell Kuppersmith</div>
+      <div class="taskbar-start"><svg class="pxi pxi-xs ts-logo" aria-hidden="true"><use href="#ico-cat"/></svg>Mitchell Kuppersmith</div>
       <div class="taskbar-sep"></div>
       <div class="taskbar-tasks" id="taskbarTasks"></div>
       <div class="taskbar-clock" id="taskbarClock">--:--</div>
