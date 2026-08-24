@@ -158,14 +158,6 @@ html,body{
 #infoPanel{position:absolute;top:14px;left:14px;pointer-events:none;z-index:10}
 .site-hint{font-size:8px;color:#303030;letter-spacing:0.08em}
 
-#stats{
-  /* sits above the foreground berm (see uBar in the fragment shader); the light
-     halo keeps it legible whether it lands on meadow or on a dark blade */
-  position:absolute;bottom:56px;right:14px;font-size:8px;color:#222;
-  letter-spacing:0.08em;font-family:'Courier New',monospace;pointer-events:none;
-  text-align:right;line-height:1.8;z-index:10;
-  text-shadow:0 0 2px rgba(255,255,255,0.75);
-}
 #freezeRing{
   position:absolute;border:1px solid rgba(184,224,0,0.18);border-radius:50%;
   width:60px;height:60px;pointer-events:none;transform:translate(-50%,-50%);
@@ -1272,7 +1264,6 @@ html,body{
 
     <div id="freezeRing"></div>
     <div id="brushRing"></div>
-    <div id="stats"></div>
 
     <div id="taskbar">
       <div class="taskbar-start"><svg class="pxi pxi-xs ts-logo" aria-hidden="true"><use href="#ico-cat"/></svg>Mitchell Kuppersmith</div>
@@ -4630,21 +4621,6 @@ function drawCats(){
 }
 
 /* ═══════════════════════════════════════════════════════
-   STATS
-═══════════════════════════════════════════════════════ */
-const statsEl=document.getElementById('stats');
-let frameCount=0,lastStatTime=0,fps=0;
-function updateStats(ts){
-  frameCount++;
-  if(ts-lastStatTime>800){
-    fps=Math.round(frameCount*1000/(ts-lastStatTime));
-    frameCount=0;lastStatTime=ts;
-    let awake=0;for(let i=0;i<dcMinX.length;i++)if(dcMaxX[i]>=dcMinX[i])awake++;
-    statsEl.textContent=`${fps} fps · ${awake}/${ncx*ncy} chunks awake · ${W}×${H}`;
-  }
-}
-
-/* ═══════════════════════════════════════════════════════
    RESIZE
 ═══════════════════════════════════════════════════════ */
 let resizeTimer=null;
@@ -4717,7 +4693,6 @@ function loop(ts){
   drawBirds();
   drawCats();
   updateEvil();
-  updateStats(ts);
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
