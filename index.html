@@ -648,9 +648,9 @@ html,body{
   /* the masthead has to stay short here or the first tile never shows on load */
   .gal-id p{font-size:10px;line-height:1.35}
   .gal-id-top{gap:4px}
-  /* five links, not four, since GitHub joined the row — at the desktop 12px
-     column gap the fifth wrapped to a second line and took 17px off the top of
-     the grid, which at this width is most of a tile row */
+  /* four links at this width need a tighter column gap than the desktop 12px,
+     or the last one wraps to a second line and takes 17px off the top of the
+     grid, which here is most of a tile row */
   .gal-links{padding-top:0;gap:1px 8px}
   .win-app .win-body .gal-links a{font-size:10px;gap:3px}
 }
@@ -5000,7 +5000,6 @@ requestAnimationFrame(loop);
             <a data-launch="snap" tabindex="0" role="button">${ico('briefcase','pxi-xs','--accent:#fffc00')}Snap Role</a>
             <a data-launch="education" tabindex="0" role="button">${ico('book','pxi-xs')}Education</a>
             <a data-launch="about" tabindex="0" role="button">${ico('user','pxi-xs')}About Me</a>
-            <a href="https://github.com/kuppernetes" target="_blank" rel="noopener">${ico('gear','pxi-xs')}GitHub</a>
             <a href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener">${ico('mail','pxi-xs')}LinkedIn</a>
           </div>
         </div>
