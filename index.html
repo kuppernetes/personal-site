@@ -4026,21 +4026,44 @@ function makeArrowPixels(){
   paint(ARROW_RED,1);
   return c.getImageData(0,0,ARROW_W,ARROW_H).data;
 }
+/* A gallows signpost: upright, a bracing strut, an arm reaching out over the
+   hole, and the arrow hung beneath the arm on two short droppers.
+
+   The earlier version had the post directly beside the arrow, which read as an
+   arrow bolted to a pole. What sells "hanging" is the GAP — daylight between
+   the underside of the arm and the top of the arrow, crossed only by two thin
+   droppers. The post also has to stand well back, so the arm is long enough to
+   be read as an arm.
+
+   Everything here is WOOD except the arrow, and both are chunk materials, so
+   the flood fill in tryChunkDetach treats post + strut + arm + droppers +
+   arrow as one structure: cut the upright and the whole assembly goes. */
+const SIGN_ARM_H=2, SIGN_HANG=3, SIGN_REACH=12;
 function stampSignpost(){
   if(!SHAFT)return;
   const cx=Math.round((SHAFT.x0+SHAFT.x1)/2);
-  const ax=cx-(ARROW_W>>1);                  // arrow centred over the hole
-  const postX=Math.max(1,SHAFT.x0-4);        // post stands on turf clear of it
+  const ax=cx-(ARROW_W>>1);                   // arrow centred over the hole
+  const postX=Math.max(1,ax-SIGN_REACH);      // stand back, so the arm reads
   let groundY=H-1;
   for(let y=0;y<H;y++){
     const m=grid[idx(postX,y)];
     if(m===GRASS||m===DIRT||m===STONE){groundY=y;break;}
   }
-  const ay=Math.max(1,groundY-26-ARROW_H);   // tip hangs well above the turf
+  const ay=Math.max(1+SIGN_HANG+SIGN_ARM_H,groundY-26-ARROW_H); // arrow top
+  const armY=ay-SIGN_HANG-SIGN_ARM_H;                           // arm top
+  const mid=ARROW_W>>1;
+  const wood=(x,y,shade)=>{
+    if(x<0||x>=W||y<0||y>=H)return;
+    const gi=idx(x,y);
+    if(grid[gi]===ARTIFACT)return;            // never overwrite the arrow
+    grid[gi]=WOOD;variant[gi]=shade||0;frozen[gi]=1;
+  };
+
+  // ── the arrow, hung below where the arm will be ──
   const px=makeArrowPixels();
   for(let dy=0;dy<ARROW_H;dy++)for(let dx=0;dx<ARROW_W;dx++){
     const si=(dy*ARROW_W+dx)*4;
-    if(px[si+3]<128)continue;                // transparent → leave the sky
+    if(px[si+3]<128)continue;                 // transparent → leave the sky
     const x=ax+dx,y=ay+dy;
     if(x<0||x>=W||y<0||y>=H)continue;
     const gi=idx(x,y);
@@ -4048,23 +4071,20 @@ function stampSignpost(){
     artRGB[gi]=(px[si]<<16)|(px[si+1]<<8)|px[si+2];
     frozen[gi]=1;
   }
-  // a thin post, and one cell of cross-arm reaching the arrow so the two are
-  // a single connected region — that is what makes tryChunkDetach treat them
-  // as one sign rather than an arrow hanging in mid air next to a stick
-  for(let y=ay;y<=groundY+1;y++)for(let dx=0;dx<2;dx++){
-    const x=postX+dx;
-    if(x<0||x>=W||y<0||y>=H)continue;
-    const gi=idx(x,y);
-    if(grid[gi]===ARTIFACT)continue;
-    grid[gi]=WOOD;variant[gi]=dx===1?1:0;frozen[gi]=1;
-  }
-  for(let x=postX+2;x<ax;x++){
-    if(x<0||x>=W||ay<0||ay>=H)continue;
-    const gi=idx(x,ay);
-    grid[gi]=WOOD;variant[gi]=0;frozen[gi]=1;
-  }
-  wakeRect(postX-2,ay-2,ax+ARROW_W+2,groundY+2);
-  pixDirtyRect(postX-2,ay-2,ax+ARROW_W+2,groundY+2);
+
+  // ── upright ──
+  for(let y=armY;y<=groundY+1;y++){wood(postX,y,0);wood(postX+1,y,1);}
+  // ── arm: out from the post to just past the far dropper ──
+  const armX1=ax+mid+4;
+  for(let y=armY;y<armY+SIGN_ARM_H;y++)for(let x=postX;x<=armX1;x++)wood(x,y,y===armY?0:1);
+  // ── corner strut, the diagonal that makes it look built rather than glued ──
+  for(let k=0;k<6;k++)wood(postX+2+k,armY+SIGN_ARM_H+5-k,1);
+  // ── two droppers, at the shoulders of the arrow's shaft ──
+  for(const hx of [ax+mid-3,ax+mid+3])
+    for(let y=armY+SIGN_ARM_H;y<ay;y++)wood(hx,y,1);
+
+  wakeRect(postX-2,armY-2,armX1+2,groundY+2);
+  pixDirtyRect(postX-2,armY-2,armX1+2,groundY+2);
 }
 
 /* ═══════════════════════════════════════════════════════
