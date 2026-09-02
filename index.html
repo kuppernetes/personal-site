@@ -1308,10 +1308,19 @@ const EMPTY=0,SAND=1,WATER=2,FIRE=3,STONE=4,PLANT=5,ACID=6,OIL=7,SMOKE=8,ASH=9,
       FUSE=27,BOMB=28,
       // Thermal pair. LAVA is the heat source everything else answers to;
       // STEAM is the exhaust that carries the water back up to the sky.
-      STEAM=29,LAVA=30;
+      STEAM=29,LAVA=30,
+      // ─── ARTIFACT ───
+      // The one material whose colour is not derived from its id. Each cell
+      // carries a baked RGB in artRGB[], written when an image is rasterised
+      // into the grid, so a photograph can be matter: frozen so it holds its
+      // shape, debris so fire and acid eat it, chunk material so a whole
+      // panel that loses its footing falls as one slab rather than dissolving
+      // into confetti. This is what lets the work be buried IN the world
+      // instead of floating in a window above it.
+      ARTIFACT=31;
 const BOUND=255;
-const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS;
-const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
+const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS||m===ARTIFACT;
+const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY||m===ARTIFACT;
 // The organic debris is lighter than water and rides on top of it; brick and
 // glass go straight to the bottom. This is what makes a felled trunk drift as
 // a raft instead of vanishing into the pond it fell in.
@@ -1393,13 +1402,23 @@ function setCam(y){
   camY=ny;camDirty=true;
 }
 function syncCamFromScroll(){ setCam(window.scrollY/SCALE); }
-// spike instrumentation — read the camera from the console while testing
-window.__spike=()=>({camY,W,H,VH,SCALE,scrollY:window.scrollY,physicsOn,stepCostMs});
-window.__hist=(y0,y1)=>{const h={};for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const m=grid[y*W+x];h[m]=(h[m]||0)+1;}return h;};
+/* Spike instrumentation. Grouped on one global rather than five so it is
+   obvious what to delete when the spike either lands or is abandoned. */
+window.__spike=Object.assign(
+  ()=>({camY,W,H,VH,SCALE,scrollY:window.scrollY,physicsOn,stepCostMs}),
+  {
+    // material histogram over a band of world rows
+    hist:(y0,y1)=>{const h={};for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const m=grid[y*W+x];h[m]=(h[m]||0)+1;}return h;},
+    // jump the day clock: 0 = noon, PI = midnight
+    setDay:p=>{dayPhase=p;dayWarp=0;pixDirtyRect(0,0,W-1,H-1);return dayFactor();},
+    // world-cell bounding box of every cell of one material
+    bbox:m=>{let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(grid[y*W+x]!==m)continue;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}return{x0,y0,x1,y1};},
+    at:(x,y)=>({m:grid[y*W+x],frozen:frozen[y*W+x],rgb:artRGB[y*W+x].toString(16)}),
+  });
 window.addEventListener('scroll',syncCamFromScroll,{passive:true});
 syncCamFromScroll();
 
-let grid,variant,frozen,updated,inChunk,maskOwner;
+let grid,variant,frozen,updated,inChunk,maskOwner,artRGB;
 function allocArrays(){
   grid=new Uint8Array(W*H);
   variant=new Uint8Array(W*H);
@@ -1407,6 +1426,7 @@ function allocArrays(){
   updated=new Int32Array(W*H); // last frame this cell was written
   inChunk=new Uint8Array(W*H); // cell belongs to a falling masonry chunk
   maskOwner=new Int16Array(W*H); // MASK cell → burnable DOM element id (0 = none)
+  artRGB=new Uint32Array(W*H);   // ARTIFACT cell → baked 0x00RRGGBB
 }
 allocArrays();
 
@@ -1577,7 +1597,7 @@ function tryDecompose(x,y,i,m){
    Hard landings crumble the impact row into loose debris. */
 const chunks=[];
 const CHUNK_MAX=2600;
-const isChunkMat=m=>m===BRICK||m===WOOD;
+const isChunkMat=m=>m===BRICK||m===WOOD||m===ARTIFACT;
 function tryChunkDetach(sx,sy){
   const start=idx(sx,sy);
   const seen=new Set([start]);
@@ -1749,7 +1769,7 @@ function step(x,y){
     // support loss on structural material → try to detach the whole
     // connected region as one coherent chunk (or discover it's actually
     // held up elsewhere and leave it standing)
-    if(why===2&&(m===BRICK||m===WOOD)&&tryChunkDetach(x,y))return;
+    if(why===2&&isChunkMat(m)&&tryChunkDetach(x,y))return;
     frozen[i]=0;
     wake3(x,y);pixDirty(x,y);
     // fall through into the falling-debris path below
@@ -2584,7 +2604,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        ug*=0.72+0.55*rk;
        // underground is lit by what you bring down there, not by the sun, so
        // the day/night term barely touches it
-       ug*=0.80+0.20*uDay;
        sky=mix(sky,ug,ugK);
      }
 
@@ -2603,7 +2622,16 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      // leaves very little room: at 0.38 the darkest rock fell off the bottom
      // and whole cliffs went flat black. Bright materials have levels to spare,
      // which is why sand and dirt carry most of the visible depth here.
-     float amb=(0.16+0.84*uDay)*(1.0-0.22*lc.a);
+     // Ambient light. Above ground it tracks the day/night clock; underground
+     // it does not, and must not — there is no sun down a mine shaft, so a
+     // buried panel that dimmed at dusk would be lit by a sky it cannot see.
+     // Below the horizon the term flattens to a constant, and the only thing
+     // that changes the light down there is what you bring with you: fire,
+     // lava, a lit fuse. ugK does the crossfade, so the transition happens at
+     // the same world row where the sky stops.
+     float ambSky=0.16+0.84*uDay;
+     float ambUnder=0.42;
+     float amb=mix(ambSky,ambUnder,ugK)*(1.0-0.22*lc.a);
      vec3 partRGB=tx.rgb*(amb + lit*1.35);
      tx=vec4(partRGB,tx.a);
 
@@ -2755,6 +2783,7 @@ EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;EMIT[LAVA]=1;
    dialog box cast occlusion onto the terrain around it looks like a bug. */
 const OCC=new Uint8Array(256);
 for(let m=1;m<=LAVA;m++)OCC[m]=1;
+OCC[ARTIFACT]=1;  // the loop above stops at LAVA; a buried panel still casts
 OCC[FIRE]=0;OCC[SMOKE]=0;OCC[STEAM]=0;OCC[POLLEN]=0;OCC[RIGID]=0;OCC[MASK]=0;OCC[BIRD]=0;
 // Re-count only the blocks the given cell rect touches; returns whether any of
 // them actually moved, which is what decides if the light textures need
@@ -2935,6 +2964,16 @@ function matTexel(m,v,x,y,out,dst,s){
       else if(s===2){r=82+j;g=152+j;b=56+j;}
       else{r=46+j;g=104+j;b=36+j;}
       a=255; break;
+    }
+    case ARTIFACT: {
+      // Baked colour, straight out of the source image. No jitter and no
+      // palette: the whole point is that this cell looks like the photograph
+      // it came from. The one liberty taken is the variant, which stores a
+      // scorch level — fire licking a panel darkens it toward ash before it
+      // finally gives way, so burning reads as burning and not as teleporting.
+      const c=artRGB[y*W+x], sc=(v&7);
+      const k=sc?(1-sc*0.13):1;
+      r=((c>>>16)&255)*k; g=((c>>>8)&255)*k; b=(c&255)*k; a=255; break;
     }
     case TITLE: r=238;g=235;b=228;a=255; break;
     case ACCENT:r=184;g=224;b=0;  a=255; break;
@@ -3739,6 +3778,87 @@ function spriteW(name){
 }
 function spriteH(name){const a=SPRITES[name];return a?a.length:0;}
 
+/* ═══════════════════════════════════════════════════════
+   ARTIFACTS — the work itself, rasterised into the grid
+
+   An image is drawn into an offscreen canvas at EXACTLY the cell resolution it
+   will occupy, so the browser's own downscaler does the averaging (drawImage
+   with imageSmoothingQuality:'high' beats anything worth hand-writing here)
+   and one source pixel-block becomes one sim cell. From there it is matter:
+   frozen so it holds, ARTIFACT so it keeps its own colour, and in isDebris so
+   fire, acid and gravity all get their say.
+
+   Deliberately NOT the readable content. At this cell size a panel is legible
+   as an image and nothing more — the words stay in the DOM, where they can be
+   selected, indexed and read aloud. This is the picture on the wall, not the
+   wall text.
+═══════════════════════════════════════════════════════ */
+const artifacts=[];   // {src,gx,gy,cw,ch,img} — kept so a reset can re-stamp
+function rasterizeImage(img,cw,ch){
+  const cv=Object.assign(document.createElement('canvas'),{width:cw,height:ch});
+  const c=cv.getContext('2d',{willReadFrequently:true});
+  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';
+  c.drawImage(img,0,0,cw,ch);
+  return c.getImageData(0,0,cw,ch).data;
+}
+/* gx,gy is the TOP-LEFT in world cells. cw is the width in cells; the height
+   follows from the image's aspect so nothing is squashed. */
+function stampArtifact(img,gx,gy,cw){
+  const ch=Math.max(1,Math.round(cw*(img.naturalHeight/img.naturalWidth)));
+  const px=rasterizeImage(img,cw,ch);
+  for(let dy=0;dy<ch;dy++)for(let dx=0;dx<cw;dx++){
+    const sx=gx+dx,sy=gy+dy;
+    if(sx<0||sx>=W||sy<0||sy>=H)continue;
+    const si=(dy*cw+dx)*4;
+    if(px[si+3]<128)continue;                    // transparent source → no cell
+    const gi=idx(sx,sy);
+    if(grid[gi]===STONE&&frozen[gi])continue;    // don't punch through bedrock
+    grid[gi]=ARTIFACT;
+    variant[gi]=0;                               // variant is the scorch level
+    artRGB[gi]=(px[si]<<16)|(px[si+1]<<8)|px[si+2];
+    frozen[gi]=1;
+  }
+  // A panel needs something to stand on or tryDecompose drops it the instant
+  // physics starts. One row of stone under the footprint is the plinth.
+  for(let dx=-1;dx<=cw;dx++){
+    const sx=gx+dx,sy=gy+ch;
+    if(sx<0||sx>=W||sy<0||sy>=H)continue;
+    const gi=idx(sx,sy);
+    if(grid[gi]===EMPTY){grid[gi]=STONE;variant[gi]=Math.random()*4|0;frozen[gi]=1;}
+  }
+  wakeRect(gx-1,gy-1,gx+cw+1,gy+ch+1);
+  pixDirtyRect(gx-1,gy-1,gx+cw+1,gy+ch+1);
+}
+// Where each piece of work is buried. Depth is the ordering: recent work is
+// near the surface, the older it is the further you dig.
+const ARTIFACT_PLAN=[
+  {src:'images/projects/agent-center-thumb.webp', at:[0.10,1.35], w:0.26},
+  {src:'images/projects/ai-playground-thumb.webp',at:[0.58,1.55], w:0.24},
+  {src:'images/projects/snaptrap-thumb.webp',     at:[0.16,2.30], w:0.24},
+  {src:'images/projects/catiator-thumb.webp',     at:[0.62,2.55], w:0.22},
+  {src:'images/projects/retrovirus-vr-thumb.webp',at:[0.22,3.35], w:0.22},
+];
+/* Images decode asynchronously and spawnContent is synchronous, so each one
+   stamps itself the moment it is ready. That is fine — a panel appearing a
+   frame or two into the world is invisible, and it keeps image loading off the
+   critical path of the first render. */
+function spawnArtifacts(){
+  artifacts.length=0;
+  for(const a of ARTIFACT_PLAN){
+    const img=new Image();
+    img.decoding='async';
+    img.onload=()=>{
+      const gx=Math.round(a.at[0]*W);
+      const gy=Math.round(a.at[1]*VH);
+      const cw=Math.max(8,Math.round(a.w*W));
+      if(gy+cw>=H)return;                        // world too short for this one
+      artifacts.push({...a,img,gx,gy,cw});
+      stampArtifact(img,gx,gy,cw);
+    };
+    img.src=a.src;
+  }
+}
+
 function stampSprite(name,gx,gyBottom){
   const art=SPRITES[name];
   if(!art)return;
@@ -4072,6 +4192,9 @@ function spawnContent(){
 
   // projects are now DOM content — no rigid-body region
   WORK_REGION=null;
+
+  // the work itself, buried at depth — stamps in as each image decodes
+  spawnArtifacts();
 
   // stamp invisible MASK cells under the HTML content so particles collide with it
   clearAllBurns(); // a reset heals every window that got burnt or melted
