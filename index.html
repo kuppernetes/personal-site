@@ -4693,7 +4693,13 @@ function syncBrushRing(){
 }
 syncBrushRing();
 brushSliderEl.addEventListener('input',syncBrushRing);
+/* The canvas covers the whole viewport, so a wheel handler that swallows every
+   event is a wheel handler that makes the page unscrollable — and scrolling is
+   now how you move through the world. So the plain wheel belongs to the page,
+   and the brush moves to Alt+wheel (not Ctrl, which is browser zoom, and not
+   Shift, which is horizontal scroll). */
 canvas.addEventListener('wheel',e=>{
+  if(!e.altKey)return;            // let it bubble: the document scrolls
   e.preventDefault();
   const v=+brushSliderEl.value+(e.deltaY<0?1:-1);
   brushSliderEl.value=Math.max(+brushSliderEl.min,Math.min(+brushSliderEl.max,v));
