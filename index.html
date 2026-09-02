@@ -32,7 +32,9 @@ html,body{
      chrome and off screen. dvh tracks the visible area. The vh line stays as a
      fallback for browsers without dvh; the later declaration wins where it's
      supported. window.innerHeight (computeDims) already matches dvh. */
-  width:100%;height:100vh;height:100dvh;overflow:hidden;font-family:'Courier New',monospace;
+  /* SPIKE: the page scrolls now. #scrollSpacer supplies the height and #stage
+     is fixed over it, so the world is a camera window rather than a document. */
+  width:100%;min-height:100vh;min-height:100dvh;font-family:'Courier New',monospace;
   background:
     /* clouds */
     radial-gradient(ellipse 18vw 3vh at 16% 18%, rgba(255,255,255,0.88), rgba(255,255,255,0) 70%),
@@ -45,7 +47,9 @@ html,body{
     /* sky */
     linear-gradient(180deg, #2c6cb8 0%, #5a9ddc 35%, #9ec9ea 60%, #d6e7f1 72%, #d6e7f1 100%);
 }
-#stage{position:relative;width:100%;height:100vh;height:100dvh}
+#stage{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;z-index:1}
+/* height set from JS (WORLD_SCREENS x viewport) — this is the whole scrollbar */
+#scrollSpacer{position:relative;width:100%;pointer-events:none}
 #simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 #birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
 #uiLayer{position:absolute;inset:0;pointer-events:none}
@@ -1200,6 +1204,8 @@ html,body{
 
 </defs></svg>
 
+<div id="scrollSpacer"></div>
+
 <div id="stage">
   <canvas id="simCanvas"></canvas>
   <canvas id="birdCanvas"></canvas>
@@ -1311,7 +1317,21 @@ const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
 // a raft instead of vanishing into the pond it fell in.
 const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
 
-let W,H,SCALE;
+/* ═══ SCROLL CAMERA (spike) ═══
+   W,H are the WORLD grid. VH is how much of it one screenful shows, and camY is
+   the world row currently at the top of the screen. The canvas backing store is
+   W x VH — the world is taller than the frame, and scrolling slides the frame
+   down through it. camY is driven straight off window.scrollY, so the page's
+   own scrollbar is the camera control: no scrolljacking, no wheel handler,
+   keyboard paging and touch momentum come free.
+
+   Everything downstream splits into two coordinate spaces:
+     world cells   — grid[], sim rules, sprites, landscape       (y = 0..H-1)
+     screen cells  — the texture window, light buffers, pointers (y = 0..VH-1)
+   and the only conversion between them is camY. */
+const WORLD_SCREENS=5;        // world is this many viewports tall
+let W,H,VH,SCALE;
+let camY=0;                   // world row at the top of the screen
 function computeDims(){
   const vw=window.innerWidth,vh=window.innerHeight;
   const CELL_BUDGET=1300000;
@@ -1333,15 +1353,18 @@ function computeDims(){
   const TARGET_SPAN=346;
   let s=Math.max(4,Math.round(Math.sqrt(vw*vh)/TARGET_SPAN));
   while((vw/s)*(vh/s)>CELL_BUDGET&&s<9)s++;
-  const nW=Math.floor(vw/s),nH=Math.floor(vh/s);
+  const nW=Math.floor(vw/s),nVH=Math.floor(vh/s);
+  const nH=nVH*WORLD_SCREENS;
   // Nothing to do if the grid lands on the same dimensions — assigning
   // canvas.width alone clears the canvas, and the caller would needlessly
   // reallocate and re-roll the whole scene for a few pixels of drag.
   if(s===SCALE&&nW===W&&nH===H)return false;
-  SCALE=s;W=nW;H=nH;
-  canvas.width=W;canvas.height=H;
+  SCALE=s;W=nW;VH=nVH;H=nH;
+  // Backing store is one screenful, not the whole world: the frame is what we
+  // draw, the world is what we sample from.
+  canvas.width=W;canvas.height=VH;
   const bc=document.getElementById('birdCanvas');
-  if(bc){bc.width=W;bc.height=H;}
+  if(bc){bc.width=W;bc.height=VH;}
   // Deliberately no inline CSS size: #simCanvas/#birdCanvas are width:100%
   // height:100% over #stage, so the element tracks the viewport every frame of
   // a drag. Pinning it to a px size here would freeze it at the pre-drag size
@@ -1351,6 +1374,30 @@ function computeDims(){
   return true;
 }
 computeDims();
+
+/* The scroll surface. #scrollSpacer is an empty div whose only job is to give
+   the document a scrollable height of WORLD_SCREENS viewports; #stage is fixed
+   on top of it, so nothing in the existing UI moves. Reading scrollY in the
+   scroll handler (rather than accumulating deltas) keeps the camera exact
+   through momentum, anchor jumps and browser scroll restoration alike. */
+const scrollSpacer=document.getElementById('scrollSpacer');
+function syncScrollHeight(){
+  if(scrollSpacer)scrollSpacer.style.height=(WORLD_SCREENS*100)+'dvh';
+}
+syncScrollHeight();
+let camDirty=true;            // camera moved: light buffers must be rebuilt
+function setCam(y){
+  const maxY=Math.max(0,H-VH);
+  const ny=Math.max(0,Math.min(maxY,Math.round(y)));
+  if(ny===camY)return;
+  camY=ny;camDirty=true;
+}
+function syncCamFromScroll(){ setCam(window.scrollY/SCALE); }
+// spike instrumentation — read the camera from the console while testing
+window.__spike=()=>({camY,W,H,VH,SCALE,scrollY:window.scrollY,physicsOn,stepCostMs});
+window.__hist=(y0,y1)=>{const h={};for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const m=grid[y*W+x];h[m]=(h[m]||0)+1;}return h;};
+window.addEventListener('scroll',syncCamFromScroll,{passive:true});
+syncCamFromScroll();
 
 let grid,variant,frozen,updated,inChunk,maskOwner;
 function allocArrays(){
@@ -2165,12 +2212,30 @@ function simulate(){
   t=dcMaxY;dcMaxY=dnMaxY;dnMaxY=t;
   clearNext();
 
+  /* ── camera band clamp ──
+     A sleeping chunk already costs nothing, so the world being five screens
+     tall is free while it is still. What is NOT free is a chunk that never
+     settles — a waterfall, a fire, a bomb left burning four screens up. Those
+     stay awake forever and would run every frame for scenery nobody is looking
+     at. So: simulate one screen either side of the camera and no further.
+
+     Out-of-band chunks are not put to sleep, they are DEFERRED — their dirty
+     rect is copied straight into next frame's list. Dropping it instead would
+     mean a waterfall you scrolled past froze permanently, and scrolling back
+     would show it stopped mid-air. */
+  const bandC0=((camY-VH)/CW)|0, bandC1=((camY+VH*2)/CW)|0;
   // iterate chunk rows bottom→top so gravity propagates naturally
   for(let cyi=ncy-1;cyi>=0;cyi--){
+    const inBand=cyi>=bandC0&&cyi<=bandC1;
     for(let cxi=0;cxi<ncx;cxi++){
       const c=cyi*ncx+cxi;
       let x0=dcMinX[c],y0=dcMinY[c],x1=dcMaxX[c],y1=dcMaxY[c];
       if(x1<x0)continue; // sleeping chunk
+      if(!inBand){       // defer: re-arm for next frame, untouched
+        if(x0<dnMinX[c])dnMinX[c]=x0; if(y0<dnMinY[c])dnMinY[c]=y0;
+        if(x1>dnMaxX[c])dnMaxX[c]=x1; if(y1>dnMaxY[c])dnMaxY[c]=y1;
+        continue;
+      }
       if(x0<0)x0=0; if(y0<0)y0=0; if(x1>=W)x1=W-1; if(y1>=H)y1=H-1;
       for(let y=y1;y>=y0;y--){
         if(stepDir>0){for(let x=x0;x<=x1;x++)step(x,y);}
@@ -2345,7 +2410,11 @@ gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
   `#version 300 es\nin vec2 a;out vec2 uv;\nvoid main(){uv=a*.5+.5;gl_Position=vec4(a,0,1);}`));
 gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
   `#version 300 es
-   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;uniform float uBar;out vec4 c;
+   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;uniform float uBar;
+   // uCam = (camY in world cells, VH = screen height in cells). uGrid.y is the
+   // WORLD height, so uv (screen space) and the particle texture (world space)
+   // are no longer the same thing — see tuv below.
+   uniform vec2 uCam;out vec4 c;
    float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
    float noise(vec2 p){
      vec2 i=floor(p),f=fract(p);
@@ -2378,12 +2447,24 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      return bayer[by*4+bx];
    }
    void main(){
+     // ── world/screen split ──
+     // The texture holds the whole world y-flipped (row 0 = world bottom). The
+     // visible band is world rows [camY, camY+VH), which lands here.
+     vec2 tuv=vec2(uv.x,(uGrid.y-uCam.x-uCam.y+uv.y*uCam.y)/uGrid.y);
      // particles sample at full resolution so they stay crisp
-     vec4 tx=texture(t,uv);
-     // snap the sky to the sim cell grid so it reads as pixel art
-     vec2 cell=floor(uv*uGrid);
-     vec2 cuv=(cell+0.5)/uGrid;
-     float y=cuv.y;                         // 0 = bottom, 1 = top of screen
+     vec4 tx=texture(t,tuv);
+     // snap the sky to the sim cell grid so it reads as pixel art. Cells are
+     // SCREEN cells — one texel of the frame — so dither and blade widths keep
+     // their authored size no matter how tall the world gets.
+     vec2 vres=vec2(uGrid.x,uCam.y);
+     vec2 cell=floor(uv*vres);
+     vec2 cuv=(cell+0.5)/vres;
+     // How far down we have scrolled, in screenfuls. The sky was authored for
+     // a one-screen world; shifting its vertical coordinate by depth means at
+     // camY=0 nothing changes at all, and descending simply carries the whole
+     // sky, hills and turbines up out of frame like real scenery.
+     float depth=uCam.x/uCam.y;
+     float y=cuv.y-depth;                   // 0 = horizon plane, 1 = top of sky
 
      // ── Bliss-style sky, cross-faded to a starlit night by uDay ──
      vec3 horizon=mix(vec3(0.10,0.12,0.22),vec3(0.86,0.92,0.97),uDay);
@@ -2406,12 +2487,12 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
 
      // ── puffy white cumulus clouds, drifting horizontally ──
      // two layers: bigger lazy crowns on top, smaller wisps lower down
-     float c1=fbm(vec2(cuv.x*2.4 - uT*0.012, cuv.y*4.2));
+     float c1=fbm(vec2(cuv.x*2.4 - uT*0.012, y*4.2));
      float band1=smoothstep(0.42,0.78,y)*smoothstep(0.98,0.70,y);
      float lit1=smoothstep(0.0,0.20,c1-0.55);
      vec3 cloud1=mix(vec3(0.84,0.88,0.94),vec3(1.0,1.0,1.0),lit1);cloud1=mix(vec3(0.09,0.11,0.19),cloud1,uDay);
      sky=mix(sky,cloud1,smoothstep(0.54,0.74,c1)*band1);
-     float c2=fbm(vec2(cuv.x*4.5 - uT*0.028 + 9.0, cuv.y*7.0));
+     float c2=fbm(vec2(cuv.x*4.5 - uT*0.028 + 9.0, y*7.0));
      float band2=smoothstep(0.30,0.55,y)*smoothstep(0.74,0.46,y);
      sky=mix(sky,mix(vec3(0.10,0.12,0.20),vec3(0.97,0.99,1.0),uDay),smoothstep(0.62,0.80,c2)*band2*0.55);
 
@@ -2421,7 +2502,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        float fk=float(k);
        float speed=0.020+0.012*fk;
        float scale=3.2+1.6*fk;
-       vec2 q=vec2(cuv.x*scale - uT*speed + fk*4.7, (cuv.y-0.58)*scale*2.4 + fk*1.3);
+       vec2 q=vec2(cuv.x*scale - uT*speed + fk*4.7, (y-0.58)*scale*2.4 + fk*1.3);
        vec2 cell=floor(q), f=fract(q);
        for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++){
          vec2 g=vec2(float(dx),float(dy));
@@ -2450,7 +2531,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        vec3 grass=mix(grassTop,grassMid,smoothstep(0.0,0.35,gT));
        grass=mix(grass,grassDeep,smoothstep(0.40,1.0,gT));
        // subtle wind-streak striations along the slope
-       grass+=0.025*sin(cuv.x*38.0 + cuv.y*12.0);
+       grass+=0.025*sin(cuv.x*38.0 + y*12.0);
        sky=grass*(0.12+0.88*uDay);
      }
 
@@ -2460,9 +2541,9 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        vec3(0.230,0.115,0.0),
        vec3(0.345,0.085,2.1),
        vec3(0.710,0.100,4.2));
-     float asp=uGrid.x/uGrid.y;
-     vec2 pp=vec2(cuv.x*asp,cuv.y);        // aspect-corrected so rotors sweep circles
-     float pw=1.0/uGrid.y;                 // one sim cell, in uv-y units
+     float asp=uGrid.x/uCam.y;
+     vec2 pp=vec2(cuv.x*asp,y);        // aspect-corrected so rotors sweep circles
+     float pw=1.0/uCam.y;                 // one sim cell, in uv-y units
      vec3 turbCol=mix(vec3(0.28,0.31,0.40),vec3(0.94,0.96,0.98),uDay);
      for(int k=0;k<3;k++){
        vec3 tp=TURB[k];
@@ -2481,6 +2562,30 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
          float blink=step(0.5,fract(uT*0.5+tp.z));
          sky=mix(sky,vec3(0.95,0.15,0.15),step(length(pp-hub),pw*0.8)*blink*(night-0.5)*2.0);
        }
+     }
+
+     // ── underground backdrop ──
+     // Above the horizon the backdrop is sky; below it, the empty cells between
+     // particles should read as the dark of a cut face, not as blue. The
+     // crossover is keyed to the WORLD row, not to scroll position, so the line
+     // where sky stops is a fixed feature of the world — descend and you pass
+     // it, ascend and it is exactly where you left it.
+     float wrow=uCam.x+(uCam.y-1.0-cell.y);          // world row, 0 = world top
+     float ugK=smoothstep(uCam.y*0.86,uCam.y*1.06,wrow);
+     if(ugK>0.0){
+       float dd=clamp((wrow-uCam.y)/max(1.0,uGrid.y-uCam.y),0.0,1.0);
+       // mottling in WORLD coords so the rock face holds still while scrolling
+       float rk=fbm(vec2(cell.x*0.045,wrow*0.045));
+       vec3 shallow=vec3(0.085,0.062,0.048);         // packed earth behind roots
+       vec3 midRock=vec3(0.055,0.052,0.068);         // cold stone
+       vec3 deepRock=vec3(0.075,0.040,0.035);        // warmer as the core nears
+       vec3 ug=mix(shallow,midRock,smoothstep(0.05,0.45,dd));
+       ug=mix(ug,deepRock,smoothstep(0.55,1.0,dd));
+       ug*=0.72+0.55*rk;
+       // underground is lit by what you bring down there, not by the sun, so
+       // the day/night term barely touches it
+       ug*=0.80+0.20*uDay;
+       sky=mix(sky,ug,ugK);
      }
 
      // ── emissive lighting: ambient day factor + two-scale light buffer ──
@@ -2542,6 +2647,8 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        fg=max(fg,on);
        rim=max(rim,on*step(0.86,bt));
      }
+     // the near plane belongs to the surface; leaving it, the berm goes with it
+     fg*=1.0-smoothstep(0.10,0.45,depth);
      if(fg>0.5){
        // By night the meadow behind this crushes to black, so a dark silhouette
        // would invert and read as a glowing strip. Instead the body sinks into
@@ -2572,12 +2679,15 @@ const uTimeLoc=gl.getUniformLocation(prog,'uT');
 const uDayLoc=gl.getUniformLocation(prog,'uDay');
 const uGridLoc=gl.getUniformLocation(prog,'uGrid');
 const uBarLoc=gl.getUniformLocation(prog,'uBar');
+const uCamLoc=gl.getUniformLocation(prog,'uCam');
 const TASKBAR_PX=30;          // keep in sync with #taskbar height
 let gTime=0;
 
 function allocTexture(){
+  // texData/tex are WORLD-sized: scrolling is then a uniform change, with no
+  // re-upload at all. The drawing buffer stays one screenful.
   texData=new Uint8Array(W*H*4);
-  gl.viewport(0,0,W,H);
+  gl.viewport(0,0,W,VH);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,texData);
 }
 allocTexture();
@@ -2608,7 +2718,12 @@ for(const t of [lightTexC,lightTexW]){
 let emX0=BIG,emY0=BIG,emX1=-1,emY1=-1;
 let lightScanAll=1, lightHadEmitters=true;
 function allocLight(){
-  LW=(W>>2)+1;LH=(H>>2)+1;WW=(W>>4)+1;WH=(H>>4)+1;
+  // Light + occlusion buffers cover the VISIBLE BAND only, not the world. A
+  // world-sized core buffer would be cleared and blurred four times every other
+  // frame at WORLD_SCREENS times the cost, for light that is off screen and
+  // cannot be seen. Band-sized also means the fragment shader keeps sampling
+  // these with plain screen uv — the camera never enters the light path.
+  LW=(W>>2)+1;LH=(VH>>2)+1;WW=(W>>4)+1;WH=(VH>>4)+1;
   lightScanAll=1;lightHadEmitters=true; // fresh buffers, nothing carried over
   coreF=[new Float32Array(LW*LH),new Float32Array(LW*LH),new Float32Array(LW*LH)];
   wideF=[new Float32Array(WW*WH),new Float32Array(WW*WH),new Float32Array(WW*WH)];
@@ -2645,10 +2760,12 @@ OCC[FIRE]=0;OCC[SMOKE]=0;OCC[STEAM]=0;OCC[POLLEN]=0;OCC[RIGID]=0;OCC[MASK]=0;OCC
 // them actually moved, which is what decides if the light textures need
 // re-uploading on a frame with nothing burning.
 function occRebuild(x0,y0,x1,y1){
+  // clip to the band the buffers actually cover
+  if(y0<camY)y0=camY; if(y1>camY+VH-1)y1=camY+VH-1;
   if(x1<x0||y1<y0)return false;
   let moved=false;
-  for(let by=y0>>2;by<=(y1>>2);by++){
-    const cy0=by<<2, cy1=Math.min(H-1,cy0+3);
+  for(let by=(y0-camY)>>2;by<=((y1-camY)>>2);by++){
+    const cy0=camY+(by<<2), cy1=Math.min(camY+VH-1,cy0+3);
     for(let bx=x0>>2;bx<=(x1>>2);bx++){
       const cx0=bx<<2, cx1=Math.min(W-1,cx0+3);
       let n=0;
@@ -2679,12 +2796,16 @@ function buildLight(){
   // with the box the emitters occupied on that pass. Becoming an emitter always
   // dirties a pixel (setMat, moveSwap and the fuse/bomb lit bits all call
   // pixDirty), so nothing outside this box can be lit.
-  let sx0=0,sy0=0,sx1=W-1,sy1=H-1;
+  // The camera moving invalidates every buffer at once — they are indexed
+  // band-locally, so a scroll of one row shifts the meaning of every cell in
+  // them. Cheaper to re-scan the band than to try to shift them in place.
+  if(camDirty){lightScanAll=1;camDirty=false;}
+  let sx0=0,sy0=camY,sx1=W-1,sy1=camY+VH-1;
   if(lightScanAll)lightScanAll=0;
   else{
     sx0=edX0<emX0?edX0:emX0; sy0=edY0<emY0?edY0:emY0;
     sx1=edX1>emX1?edX1:emX1; sy1=edY1>emY1?edY1:emY1;
-    if(sx0<0)sx0=0; if(sy0<0)sy0=0; if(sx1>W-1)sx1=W-1; if(sy1>H-1)sy1=H-1;
+    if(sx0<0)sx0=0; if(sy0<camY)sy0=camY; if(sx1>W-1)sx1=W-1; if(sy1>camY+VH-1)sy1=camY+VH-1;
   }
   edX0=BIG;edY0=BIG;edX1=-1;edY1=-1;
   emX0=BIG;emY0=BIG;emX1=-1;emY1=-1;
@@ -2718,9 +2839,9 @@ function buildLight(){
       found++;
       if(x<emX0)emX0=x; if(y<emY0)emY0=y;
       if(x>emX1)emX1=x; if(y>emY1)emY1=y;
-      const ci=(y>>2)*LW+(x>>2);
+      const ci=((y-camY)>>2)*LW+(x>>2);
       coreF[0][ci]+=r*0.5;coreF[1][ci]+=g*0.5;coreF[2][ci]+=b*0.5;
-      const wi=(y>>4)*WW+(x>>4);
+      const wi=((y-camY)>>4)*WW+(x>>4);
       wideF[0][wi]+=r*0.16;wideF[1][wi]+=g*0.16;wideF[2][wi]+=b*0.16;
     }
   }
@@ -2961,6 +3082,7 @@ function render(){
   gl.uniform1f(uDayLoc,dayFactor());
   gl.uniform2f(uGridLoc,W,H);
   gl.uniform1f(uBarLoc,TASKBAR_PX/SCALE);
+  gl.uniform2f(uCamLoc,camY,VH);
   gl.disable(gl.BLEND);
   // iterate dirty chunks: only re-fill+upload pixels that actually changed
   gl.pixelStorei(gl.UNPACK_ROW_LENGTH,W);
@@ -3640,12 +3762,102 @@ function stampSprite(name,gx,gyBottom){
   }
 }
 
+/* ═══ DEPTH STRATA ═══
+   What fills the four screens under the meadow. Bands are keyed off VH so the
+   layer boundaries land at predictable scroll positions — one screen of
+   subsoil, then bedrock, then the deep. Materials come straight from the
+   existing set, which already runs dirt → stone → lava in the right order.
+
+   d = cells below the local surface, y = absolute world row. */
+function strataMat(d,y){
+  const t=(y-VH)/Math.max(1,H-VH);       // 0 at the meadow floor, 1 at bedrock
+  if(d<VH*0.10)return Math.random()<0.10?STONE:DIRT;     // subsoil
+  if(t<0.42)return Math.random()<0.09?DIRT:STONE;        // rock with dirt seams
+  // Damp rock. Moss is clustered along horizontal seams rather than sprinkled
+  // per-cell: scattered single green pixels read as noise, a seam reads as a
+  // vein of something growing where water gets in.
+  if(t<0.78)return (Math.sin(y*0.9)+Math.sin(y*0.31+7.0)>1.3&&Math.random()<0.35)?MOSS:STONE;
+  return STONE;                                          // bedrock
+}
+/* Cave-wall noise. hillNoise is a 1-D function of x and gives every row the
+   same wobble, which on a cave rim reads as vertical banding; this needs both
+   axes. Three sines at incommensurate frequencies is enough turbulence for a
+   silhouette that never repeats over the world's depth, at no setup cost. */
+function caveNoise(x,y){
+  return Math.sin(x*0.21+y*0.13)*0.50
+        +Math.sin(x*0.07-y*0.31)*0.32
+        +Math.sin(x*0.53+y*0.41)*0.18;
+}
+// Caves, a perched water table and the magma floor — the reasons to keep going.
+function spawnStrata(surf){
+  const caveTop=VH+((VH*0.55)|0);
+  const caveBot=H-((VH*0.42)|0);
+  // ── cave pockets ──
+  // Fewer and larger than a scatter of bubbles, and deliberately overlapping
+  // vertically between bands so some of them chain into a route downward
+  // rather than leaving every void sealed in rock.
+  for(let y=caveTop;y<caveBot;y+=(VH*0.42)|0){
+    const n=1+(Math.random()*2|0);
+    for(let k=0;k<n;k++){
+      const cx=((Math.random()*0.80+0.10)*W)|0;
+      const cy=y+((Math.random()*2-1)*VH*0.18)|0;
+      const rx=(W*(0.09+Math.random()*0.13))|0;
+      const ry=(VH*(0.055+Math.random()*0.075))|0;
+      for(let py=cy-ry*2;py<=cy+ry*2;py++){
+        if(py<caveTop||py>=caveBot)continue;
+        for(let px=cx-rx*2;px<=cx+rx*2;px++){
+          if(px<1||px>=W-1)continue;
+          const dx=(px-cx)/rx,dy=(py-cy)/ry;
+          // the noise pushes the rim in and out by a third of its radius, which
+          // is what turns an oval into something that reads as eaten out of rock
+          if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.38)continue;
+          putCell(px,py,EMPTY,0);
+        }
+      }
+    }
+  }
+  // ── a perched water table: a flooded pocket in the upper rock. Dig into it
+  // from the side and it drains down the shaft, which is the one thing down
+  // here that rewards breaking a wall on purpose.
+  {
+    const wy=VH*2+((VH*0.25)|0);
+    const cx=(W*0.34)|0,rx=(W*0.15)|0,ry=(VH*0.08)|0;
+    for(let py=wy-ry;py<=wy+ry;py++)for(let px=cx-rx;px<=cx+rx;px++){
+      if(px<1||px>=W-1||py<0||py>=H)continue;
+      const dx=(px-cx)/rx,dy=(py-wy)/ry;
+      if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.25)continue;
+      putCell(px,py,py>wy-ry*0.3?WATER:EMPTY,0);
+    }
+  }
+  // ── magma. Deliberately the last thing you reach: LAVA is the only material
+  // that lights the world around it, so the bottom of the shaft is the one
+  // place down here that glows on its own.
+  //
+  // A SEAM, not a floor. A solid slab of lava saturates the light buffer and
+  // the whole frame blows out to white — the glow has to have rock under it to
+  // read as heat rather than as a blank exposure.
+  const lavaTop=H-((VH*0.30)|0);
+  const seam=Math.max(5,(VH*0.10)|0);
+  for(let x=0;x<W;x++){
+    const jag=(caveNoise(x,lavaTop)*3)|0;
+    const top=lavaTop+jag;
+    for(let y=top;y<Math.min(H,top+seam);y++)putCell(x,y,LAVA,0);
+    for(let y=top+seam;y<H;y++)putCell(x,y,STONE,Math.random()*4|0);
+  }
+  wakeRect(0,VH,W-1,H-1);
+}
+
 function spawnNaturalLandscape(){
-  const soilDepth=Math.max(4,Math.floor(H*0.02));
+  // The meadow is anchored to the FIRST SCREEN (VH), not to the world floor.
+  // Everything from there down to H is strata — see spawnStrata below. This is
+  // the one substantive change to the landscape: every proportion that used to
+  // be a fraction of the world is now a fraction of the opening view, which is
+  // what those numbers were always really tuned against.
+  const soilDepth=Math.max(4,Math.floor(VH*0.02));
   // gentler rolling hills — sprites now carry the visual rhythm,
   // so the meadow itself reads as a calm stage rather than a noisy ground.
-  const hillAmp=Math.floor(H*0.045);
-  const baseLine=H-Math.max(4,Math.floor(H*0.014));
+  const hillAmp=Math.floor(VH*0.045);
+  const baseLine=VH-Math.max(4,Math.floor(VH*0.014));
   const surf=new Int16Array(W);
 
   for(let x=0;x<W;x++){
@@ -3659,7 +3871,7 @@ function spawnNaturalLandscape(){
 
   const pondCX=Math.floor(W*0.70);
   const pondRX=Math.max(14,Math.floor(W*0.095));
-  const pondRY=Math.max(6,Math.floor(H*0.042));
+  const pondRY=Math.max(6,Math.floor(VH*0.042));
   const pondRefX=Math.max(0,Math.min(W-1,pondCX));
   const pondMidY=surf[pondRefX];
   const bowlFloor=pondMidY+Math.floor(pondRY*0.55);
@@ -3678,15 +3890,16 @@ function spawnNaturalLandscape(){
     return dx*dx+dy*dy;
   }
 
-  // pass 1 — earth and bedrock
+  // pass 1 — earth, then the full depth column beneath it
   for(let x=0;x<W;x++){
     for(let y=surf[x];y<H;y++){
       const d=y-surf[x];
       if(d===0)putCell(x,y,GRASS);
       else if(d<soilDepth)putCell(x,y,DIRT);
-      else putCell(x,y,STONE);
+      else putCell(x,y,strataMat(d,y));
     }
   }
+  spawnStrata(surf);
 
   // pass 2 — pond bowl, banks, water
   const px0=Math.max(0,pondCX-pondRX-5.5|0),px1=Math.min(W-1,pondCX+pondRX+2.5|0);
@@ -3872,23 +4085,55 @@ function spawnContent(){
 // Walk every element with data-collide and stamp it into the sim grid as MASK.
 //   data-collide="text"  → per-glyph raster (sand falls into letter cavities)
 //   data-collide  (any)  → bounding-box rectangle (for cards with backgrounds)
+/* The static content is fixed to the SCREEN while the world scrolls under it,
+   so a mask stamped once would leave invisible ledges strewn down the shaft.
+   The two stampers therefore record SCREEN cells (y measured from the top of
+   the frame) into _domMaskScreen, and restampDOMMasks() projects that set into
+   the world at the current camY. Re-projecting is a flat array walk over cells
+   we already know about — the expensive halves, getBoundingClientRect and the
+   glyph rasterisation, run once at spawn and never again on scroll. */
+let _domMaskScreen=[];   // screen cells (sy*W+sx) occupied by static content
+let _domMaskPlaced=[];   // world cells currently carrying that stamp
+let _domMaskCamY=-1;
 function stampDOMMasks(){
   const cr=canvas.getBoundingClientRect();
+  _domMaskScreen.length=0;
   document.querySelectorAll('[data-collide]').forEach(el=>{
     if(el.getAttribute('data-collide')==='text') stampGlyphMask(el,cr);
     else stampRectMask(el,cr);
   });
+  _domMaskPlaced.length=0;
+  _domMaskCamY=-1;
+  restampDOMMasks();
+}
+function restampDOMMasks(){
+  if(camY===_domMaskCamY)return;
+  for(const i of _domMaskPlaced){
+    if(grid[i]===MASK){
+      grid[i]=EMPTY;variant[i]=0;
+      const x=i%W,y=(i/W)|0;
+      pixDirty(x,y);wake3(x,y);
+    }
+  }
+  _domMaskPlaced.length=0;
+  for(const si of _domMaskScreen){
+    const sx=si%W,gy=((si/W)|0)+camY;
+    if(gy<0||gy>=H)continue;
+    const i=gy*W+sx;
+    if(grid[i]!==EMPTY)continue;
+    grid[i]=MASK;variant[i]=0;
+    _domMaskPlaced.push(i);
+    pixDirty(sx,gy);wake3(sx,gy);
+  }
+  _domMaskCamY=camY;
 }
 function stampRectMask(el,cr){
   const r=el.getBoundingClientRect();
   const x0=Math.max(0,Math.floor((r.left-cr.left)/SCALE));
   const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE));
   const x1=Math.min(W-1,Math.ceil((r.right-cr.left)/SCALE));
-  const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE));
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-    const i=idx(x,y);
-    if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
-  }
+  const y1=Math.min(VH-1,Math.ceil((r.bottom-cr.top)/SCALE));
+  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)_domMaskScreen.push(y*W+x);
 }
 // Rasterize an element's text into an offscreen canvas matching the live
 // computed style, then stamp dark pixels as MASK — so sand piles inside the
@@ -3921,10 +4166,7 @@ function stampGlyphMask(el,cr){
     const py=Math.min(ch-1,(sy*SCALE+(SCALE>>1)));
     if(data[(py*cw+px)*4]<140){
       const gx=x0+sx,gy=y0+sy;
-      if(gx>=0&&gx<W&&gy>=0&&gy<H){
-        const i=idx(gx,gy);
-        if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
-      }
+      if(gx>=0&&gx<W&&gy>=0&&gy<VH)_domMaskScreen.push(gy*W+gx);
     }
   }
 }
@@ -3952,7 +4194,7 @@ function _winsHash(){
     // owns the overlap even though nothing has moved
     s+=(r.left|0)+','+(r.top|0)+','+(r.width|0)+','+(r.height|0)+','+(el.style.zIndex||0)+';';
   });
-  return s+W+'x'+H;
+  return s+W+'x'+H+'@'+camY;
 }
 function updateWindowMasks(){
   const h=_winsHash();
@@ -3980,9 +4222,9 @@ function updateWindowMasks(){
   for(const w of wins){
     const r=w.r,b=burnableFor(w.el,r,cr);
     const x0=Math.max(0,Math.floor((r.left-cr.left)/SCALE));
-    const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE));
+    const y0=Math.max(0,Math.floor((r.top-cr.top)/SCALE)+camY);
     const x1=Math.min(W-1,Math.ceil((r.right-cr.left)/SCALE));
-    const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE));
+    const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE)+camY);
     b.zi=_stack.length;b.seq=_stampSeq;
     _stack.push({b,x0,y0,x1,y1});
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
@@ -4237,7 +4479,7 @@ const freezeRing=document.getElementById('freezeRing');
 canvas.addEventListener('mousemove',e=>{
   const r=canvas.getBoundingClientRect();
   mouseSimX=Math.floor((e.clientX-r.left)/SCALE);
-  mouseSimY=Math.floor((e.clientY-r.top)/SCALE);
+  mouseSimY=Math.floor((e.clientY-r.top)/SCALE)+camY;
   freezeRing.style.left=e.clientX+'px';freezeRing.style.top=e.clientY+'px';
   freezeRing.style.opacity=hoverEnabled&&physicsOn?'1':'0';
   brushRing.style.left=e.clientX+'px';brushRing.style.top=e.clientY+'px';
@@ -4274,7 +4516,7 @@ let painting=false,curMat=1;
 function simXY(e){
   const r=canvas.getBoundingClientRect();
   return[Math.max(0,Math.min(W-1,Math.floor((e.clientX-r.left)/SCALE))),
-         Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)/SCALE)))];
+         Math.max(0,Math.min(H-1,Math.floor((e.clientY-r.top)/SCALE)+camY))];
 }
 /* ═══ STRUCTURAL MATERIAL VARIANTS ═══
    Variants are baked from the cell's BIRTH position and travel with the
@@ -4517,7 +4759,7 @@ function doAmbient(){
   if(Math.random()<0.45){
     const x=Math.floor(Math.random()*W);
     for(let d=0;d<8;d++){
-      const y=H-4-d;
+      const y=VH-4-d;
       if(y<0)break;
       const m=grid[idx(x,y)];
       if(m===GRASS||m===PLANT||m===MOSS||m===DIRT){
@@ -4626,9 +4868,9 @@ function updateBoids(){
     if(b.x<8)ax+=0.12;
     if(b.x>W-8)ax-=0.12;
     if(b.y<6)ay+=0.12;
-    const floorPref=H*0.72;
+    const floorPref=VH*0.72;
     if(b.y>floorPref)ay-=0.10;
-    if(b.y>H-8)ay-=0.4;
+    if(b.y>VH-8)ay-=0.4;
     // clamp + integrate
     const fm=Math.hypot(ax,ay);
     if(fm>maxForce){ax=ax/fm*maxForce;ay=ay/fm*maxForce;}
@@ -4642,7 +4884,7 @@ function updateBoids(){
     if(b.x<1){b.x=1;b.vx=Math.abs(b.vx);}
     if(b.x>W-2){b.x=W-2;b.vx=-Math.abs(b.vx);}
     if(b.y<1){b.y=1;b.vy=Math.abs(b.vy);}
-    if(b.y>H-2){b.y=H-2;b.vy=-Math.abs(b.vy);}
+    if(b.y>VH-2){b.y=VH-2;b.vy=-Math.abs(b.vy);}
     forage(b);
   }
 }
@@ -4670,7 +4912,11 @@ function forage(b){
 
 function drawBirds(){
   if(birdCanvas.width!==W)return; // skip mid-resize
-  bctx.clearRect(0,0,W,H);
+  // One camera translate for the whole overlay. Birds, cats and the chest all
+  // think in world cells; this is the only place that has to know about camY,
+  // and the transform persists on the context through drawCats/updateEvil.
+  bctx.setTransform(1,0,0,1,0,-camY);
+  bctx.clearRect(0,camY,W,VH);
   if(!birds.length)return;
   bctx.fillStyle='#1c1a22';
   for(const b of birds){
@@ -5106,6 +5352,7 @@ window.addEventListener('resize',()=>{
     // the canvas has been tracking the viewport in CSS the whole drag; only pay
     // for a realloc + rebuild if the cell grid actually changed dimensions
     if(!computeDims())return;
+    syncScrollHeight();syncCamFromScroll();
     allocArrays();allocChunks();allocTexture();allocLight();
     spawnContent();buildBodies();syncBrushRing();
   },200);
@@ -5139,6 +5386,8 @@ function loop(ts){
   if(physicsOn){
     // DOM reads (querySelectorAll + getBoundingClientRect per window) are the
     // costly part here — a 4-frame cadence is invisible at sand speed
+    // cheap no-op unless the camera actually moved
+    restampDOMMasks();
     if((frameNo&3)===0)updateWindowMasks();
     updateBodies();
     restampBodies();
@@ -6541,14 +6790,14 @@ function placeEvilChest(){
   evilSX=Math.max(4,Math.min(W-EVIL_W-1,Math.round(W*EVIL_CHEST_AT)-(EVIL_W>>1)));
   // median soil height across the footprint: a lone dip or mound doesn't tip it
   const gs=[];
-  for(let x=evilSX+2;x<=evilSX+EVIL_W-3;x++)gs.push(Math.min(H-1,evilSoilY(x)));
+  for(let x=evilSX+2;x<=evilSX+EVIL_W-3;x++)gs.push(Math.min(VH-1,evilSoilY(x)));
   gs.sort((a,b)=>a-b);
-  const gy=gs.length?gs[gs.length>>1]:H-1;
+  const gy=gs.length?gs[gs.length>>1]:VH-1;
   // The near plane isn't sim particles at all — the shader lays a turf berm
   // over the bottom of the frame, cresting a cell above the taskbar (uBar) and
   // ragged from there. Down here that berm IS the ground you see, so the chest
   // stands on its lowest crest line; on a rise the soil wins instead.
-  const bermTop=H-Math.ceil(TASKBAR_PX/SCALE)-1;
+  const bermTop=VH-Math.ceil(TASKBAR_PX/SCALE)-1;
   evilSY=Math.min(gy-EVIL_FEET+2,bermTop-(EVIL_FEET-1));
 }
 // invisible collision under the chest body so sand piles on the lid
@@ -6657,7 +6906,7 @@ function evilArrowCanvas(z){
 }
 function spawnEvilCursor(hold){
   const cr=canvas.getBoundingClientRect();
-  const originX=cr.left+(evilSX+15)*SCALE, originY=cr.top+(evilSY+6)*SCALE;
+  const originX=cr.left+(evilSX+15)*SCALE, originY=cr.top+(evilSY+6-camY)*SCALE;
   const el=document.createElement('div');
   el.className='evil-cursor';
   el.style.opacity='0';
@@ -6704,7 +6953,7 @@ function evilTakeMaterial(c,row){
 // stroke interpolation, per cursor — mirrors paintStroke but with its own
 // last-position latch and brush so the pack doesn't fight over the HUD state
 function evilPaint(c,cr){
-  const sx=Math.floor((c.x-cr.left)/SCALE),sy=Math.floor((c.y-cr.top)/SCALE);
+  const sx=Math.floor((c.x-cr.left)/SCALE),sy=Math.floor((c.y-cr.top)/SCALE)+camY;
   if(sx<0||sx>=W||sy<0||sy>=H){c.lx=-1;return;}
   if(c.lx<0){paint(sx,sy,c.mat,c.brush);}
   else{
