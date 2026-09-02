@@ -1306,6 +1306,10 @@ const EMPTY=0,SAND=1,WATER=2,FIRE=3,STONE=4,PLANT=5,ACID=6,OIL=7,SMOKE=8,ASH=9,
 const BOUND=255;
 const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS;
 const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
+// The organic debris is lighter than water and rides on top of it; brick and
+// glass go straight to the bottom. This is what makes a felled trunk drift as
+// a raft instead of vanishing into the pond it fell in.
+const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
 
 let W,H,SCALE;
 function computeDims(){
@@ -1427,14 +1431,20 @@ function wakeRect(x0,y0,x1,y1){
   }
 }
 // mark a single cell's pixel as needing re-upload
-function pixDirty(x,y){
-  if(x<0||x>=W||y<0||y>=H)return;
-  const c=((y/CW)|0)*ncx+((x/CW)|0);
-  if(x<rcMinX[c])rcMinX[c]=x; if(y<rcMinY[c])rcMinY[c]=y;
-  if(x>rcMaxX[c])rcMaxX[c]=x; if(y>rcMaxY[c])rcMaxY[c]=y;
-}
-// mark a rectangle of pixels as needing re-upload
+function pixDirty(x,y){pixDirtyRect(x,y,x,y);}
+// Mark a rectangle of pixels as needing re-upload, PLUS the one-cell ring
+// around it. A cell's colour now depends on its four neighbours (see surf), so
+// changing one cell restyles the ring too, and widening here is cheaper than
+// caching a mask per cell — a cache would mean invalidating four cells for
+// every grain that moves.
+//
+// What this costs: chunks track one bounding rect each, so on a chunk that is
+// already busy the ring vanishes into a rect that was that wide anyway, and
+// the worst case — one lone changed cell in a chunk — grows 1 texel to 9.
+// Either way the whole pass is bounded above by repainting every cell in the
+// world, measured at ~2.3ms, and it never approaches that in practice.
 function pixDirtyRect(x0,y0,x1,y1){
+  x0--;y0--;x1++;y1++;
   if(x0<0)x0=0;if(y0<0)y0=0;if(x1>=W)x1=W-1;if(y1>=H)y1=H-1;
   if(x1<x0||y1<y0)return;
   const cx0=(x0/CW)|0,cx1=(x1/CW)|0,cy0=(y0/CW)|0,cy1=(y1/CW)|0;
@@ -1544,7 +1554,71 @@ function tryChunkDetach(sx,sy){
   // truly orphaned: detach as a falling chunk, lowest cells first
   cells.sort((a,b)=>b-a);
   for(const i of cells)inChunk[i]=1;
-  chunks.push({cells,set:seen,vy:0,acc:0});
+  // a region that is mostly timber floats; mostly masonry sinks
+  let wood=0;
+  for(const i of cells)if(grid[i]===WOOD)wood++;
+  chunks.push({cells,set:seen,vy:0,acc:0,vx:0,accx:0,buoy:wood*2>=cells.length});
+  return true;
+}
+/* ═══ BUOYANCY ═══
+   Displaced volume is just the count of a chunk's cells below the waterline.
+   Finding those without scanning whole columns: walk the body top-down and let
+   each cell inherit "wet" from the cell above it in its own column, seeded by
+   any cell that touches open liquid. A thick raft then counts its interior as
+   submerged too, instead of only its skin, so a heavy log sits low. */
+function chunkSubmerged(ch){
+  const wet=new Set();
+  // cells are stored bottom-first, so walk the array backwards to go top-down
+  for(let n=ch.cells.length-1;n>=0;n--){
+    const i=ch.cells[n],x=i%W,y=(i/W)|0;
+    let s=false;
+    if(y>0){const u=i-W;s=ch.set.has(u)?wet.has(u):(isLiq(grid[u])&&!frozen[u]);}
+    if(!s&&x>0){const l=i-1;if(!ch.set.has(l)&&isLiq(grid[l])&&!frozen[l])s=true;}
+    if(!s&&x+1<W){const r=i+1;if(!ch.set.has(r)&&isLiq(grid[r])&&!frozen[r])s=true;}
+    if(s)wet.add(i);
+  }
+  return wet.size;
+}
+/* Slide a whole chunk one cell along dx or dy (exactly one of them ±1).
+   Liquid in the way is shoved aside and re-poured into the cells the body
+   vacates, so a trunk settling into a pond raises the pond instead of deleting
+   it. Returns false — having moved nothing — when solid ground blocks the way. */
+function chunkShift(ch,dx,dy){
+  const dl=dy*W+dx;
+  const push=[];
+  for(const i of ch.cells){
+    const x=i%W,y=(i/W)|0;
+    if(x+dx<0||x+dx>=W||y+dy<0||y+dy>=H)return false;
+    const t=i+dl;
+    if(ch.set.has(t))continue;
+    const tm=grid[t];
+    if(tm===EMPTY)continue;
+    if(isLiq(tm)&&!frozen[t]){push.push(t);continue;}
+    return false;
+  }
+  const pm=[],pv=[];
+  for(const t of push){pm.push(grid[t]);pv.push(variant[t]);}
+  // walk from the leading edge backwards so every cell moves into space that
+  // is already clear: down/right = stored order, up/left = reversed
+  const n=ch.cells.length,rev=dl<0;
+  for(let k=0;k<n;k++){
+    const q=rev?n-1-k:k;
+    const i=ch.cells[q],t=i+dl;
+    grid[t]=grid[i];variant[t]=variant[i];frozen[t]=1;inChunk[t]=1;
+    grid[i]=EMPTY;variant[i]=0;frozen[i]=0;inChunk[i]=0;
+    const x=i%W,y=(i/W)|0;
+    pixDirty(x,y);pixDirty(x+dx,y+dy);wake3(x,y);wake3(x+dx,y+dy);
+    ch.cells[q]=t;                       // uniform shift keeps the sort order
+  }
+  ch.set=new Set(ch.cells);
+  // pour the displaced liquid into the trailing cells we just left behind
+  let p=0;
+  for(let k=0;k<n&&p<pm.length;k++){
+    const b=ch.cells[rev?k:n-1-k]-dl;
+    if(ch.set.has(b)||grid[b]!==EMPTY)continue;
+    grid[b]=pm[p];variant[b]=pv[p];p++;
+    pixDirty(b%W,(b/W)|0);wake3(b%W,(b/W)|0);
+  }
   return true;
 }
 function updateChunks(){
@@ -1557,29 +1631,50 @@ function updateChunks(){
         ch.set.delete(i);inChunk[i]=0;return false;});
       if(!ch.cells.length){chunks.splice(k,1);continue;}
     }
-    ch.vy=Math.min(ch.vy+0.18,3);ch.acc+=ch.vy;
-    let steps=ch.acc|0;ch.acc-=steps;
-    let landed=false;
-    while(steps-->0&&!landed){
-      let ok=true;
-      for(const i of ch.cells){
-        const bi=i+W;
-        if(((i/W)|0)+1>=H||(grid[bi]!==EMPTY&&!ch.set.has(bi))){ok=false;break;}
-      }
-      if(!ok){landed=true;break;}
-      // shift every cell down one row (cells sorted bottom-first)
-      for(let n=0;n<ch.cells.length;n++){
-        const i=ch.cells[n],bi=i+W;
-        grid[bi]=grid[i];variant[bi]=variant[i];frozen[bi]=1;inChunk[bi]=1;
-        grid[i]=EMPTY;variant[i]=0;frozen[i]=0;inChunk[i]=0;
-        const x=i%W,y=(i/W)|0;
-        pixDirty(x,y);pixDirty(x,y+1);wake3(x,y);
-        ch.cells[n]=bi;
-      }
-      ch.set=new Set(ch.cells);
+    // Displaced fraction: 0 = in open air, 1 = fully under. Timber is roughly
+    // half the density of water, so the body is in equilibrium at half
+    // submerged — above that it accelerates up, below it gravity wins. The
+    // damping turns what would be a permanent oscillation into a few bobs.
+    // Smoothed, because the pond a log just displaced spends a while sloshing
+    // over the top of it, and steering off the raw per-frame reading turns
+    // that chop into a log that hammers up and down forever.
+    const fRaw=ch.buoy?chunkSubmerged(ch)/ch.cells.length:0;
+    ch.f=ch.f===undefined?fRaw:ch.f*0.8+fRaw*0.2;
+    const f=ch.f;
+    if(f>0.02){
+      ch.vy=(ch.vy+0.12*(1-f/0.5))*0.8;
+      if(ch.vy>1.2)ch.vy=1.2; if(ch.vy<-1.2)ch.vy=-1.2;
+      // Riding at its waterline with nothing left to do — park it, so a raft
+      // that has found its level stops repainting itself every frame. The
+      // deadband is wide because f is quantised by the body's own height: a
+      // three-row log can only ever read 0, ⅓, ⅔ or 1, and chasing an exact
+      // half would leave it hunting between two rows forever.
+      if(Math.abs(f-0.5)<0.25&&Math.abs(ch.vy)<0.12){ch.vy=0;ch.acc=0;}
+    }else{
+      ch.vy=Math.min(ch.vy+0.18,3);
     }
-    if(landed){
-      const hard=ch.vy>1.3;
+    const impact=ch.vy;                    // speed at the moment of contact
+    ch.acc+=ch.vy;
+    let steps=ch.acc|0;ch.acc-=steps;
+    const dy=steps<0?-1:1;steps=Math.abs(steps);
+    let landed=false;
+    while(steps-->0){
+      if(chunkShift(ch,0,dy))continue;
+      if(dy>0)landed=true; else ch.vy=0; // bumped the ceiling of its own pond
+      break;
+    }
+    // afloat: drift along the surface, bouncing gently off the banks, so logs
+    // wander the pond and collect against the shore instead of hanging still
+    if(f>0.08&&f<0.98){
+      ch.vx=ch.vx*0.995+(Math.random()-0.5)*0.004;
+      if(ch.vx>0.06)ch.vx=0.06; if(ch.vx<-0.06)ch.vx=-0.06;
+      ch.accx+=ch.vx;
+      let sx=ch.accx|0;ch.accx-=sx;
+      const dx=sx<0?-1:1;sx=Math.abs(sx);
+      while(sx-->0){if(!chunkShift(ch,dx,0)){ch.vx=-ch.vx*0.5;break;}}
+    }
+    if(landed&&f<=0.08){
+      const hard=impact>1.3;
       for(const i of ch.cells){
         inChunk[i]=0;
         const x=i%W,y=(i/W)|0;
@@ -1590,6 +1685,8 @@ function updateChunks(){
         wake3(x,y);pixDirty(x,y);
       }
       chunks.splice(k,1);
+    }else if(landed){
+      ch.vy=0; // grounded in the shallows — stays a live body, still buoyant
     }
   }
 }
@@ -1652,13 +1749,32 @@ function step(x,y){
   // BERRY rolls easily; GLASS shatters into smaller motion than it falls.
   if(isDebris(m)){
     const light=(m===LEAF||m===THATCH);
+    const buoy=isBuoyant(m);
     // light materials skip a third of frames so they look like they flutter
     if(light&&Math.random()<0.35){updated[i]=frameId;wake3(x,y);return;}
+    if(buoy){
+      // held under: trade places with the water above and climb toward the
+      // light. The pause makes the ascent look like it fights the water
+      // rather than popping up like a cork.
+      if(y>0){
+        const ui=idx(x,y-1);
+        if(!frozen[ui]&&isLiq(grid[ui])){
+          if(Math.random()<0.7){moveSwap(x,y,x,y-1);return;}
+          updated[i]=frameId;wake3(x,y);return;
+        }
+      }
+      // riding the surface: nudge along it now and then so flotsam spreads
+      // out across a pond instead of stacking where it went in
+      if(isLiq(mat(x,y+1))&&Math.random()<0.05){
+        const nx=x+(Math.random()<0.5?1:-1);
+        if(eFree(nx,y)&&isLiq(mat(nx,y+1))){moveSwap(x,y,nx,y);return;}
+      }
+    }
     // heavy debris free-falls two cells through clear air, like sand
     if(!light&&eFree(x,y+1)&&eFree(x,y+2)){moveSwap(x,y,x,y+2);return;}
-    if(eFree(x,y+1)||lFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
-    if(eFree(x+d,y+1)||lFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
-    if(eFree(x-d,y+1)||lFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
+    if(eFree(x,y+1)||(!buoy&&lFree(x,y+1))){moveSwap(x,y,x,y+1);return;}
+    if(eFree(x+d,y+1)||(!buoy&&lFree(x+d,y+1))){moveSwap(x,y,x+d,y+1);return;}
+    if(eFree(x-d,y+1)||(!buoy&&lFree(x-d,y+1))){moveSwap(x,y,x-d,y+1);return;}
     // leaves drift sideways when blocked
     if(light){
       if(eFree(x+d,y)&&Math.random()<0.18){moveSwap(x,y,x+d,y);return;}
@@ -2070,8 +2186,96 @@ function simulate(){
 // flatter palette — pixel art wants flat color fields, not per-pixel noise
 // Flatter than before — pixel art wants deliberate color, not noise.
 // Variants 0–3 are used for "shade levels" by sprite cells; 4–7 are zero so
-// random sand/water/grass cells stay close to their base palette.
+// random water/grass cells stay close to their base palette. (Sand has its
+// own grain-tone table, just below.)
 const JITTER=[0,-3,0,3,0,0,0,0];
+/* ═══ SAND GRAIN TONES ═══
+   Sand's texture has to travel WITH the grain instead of sitting in world
+   space. A position-hashed speckle makes a falling stream crawl and a settled
+   dune look like graph paper, so variant bits 0-2 pick a tone the cell keeps
+   for its whole life (moveSwap carries variant along). Real sand also varies
+   in hue as much as in value -- pale quartz, warm iron, dark heavies -- so
+   each entry shifts r/g/b differently rather than nudging brightness. */
+const SAND_T=[
+  [  0,  0,  0],  // base
+  [ 16, 13,  6],  // pale quartz
+  [-19,-17,-12],  // dark heavy
+  [ 10, -1,-13],  // warm iron
+  [  6,  6,  9],  // cool pale
+  [-10,-10, -6],  // shadowed grain
+  [ 20, 17, 11],  // bright quartz
+  [ -4, -6,-10],  // dull warm
+];
+/* ═══ SURFACE MASK ═══
+   In a one-cell-per-pixel sim there is nothing INSIDE a particle to draw, so
+   the unit of texture cannot be the cell -- it has to be the cluster. What a
+   cell looks like comes from how it sits against its neighbours: open sky
+   above is a crust that catches the sun, open air below is the underside of an
+   overhang, air to one side is a rim, and no air at all is interior that
+   should sink into the mass. These bits carry that relationship to the
+   palette, and they are the same signal a sub-cell tile atlas would index if
+   this ever autotiles for real.
+
+   Read from the grid at paint time rather than cached per cell: pixDirtyRect
+   already widens every repaint by a one-cell ring, so the neighbours are
+   guaranteed fresh, and a cache would mean invalidating four cells for every
+   grain that moves.
+
+   INVARIANT: this function must never look further than one cell away. The
+   ring pixDirtyRect paints is exactly one cell wide, so a mask that reached
+   two cells up would go stale whenever a cell two rows above it changed --
+   nothing would repaint the cell that depends on it, and a pile would keep
+   the shading it happened to have while it was still being buried. Keeping
+   the reach strictly local is what makes the ring provably wide enough
+   instead of coincidentally wide enough.
+
+   Off-grid counts as solid so the frame edges do not light up as rims.
+   S_SPRITE is what a caller passes when its pixels are NOT world cells -- the
+   evil chest paints through this palette from its own buffer, and must not
+   pick up relief from whatever terrain happens to lie behind it. */
+const S_UP=1, S_DOWN=2, S_LEFT=4, S_RIGHT=8, S_DEEP=16, S_SPRITE=32;
+function surf(x,y,gi){
+  let s=0;
+  if(y===0||grid[gi-W]===EMPTY)s|=S_UP;
+  if(y<H-1&&grid[gi+W]===EMPTY)s|=S_DOWN;
+  if(x>0&&grid[gi-1]===EMPTY)s|=S_LEFT;
+  if(x<W-1&&grid[gi+1]===EMPTY)s|=S_RIGHT;
+  // No open face at all: this cell is interior, and should sink into the mass
+  // rather than take any of the directional light below.
+  if(s===0)s=S_DEEP;
+  return s;
+}
+/* How hard each material takes that relief, as an RGB delta at full strength.
+   Zero means "ignores its neighbours", which is every material not yet moved
+   onto this system -- they render exactly as they did, and pay nothing, since
+   fillTexel only bothers computing a mask for materials listed here. Stone
+   takes the hardest bevel because a cut face should look cut; water takes the
+   least because a liquid's surface is the story and its body is not. */
+const RELIEF=new Float32Array(64);
+RELIEF[STONE]=17; RELIEF[SAND]=15; RELIEF[DIRT]=14; RELIEF[WATER]=9;
+/* ═══ THE SUN ═══
+   sunX runs -1 (dawn, sun low on the left) through 0 (noon, straight
+   overhead) to +1 (dusk, low on the right); sunK flattens the whole relief
+   toward night, because moonlight is diffuse and should not carve terrain the
+   way a low sun does.
+
+   Relief is baked into texData by matTexel, so a sun that slid continuously
+   would leave every settled dune lit for whatever time of day it happened to
+   stop moving in. Quantising the sweep is what makes that affordable: the sun
+   only moves in steps, and each step costs one full-grid repaint (~2ms,
+   measured) instead of a per-frame cost. Roughly one step every seven seconds
+   across a 240s day. Stepping also suits the rest of the scene, which is
+   posterized and snapped to the cell grid everywhere else anyway. */
+const SUN_STEPS=8;
+let sunStep=-99, sunX=0, sunK=1;
+function updateSun(){
+  const st=Math.round(Math.sin(dayPhase)*SUN_STEPS);
+  if(st===sunStep)return;
+  sunStep=st;
+  sunX=st/SUN_STEPS;
+  sunK=0.45+0.55*dayFactor();
+  pixDirtyRect(0,0,W-1,H-1);   // every relieved cell is now lit wrong
+}
 // SHADE: for sprite materials we use variant as an explicit shade index.
 // 0=base, 1=shadow, 2=highlight, 3=deep shadow. Values are RGB deltas.
 const SHADE=[[0,0,0],[-22,-22,-18],[14,14,10],[-38,-36,-30]];
@@ -2079,7 +2283,7 @@ function matColor(m,v){
   const j=JITTER[v&7];
   switch(m){
     case EMPTY: return[0,0,0,0];
-    case SAND:  return[205+j,170+j,82+j,255];
+    case SAND:  {const t=SAND_T[v&7];return[205+t[0],170+t[1],82+t[2],255];}
     case WATER: return[40+j,132+j,168+j,205];
     case FIRE:  return[235+j,70+(j>0?j*2:0),12,255];
     case STONE: return[66+j,64+j,70+j,255];
@@ -2280,8 +2484,21 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      }
 
      // ── emissive lighting: ambient day factor + two-scale light buffer ──
-     vec3 lit=texture(uLC,uv).rgb*1.82 + texture(uLW,uv).rgb*1.82;
-     float amb=0.16+0.84*uDay;
+     vec4 lc=texture(uLC,uv);
+     vec3 lit=lc.rgb*1.82 + texture(uLW,uv).rgb*1.82;
+     // The core light texture's alpha carries ambient occlusion — how enclosed
+     // this spot is, smeared over roughly six cells. It dims the AMBIENT term
+     // only, never the emissive one: a fire burning inside a cave still lights
+     // its own walls. Where surf gives a cell its one-cell edge, this is the
+     // long-range half of the same idea, and the two stack into real volume.
+     //
+     // 0.22 is a ceiling set by the posterize below, not by taste. Particles
+     // are crushed to 8 levels per channel, so a channel under ~32 lands on
+     // level zero — pure black. Stone's body sits near 50 before ambient, which
+     // leaves very little room: at 0.38 the darkest rock fell off the bottom
+     // and whole cliffs went flat black. Bright materials have levels to spare,
+     // which is why sand and dirt carry most of the visible depth here.
+     float amb=(0.16+0.84*uDay)*(1.0-0.22*lc.a);
      vec3 partRGB=tx.rgb*(amb + lit*1.35);
      tx=vec4(partRGB,tx.a);
 
@@ -2370,6 +2587,13 @@ allocTexture();
    Rebuilt every other frame in JS (<1ms), uploaded as two LINEAR-filtered
    textures the fragment shader samples bilinearly for free. */
 let LW,LH,WW,WH,coreBuf,wideBuf,coreF,wideF,tmpF,tmpW;
+/* ═══ AMBIENT OCCLUSION ═══
+   occRaw holds, per 4x4 block of cells, the fraction of that block which is
+   solid. occBlur is that field smeared out and packed into the core light
+   texture's ALPHA — a channel the shader never used, so a multi-cell sense of
+   "how buried is this" reaches the fragment stage for the price of one blur,
+   with no extra texture, no extra upload and no extra bandwidth. */
+let occRaw,occBlur,occTmp;
 const lightTexC=gl.createTexture(), lightTexW=gl.createTexture();
 for(const t of [lightTexC,lightTexW]){
   gl.bindTexture(gl.TEXTURE_2D,t);
@@ -2389,6 +2613,7 @@ function allocLight(){
   coreF=[new Float32Array(LW*LH),new Float32Array(LW*LH),new Float32Array(LW*LH)];
   wideF=[new Float32Array(WW*WH),new Float32Array(WW*WH),new Float32Array(WW*WH)];
   tmpF=new Float32Array(LW*LH);tmpW=new Float32Array(WW*WH);
+  occRaw=new Float32Array(LW*LH);occBlur=new Float32Array(LW*LH);occTmp=new Float32Array(LW*LH);
   coreBuf=new Uint8Array(LW*LH*4);wideBuf=new Uint8Array(WW*WH*4);
 }
 allocLight();
@@ -2409,6 +2634,31 @@ function blurL(a,tmp,w,h){
 // sky/terrain bulk instead of a 5-way branch chain per cell
 const EMIT=new Uint8Array(256);
 EMIT[FIRE]=1;EMIT[FUSE]=1;EMIT[BOMB]=1;EMIT[ACID]=1;EMIT[GLASS]=1;EMIT[LAVA]=1;
+/* What blocks ambient light. Gases and flame do not: a plume of smoke drifting
+   over the meadow should not drag a shadow along under it. MASK is out too —
+   it is a collision proxy for the HTML windows, not matter, and letting a
+   dialog box cast occlusion onto the terrain around it looks like a bug. */
+const OCC=new Uint8Array(256);
+for(let m=1;m<=LAVA;m++)OCC[m]=1;
+OCC[FIRE]=0;OCC[SMOKE]=0;OCC[STEAM]=0;OCC[POLLEN]=0;OCC[RIGID]=0;OCC[MASK]=0;OCC[BIRD]=0;
+// Re-count only the blocks the given cell rect touches; returns whether any of
+// them actually moved, which is what decides if the light textures need
+// re-uploading on a frame with nothing burning.
+function occRebuild(x0,y0,x1,y1){
+  if(x1<x0||y1<y0)return false;
+  let moved=false;
+  for(let by=y0>>2;by<=(y1>>2);by++){
+    const cy0=by<<2, cy1=Math.min(H-1,cy0+3);
+    for(let bx=x0>>2;bx<=(x1>>2);bx++){
+      const cx0=bx<<2, cx1=Math.min(W-1,cx0+3);
+      let n=0;
+      for(let y=cy0;y<=cy1;y++){const row=y*W;for(let x=cx0;x<=cx1;x++)n+=OCC[grid[row+x]];}
+      const v=n*0.0625, i=by*LW+bx;
+      if(occRaw[i]!==v){occRaw[i]=v;moved=true;}
+    }
+  }
+  return moved;
+}
 function buildLight(){
   const day=dayFactor(), night=1-day;
   const glassLit=night>0.25?1:0; // glass only glows after dusk
@@ -2439,8 +2689,14 @@ function buildLight(){
   edX0=BIG;edY0=BIG;edX1=-1;edY1=-1;
   emX0=BIG;emY0=BIG;emX1=-1;emY1=-1;
   // nothing changed and nothing was lit: the textures already hold black, so
-  // the clears, the blur passes and both uploads below are all wasted
+  // the clears, the blur passes and both uploads below are all wasted. Nothing
+  // changed also means no cell moved, so the occlusion field is still valid.
   if((sx1<sx0||sy1<sy0)&&!lightHadEmitters)return;
+
+  // Occlusion rides the same dirty region the emissive scan uses. It is
+  // rebuilt incrementally — only the 4x4 blocks the region covers get
+  // re-counted — so the cost tracks what actually moved, not the world size.
+  const occMoved=occRebuild(sx0,sy0,sx1,sy1);
 
   for(const c of coreF)c.fill(0);
   for(const c of wideF)c.fill(0);
@@ -2468,17 +2724,25 @@ function buildLight(){
       wideF[0][wi]+=r*0.16;wideF[1][wi]+=g*0.16;wideF[2][wi]+=b*0.16;
     }
   }
-  // still dark, and it was dark last pass too — the textures are already black
-  if(!found&&!lightHadEmitters)return;
+  // Still dark, dark last pass too, and nothing shifted the occlusion field:
+  // the textures already hold exactly what they should. occMoved is what keeps
+  // AO alive on a world with no fire in it at all, where the emissive path
+  // would otherwise bail out here every single pass.
+  if(!found&&!lightHadEmitters&&!occMoved)return;
   lightHadEmitters=found>0; // one last all-black upload when the last light dies
   for(const c of coreF)for(let i=0;i<c.length;i++)if(c[i]>1.8)c[i]=1.8;
   for(const c of wideF)for(let i=0;i<c.length;i++)if(c[i]>1.2)c[i]=1.2;
   for(let p=0;p<4;p++)for(const c of coreF)blurL(c,tmpF,LW,LH);
   for(let p=0;p<3;p++)for(const c of wideF)blurL(c,tmpW,WW,WH);
+  // Blur a copy, not occRaw itself — occRaw is the incrementally maintained
+  // truth and has to survive from pass to pass.
+  occBlur.set(occRaw);
+  for(let p=0;p<3;p++)blurL(occBlur,occTmp,LW,LH);
   // pack (y-flipped to match uv space), scale 140 units per 1.0
   for(let y=0;y<LH;y++){const fy=LH-1-y;
     for(let x=0;x<LW;x++){const s=y*LW+x,d=(fy*LW+x)*4;
-      coreBuf[d]=Math.min(255,coreF[0][s]*140);coreBuf[d+1]=Math.min(255,coreF[1][s]*140);coreBuf[d+2]=Math.min(255,coreF[2][s]*140);coreBuf[d+3]=255;}}
+      coreBuf[d]=Math.min(255,coreF[0][s]*140);coreBuf[d+1]=Math.min(255,coreF[1][s]*140);coreBuf[d+2]=Math.min(255,coreF[2][s]*140);
+      coreBuf[d+3]=Math.min(255,occBlur[s]*255);}}
   for(let y=0;y<WH;y++){const fy=WH-1-y;
     for(let x=0;x<WW;x++){const s=y*WW+x,d=(fy*WW+x)*4;
       wideBuf[d]=Math.min(255,wideF[0][s]*140);wideBuf[d+1]=Math.min(255,wideF[1][s]*140);wideBuf[d+2]=Math.min(255,wideF[2][s]*140);wideBuf[d+3]=255;}}
@@ -2492,20 +2756,30 @@ function buildLight(){
 // inline pixel fill — writes RGBA directly to texData, no array allocations
 function fillTexel(x,y){
   const fy=H-1-y; // texture is y-flipped
-  const gi=y*W+x;
-  matTexel(grid[gi],variant[gi],x,y,texData,(fy*W+x)*4);
+  const gi=y*W+x, m=grid[gi];
+  // Only materials with a relief strength look at their neighbours; for
+  // everything else (and for empty sky, which is most of the grid) the mask
+  // is never computed and this costs one array lookup.
+  matTexel(m,variant[gi],x,y,texData,(fy*W+x)*4,RELIEF[m]?surf(x,y,gi):0);
 }
 /* ═══ THE WORLD'S PALETTE ═══
    material + variant + world position -> RGBA, including the per-cell jitter
    and the micro-texture patterns. Everything the renderer paints goes through
    here, so anything that wants to look like it is built out of the same stuff
    the sim is built out of renders through it too (see the evil chest). */
-function matTexel(m,v,x,y,out,dst){
+function matTexel(m,v,x,y,out,dst,s){
   const j=JITTER[v&7];
   let r=0,g=0,b=0,a=0;
   switch(m){
     case EMPTY: break;
-    case SAND:  r=205+j; g=170+j; b=82+j;  a=255; break;
+    case SAND:  {
+      // Sprite callers index variant as a shade level, not a grain id, so they
+      // keep the old flat jitter — grain tones would read as noise on a 20px
+      // bone rather than as sand.
+      if(s&S_SPRITE){r=205+j; g=170+j; b=82+j;}
+      else{const t=SAND_T[v&7]; r=205+t[0]; g=170+t[1]; b=82+t[2];}
+      a=255; break;
+    }
     case WATER: r=40+j;  g=132+j; b=168+j; a=205; break;
     case FIRE: {
       const f=Math.random();
@@ -2598,18 +2872,24 @@ function matTexel(m,v,x,y,out,dst){
     if(m===STONE){
       const h=((x*7)^(y*13))&7;
       if(h===0)tj=-16; else if(h===3)tj=8;
+      if(s&S_DEEP)tj-=7;               // deep rock sits back from a cut face
     } else if(m===GRASS){
       tj=(((x+y)&1)===0)?6:-5;
       if(((x*5)^y)%13===0)tj=14;       // bright tip
     } else if(m===WATER){
       const r4=y%4;
       if(r4===0)tj=12; else if(r4===2)tj=-8;
+      if(s&S_DEEP)tj-=8;               // the body of a pool sinks under its skin
     } else if(m===DIRT){
       const h=((x*11)^(y*7))%13;
       if(h===0)tj=-14; else if(h===5)tj=7;
+      if(s&S_DEEP)tj-=6;               // subsoil, out of the light
     } else if(m===SAND){
-      if(((x*3)^(y*5))%9===0)tj=-10;
-      else if(((x*13)^(y*3))%17===0)tj=8;
+      // Interior sediment: a low-frequency 2x2 clump so a pile's body reads as
+      // bedded sand rather than per-pixel static. Skipped for anything with
+      // sky above it, because a falling grain would crawl through a pattern
+      // anchored to world space — the one thing per-grain tones exist to fix.
+      if(!(s&S_UP))tj=((((x>>1)*7)^((y>>1)*11))%5===0)?-7:0;
     } else if(m===MOSS){
       if(((x*7)^(y*11))%6===0)tj=12;
       else if(((x*5)^(y*9))%9===0)tj=-8;
@@ -2634,6 +2914,31 @@ function matTexel(m,v,x,y,out,dst){
       // single diagonal streak — keep it pixel-clean
       if(((x+y)%4)===0)tj=8;
     }
+    // ── neighbourhood relief ──
+    // One light model shared by every material that opts in. Sky above is the
+    // lit crust; air below is an overhang throwing shadow on itself; walled in
+    // on all sides is interior, which sinks away. This is what turns a field of
+    // identically-coloured cells into a shaded solid, and it costs no fragments
+    // — the sim never sees it. The vertical terms are fixed (light always
+    // arrives from above); only the horizontal one follows the sun.
+    const rf=RELIEF[m];
+    if(rf&&!(s&S_SPRITE)){
+      let k=0;
+      if(s&S_UP)k+=1.0; else if(s&S_DEEP)k-=0.5;
+      if(s&S_DOWN)k-=0.85;
+      // The horizontal term tracks the sun across the sky rather than sitting
+      // at a fixed upper-left: the face turned toward it lights, the far face
+      // shades, and at noon the term falls to nothing because the light is
+      // directly overhead. This is the whole reason S_LEFT and S_RIGHT stayed
+      // separate bits instead of collapsing into one "rim".
+      const hx=sunX*0.45;
+      if(s&S_LEFT)k-=hx;
+      if(s&S_RIGHT)k+=hx;
+      // Round here, not at the end: texData is a plain Uint8Array, so a
+      // fractional channel would truncate rather than round and quietly bias
+      // every relieved cell half a level darker.
+      tj+=Math.round(k*rf*sunK);
+    }
     if(tj){
       let rr=r+tj,gg=g+tj,bb=b+tj;
       r=rr<0?0:(rr>255?255:rr);
@@ -2645,6 +2950,7 @@ function matTexel(m,v,x,y,out,dst){
 }
 
 function render(){
+  updateSun();   // may mark the whole grid dirty; must run before the paint loop
   gl.useProgram(prog);
   gl.bindBuffer(gl.ARRAY_BUFFER,vbuf);
   gl.enableVertexAttribArray(aloc);
@@ -4419,11 +4725,50 @@ function catGround(x,fromY){
   }
   return H;
 }
+// Is this column's footing under water (or under fire)? catGround only ever
+// returns something a paw could rest on, so a pond never shows up in the
+// material it reports — the hazard is whatever is sitting on top of that
+// footing. Without this a cat reads the bed of a lake as perfectly good
+// ground and strolls straight in. Fire counts the moment it appears; water
+// needs two cells of it, because a cat will wade a puddle and a rained-on
+// meadow would otherwise be a wall of hazards.
+function drowned(x,g){
+  if(g<1||g>=H)return false;
+  const a=grid[idx(x,g-1)];
+  if(a===FIRE||a===LAVA||a===SMOKE||a===STEAM)return true;
+  return isLiq(a)&&g>1&&isLiq(grid[idx(x,g-2)]);
+}
+// Standing in a body of water rather than under a passing one: the cell plus
+// most of the space beneath it. Rain sheeting past a cat on a rooftop is not
+// a swim, and without the depth test the cat starts paddling in mid-air.
+function inDrink(x,y){
+  if(!isLiq(mat(x,y)))return false;
+  let n=0;
+  for(let k=1;k<=3;k++)if(isLiq(mat(x,y+k)))n++;
+  return n>=2;
+}
+// Waterline in this column, looked for around the cat's own body rather than
+// from the top of the world — a cat swimming under an overhang or beside a
+// waterfall should ride the pond it is actually in. -1 when the column is dry.
+function waterSurfaceNear(x,y){
+  if(x<0||x>=W)return -1;
+  const y0=Math.max(0,y-2),y1=Math.min(H-1,y+3);
+  for(let yy=y0;yy<=y1;yy++){
+    if(isLiq(grid[idx(x,yy)])){
+      let s=yy;
+      while(s-1>=0&&isLiq(grid[idx(x,s-1)]))s--;
+      return s;
+    }
+  }
+  return -1;
+}
 function spawnCat(x,y,opts){
   opts=opts||{};
   cats.push({
     x:x, y:y,
     vx:0, vy:0, dir:Math.random()<0.5?-1:1,
+    exitT:0, // grace frames after hauling out, so the scramble isn't re-wetted
+    dryT:0,  // consecutive frames clear of the water while swimming
     homeMin:opts.homeMin!==undefined?opts.homeMin:Math.max(2,x-60),
     homeMax:opts.homeMax!==undefined?opts.homeMax:Math.min(W-3,x+60),
     target:x,
@@ -4437,6 +4782,27 @@ function updateCats(){
   for(const c of cats){
     c.step++;
     if(c.stateT>0)c.stateT--;
+    if(c.exitT>0)c.exitT--;
+
+    // ── in the drink? Going in takes the shoulder cell or the chin above it,
+    // and mid-leap only the shoulder counts, so clearing a pond by a whisker
+    // still reads as a clean jump. Staying in also accepts the cell under the
+    // paws, which is what keeps a cat that has bobbed up to the waterline from
+    // deciding it is back on land and sinking to the bed — but only once it is
+    // already swimming, or dropping onto a log with water below would trip it.
+    const wx=c.x|0,wy=c.y|0;
+    const inWater=c.air?inDrink(wx,wy):(inDrink(wx,wy)||inDrink(wx,wy-1));
+    const wet=inWater||(c.state==='swim'&&inDrink(wx,wy+1));
+    if(wet&&c.exitT<=0){
+      c.dryT=0;
+      if(c.state!=='swim'){
+        c.state='swim';c.stateT=0;c.blocked=0;c.vy=0;c.vx=0;c.air=false;
+      }
+    }else if(c.state==='swim'){
+      // a bob can lift the whole cat clear for a single frame; wait for a few
+      // dry ones before believing it, or the pose flickers on every swell
+      if(++c.dryT>4){c.state='shake';c.stateT=45+Math.random()*35|0;}
+    }
 
     // ── airborne: ballistic hop; land on the first support while falling
     if(c.air){
@@ -4452,6 +4818,69 @@ function updateCats(){
       continue;
     }
 
+    // ── swimming: ride the waterline, head clear, and paddle for the nearest
+    // dry footing. Cats hate this and will take the first bank on offer.
+    if(c.state==='swim'){
+      const cxi=c.x|0;
+      const surf=waterSurfaceNear(cxi,c.y|0);
+      if(surf>=0){
+        // the shoulder cell sits on the surface so the head rides above it;
+        // the sine is the swell of the cat's own paddling
+        const t=surf+Math.sin(c.step*0.16)*0.35;
+        c.y+=(t-c.y)*0.3;
+      }
+      // Nearest shore either way. The column's top surface is what matters —
+      // not the first thing under the cat's nose, which in a steep-sided pool
+      // is the wall's flank rather than anything it could stand on. Footing
+      // only counts when the cell above it is out of the water and it sits
+      // near the cat's own level, so a canopy overhead isn't mistaken for
+      // land. A floating log passes both tests, which is exactly right.
+      // Both directions expand together so the nearest wins, and each stops at
+      // the first wall across the swim lane: the meadow on the far side of a
+      // steep bank is not somewhere the cat can paddle to, and steering at it
+      // anyway pins the cat against the stone forever.
+      let sd=0,blocked=[false,false];
+      for(let j=1;j<=45&&!sd;j++){
+        for(let s=-1;s<=1;s+=2){
+          const b=s<0?0:1;
+          if(blocked[b])continue;
+          const sx=cxi+s*j;
+          if(sx<2||sx>W-3){blocked[b]=true;continue;}
+          const g=catGround(sx);
+          if(g>=H||g<1){blocked[b]=true;continue;}
+          // footing has to be dry and near the waterline, or the cat heads for
+          // a wall top it could never climb
+          if(!isLiq(grid[idx(sx,g-1)])&&g>=(c.y|0)-6&&g<=(c.y|0)+3){sd=s;break;}
+          const lane=grid[idx(sx,c.y|0)];
+          if(lane!==EMPTY&&!isLiq(lane))blocked[b]=true;
+        }
+      }
+      if(sd)c.dir=sd;
+      // dry footing in the very next column, within a scramble: haul out
+      const ah=cxi+c.dir;
+      if(ah>=2&&ah<=W-3){
+        const g=catGround(ah);
+        if(g<H&&g>=1&&!isLiq(grid[idx(ah,g-1)])&&g>=(c.y|0)-4&&g<=(c.y|0)+3){
+          c.air=true;c.vy=-1.0;c.vx=c.dir*0.4;
+          c.state='shake';c.stateT=60;c.exitT=30;
+          // head inland once dry, or the next target picked across the pond
+          // walks it straight back off the bank it just climbed
+          c.target=Math.max(2,Math.min(W-3,(c.x+c.dir*(20+Math.random()*30))|0));
+          // swept downstream of the patrol: stretch home rather than snap back
+          if(c.x<c.homeMin)c.homeMin=Math.max(2,c.x|0);
+          if(c.x>c.homeMax)c.homeMax=Math.min(W-3,c.x|0);
+          continue;
+        }
+      }
+      // otherwise keep paddling along the surface
+      const nx=c.x+c.dir*0.22;
+      const ni=Math.max(2,Math.min(W-3,nx|0));
+      const nm=grid[idx(ni,c.y|0)];
+      if(nm===EMPTY||isLiq(nm))c.x=Math.max(2,Math.min(W-3,nx));
+      else c.dir=-c.dir;
+      continue;
+    }
+
     // settle to the ground under our nose
     const gy=catGround(c.x|0,c.y);
     if(gy>=H){ // nothing to stand on, drift down till we find something
@@ -4461,6 +4890,16 @@ function updateCats(){
     }
     // glue paws to the surface; small jumps are absorbed by stepping
     c.y+=(gy-1-c.y)*0.5;
+
+    // wringing out on the bank before getting back to the patrol
+    if(c.state==='shake'){
+      c.vx=0;
+      if(c.stateT<=0){
+        c.dir=c.target>c.x?1:-1;
+        c.state='walk';c.stateT=120+Math.random()*120|0;c.blocked=0;
+      }
+      continue;
+    }
 
     if(c.state==='pause'||c.state==='sit'){
       c.vx=0;
@@ -4495,7 +4934,7 @@ function updateCats(){
       turn=true;
     }else{
       const am=aheadGround<H?grid[idx(ahead,aheadGround)]:EMPTY;
-      if(aheadGround>=H||isAvoidForCat(am)){
+      if(aheadGround>=H||isAvoidForCat(am)||drowned(ahead,aheadGround)){
         // hazard underfoot ahead — look for safe footing to leap to
         let leapt=false;
         for(let j=3;j<=6;j++){
@@ -4503,7 +4942,7 @@ function updateCats(){
           if(lx<2||lx>W-3)break;
           const lg=catGround(lx,c.y);
           if(lg>=H)continue;
-          if(isAvoidForCat(grid[idx(lx,lg)]))continue;
+          if(isAvoidForCat(grid[idx(lx,lg)])||drowned(lx,lg))continue;
           if(lg<gy-4)continue; // landing is up a wall — can't clear it
           c.air=true; c.vy=-1.05; c.vx=c.dir*(j/21);
           leapt=true; break;
@@ -4571,6 +5010,40 @@ function drawCats(){
       px(0,-3); px(2,-3);
       px(-4,-1); px(-5,-2);
       px(1,0); px(-4,0);
+      continue;
+    }
+
+    if(c.state==='swim'){
+      // only the head, ears and the crest of the back clear the water; the
+      // forepaw churns at the surface and the tail streams out in the wake
+      const ph=((c.step/3)|0)&1;
+      const fo=(c.step>>2)&1;
+      bctx.fillStyle='rgba(224,242,255,0.55)';   // foam either side of the wake
+      px(3+fo,0); px(-5-fo,0); px(-7,0);
+      bctx.fillStyle='#0a0a0e';
+      px(0,-3); px(2,-3);                        // ears
+      px(0,-2); px(1,-2); px(2,-2);              // head, held high and dry
+      px(0,-1); px(1,-1); px(2,-1);
+      px(0,0); px(-1,0); px(-2,0); px(-3,0);     // back along the waterline
+      px(-4,0);                                  // tail trailing behind
+      if(ph)px(1,0); else px(-1,-1);             // paddle stroke / recovery
+      continue;
+    }
+
+    if(c.state==='shake'){
+      // planted low and juddering side to side, throwing off droplets
+      const j=(((c.step/2)|0)&1)?1:0;
+      const pj=(dx,dy)=>px(dx+j,dy);
+      pj(0,0); pj(-1,0); pj(-2,0); pj(-3,0);     // body
+      pj(-1,-1); pj(-2,-1); pj(-3,-1);
+      pj(0,-1); pj(1,-1); pj(2,-1);              // head
+      pj(0,-2); pj(1,-2); pj(2,-2);
+      pj(0,-3); pj(2,-3);                        // ears
+      pj(-4,-1); pj(-5,-2);                      // tail flung out flat
+      pj(0,1); pj(-3,1);                         // braced paws
+      bctx.fillStyle='rgba(224,242,255,0.5)';
+      px(3-j,-3); px(-6+j,-4); px(-2,-5);        // flying droplets
+      bctx.fillStyle='#0a0a0e';
       continue;
     }
 
@@ -6040,7 +6513,7 @@ function drawEvilChest(){
   const amb=0.16+0.84*dayFactor();
   for(let y=0;y<EVIL_BH;y++)for(let x=0;x<EVIL_W;x++){
     const i=y*EVIL_W+x, o4=i*4;
-    matTexel(evilMat[i],evilVar[i],evilSX+x,evilSY+y-EVIL_PAD,d,o4);
+    matTexel(evilMat[i],evilVar[i],evilSX+x,evilSY+y-EVIL_PAD,d,o4,S_SPRITE);
     if(!d[o4+3])continue;
     for(let k=0;k<3;k++){
       const lv=Math.floor((d[o4+k]/255)*amb*7.99)/7;
