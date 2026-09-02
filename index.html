@@ -3998,64 +3998,73 @@ function carveShaft(){
    The board face is drawn once to an offscreen canvas at exactly one pixel per
    cell, then baked into artRGB, which is the only way to get a specific colour
    into the grid. */
-const SIGN_W=46, SIGN_H=30;
-const SIGN_RED='#e02020', SIGN_EDGE='#7a0d0d', SIGN_INK='#ffffff';
-function makeSignPixels(){
-  const cv=Object.assign(document.createElement('canvas'),{width:SIGN_W,height:SIGN_H});
+const ARROW_W=21, ARROW_H=27;               // cells
+const ARROW_RED='#e02020', ARROW_EDGE='#7a0d0d';
+/* Just the arrow — no board, no caption. Drawn on a transparent canvas and
+   stamped by alpha, so what lands in the grid is the silhouette itself and the
+   sky shows through around it.
+
+   The one cell of darker edge is not decoration: the arrow has to read against
+   pale sky at the top and against grass at the tip, and a flat fill loses its
+   outline over one or the other. */
+function makeArrowPixels(){
+  const cv=Object.assign(document.createElement('canvas'),{width:ARROW_W,height:ARROW_H});
   const c=cv.getContext('2d',{willReadFrequently:true});
   c.imageSmoothingEnabled=false;
-  c.fillStyle=SIGN_EDGE;c.fillRect(0,0,SIGN_W,SIGN_H);
-  c.fillStyle=SIGN_RED;c.fillRect(2,2,SIGN_W-4,SIGN_H-4);
-  // caption, shrunk until it fits the board rather than trusting a guess
-  c.fillStyle=SIGN_INK;
-  const label='THIS WAY';
-  let fs=9;
-  c.font='bold '+fs+"px 'Courier New',monospace";
-  while(c.measureText(label).width>SIGN_W-8&&fs>5){
-    fs--;c.font='bold '+fs+"px 'Courier New',monospace";
-  }
-  c.textBaseline='top';
-  c.fillText(label,(SIGN_W-c.measureText(label).width)/2,4);
-  // and the arrow: a blunt shaft under a wide head, drawn as rects so every
-  // edge lands on a cell boundary and it stays pixel art
-  const midX=SIGN_W>>1, top=6+fs;
-  const shaftW=6, shaftH=SIGN_H-top-13;
-  c.fillRect(midX-(shaftW>>1),top,shaftW,shaftH);
-  for(let row=0,hw=11;row<11;row++,hw--)c.fillRect(midX-hw,top+shaftH+row,hw*2,1);
-  return c.getImageData(0,0,SIGN_W,SIGN_H).data;
+  const mid=ARROW_W>>1, shaftW=7, shaftH=14, headH=ARROW_H-shaftH;
+  // laid out as rects so every edge falls on a cell boundary
+  const paint=(col,inset)=>{
+    c.fillStyle=col;
+    c.fillRect(mid-(shaftW>>1)+inset,inset,shaftW-inset*2,shaftH);
+    for(let row=0;row<headH-inset;row++){
+      const hw=mid-Math.round(row*mid/(headH-1))-inset;
+      if(hw<=0)break;
+      c.fillRect(mid-hw,shaftH+row,hw*2,1);
+    }
+  };
+  paint(ARROW_EDGE,0);
+  paint(ARROW_RED,1);
+  return c.getImageData(0,0,ARROW_W,ARROW_H).data;
 }
 function stampSignpost(){
   if(!SHAFT)return;
   const cx=Math.round((SHAFT.x0+SHAFT.x1)/2);
-  const bx=cx-(SIGN_W>>1);
-  // the post stands on turf clear of the hole, and the board cantilevers out
-  // over the opening so the arrowhead is genuinely above it
-  const postX=Math.max(1,SHAFT.x0-4);
+  const ax=cx-(ARROW_W>>1);                  // arrow centred over the hole
+  const postX=Math.max(1,SHAFT.x0-4);        // post stands on turf clear of it
   let groundY=H-1;
   for(let y=0;y<H;y++){
     const m=grid[idx(postX,y)];
     if(m===GRASS||m===DIRT||m===STONE){groundY=y;break;}
   }
-  const by=Math.max(1,groundY-34-SIGN_H);
-  const px=makeSignPixels();
-  for(let dy=0;dy<SIGN_H;dy++)for(let dx=0;dx<SIGN_W;dx++){
-    const x=bx+dx,y=by+dy;
+  const ay=Math.max(1,groundY-26-ARROW_H);   // tip hangs well above the turf
+  const px=makeArrowPixels();
+  for(let dy=0;dy<ARROW_H;dy++)for(let dx=0;dx<ARROW_W;dx++){
+    const si=(dy*ARROW_W+dx)*4;
+    if(px[si+3]<128)continue;                // transparent → leave the sky
+    const x=ax+dx,y=ay+dy;
     if(x<0||x>=W||y<0||y>=H)continue;
-    const si=(dy*SIGN_W+dx)*4;
     const gi=idx(x,y);
     grid[gi]=ARTIFACT;variant[gi]=0;
     artRGB[gi]=(px[si]<<16)|(px[si+1]<<8)|px[si+2];
     frozen[gi]=1;
   }
-  // timber post, from the underside of the board down into the turf
-  for(let y=by+SIGN_H;y<=groundY+1;y++)for(let dx=0;dx<3;dx++){
+  // a thin post, and one cell of cross-arm reaching the arrow so the two are
+  // a single connected region — that is what makes tryChunkDetach treat them
+  // as one sign rather than an arrow hanging in mid air next to a stick
+  for(let y=ay;y<=groundY+1;y++)for(let dx=0;dx<2;dx++){
     const x=postX+dx;
     if(x<0||x>=W||y<0||y>=H)continue;
     const gi=idx(x,y);
-    grid[gi]=WOOD;variant[gi]=dx===2?1:0;frozen[gi]=1;
+    if(grid[gi]===ARTIFACT)continue;
+    grid[gi]=WOOD;variant[gi]=dx===1?1:0;frozen[gi]=1;
   }
-  wakeRect(bx-2,by-2,bx+SIGN_W+2,groundY+2);
-  pixDirtyRect(bx-2,by-2,bx+SIGN_W+2,groundY+2);
+  for(let x=postX+2;x<ax;x++){
+    if(x<0||x>=W||ay<0||ay>=H)continue;
+    const gi=idx(x,ay);
+    grid[gi]=WOOD;variant[gi]=0;frozen[gi]=1;
+  }
+  wakeRect(postX-2,ay-2,ax+ARROW_W+2,groundY+2);
+  pixDirtyRect(postX-2,ay-2,ax+ARROW_W+2,groundY+2);
 }
 
 /* ═══════════════════════════════════════════════════════
