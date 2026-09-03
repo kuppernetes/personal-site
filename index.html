@@ -1370,6 +1370,16 @@ const EMPTY=0,SAND=1,WATER=2,FIRE=3,STONE=4,PLANT=5,ACID=6,OIL=7,SMOKE=8,ASH=9,
       // into confetti. This is what lets the work be buried IN the world
       // instead of floating in a window above it.
       ARTIFACT=31;
+/* Variant bit marking acid that is CONTAINED — the lab's tanks and cylinders.
+   Only flagged acid answers the breach rule in step(); everything else stays
+   frozen wherever it was stamped.
+
+   Needed because the lab's room sign is stamped in acid so it reads in the
+   room's own green, and a letter stroke is one or two cells wide — every cell
+   of it has air beside it, so the unqualified breach rule read the entire sign
+   as a burst tank and ran 158 cells of it down the wall on load. Safe in bit 6
+   because rendering only ever looks at `v & 7`. */
+const ACID_VESSEL=0x40;
 const BOUND=255;
 const isDebris=m=>m===WOOD||m===LEAF||m===BRICK||m===THATCH||m===BERRY||m===GLASS||m===ARTIFACT;
 const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY||m===ARTIFACT;
@@ -1390,7 +1400,7 @@ const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
      world cells   — grid[], sim rules, sprites, landscape       (y = 0..H-1)
      screen cells  — the texture window, light buffers, pointers (y = 0..VH-1)
    and the only conversion between them is camY. */
-const WORLD_SCREENS=5;        // world is this many viewports tall
+const WORLD_SCREENS=10;       // world is this many viewports tall
 let W,H,VH,SCALE;
 let camY=0;                   // world row at the top of the screen
 let SHAFT=null;               // {x0,x1,topY} in world cells — see carveShaft
@@ -1480,6 +1490,70 @@ window.__spike=Object.assign(
   });
 window.addEventListener('scroll',syncCamFromScroll,{passive:true});
 syncCamFromScroll();
+
+/* ═══ ZONES ═══
+   The descent is not one continuous stratum any more. Below the meadow the
+   world is a stack of ROOMS, one per category of the work, and going down goes
+   BACKWARD IN TIME: the current job is the first thing you reach, school is at
+   the bottom of the shaft.
+
+   A zone owns four things, and they map one-to-one onto machinery that already
+   existed for the undifferentiated version:
+
+     wall   → strataMat   : what the bulk rock between rooms is made of
+     build  → spawnStrata : carves the room itself and stamps its set dressing
+     back   → the shader's `ug` backdrop colour, crossfaded on world row
+     cat    → which WORLD_PANELS live here
+
+   Bounds are in SCREENFULS, not cells, because VH is not known until
+   computeDims has run and changes on every resize. zoneRows() converts.
+
+   `light` is the colour the zone is lit BY, and it is a real constraint rather
+   than a palette note: the only emissive materials are FIRE, FUSE, BOMB, ACID,
+   GLASS and LAVA, so each room has to earn its light out of that set. The lab
+   glows green because acid glows green. */
+const ZONES=[
+  /* The `back` pairs are [ceiling colour, floor colour]. They read bright for
+     a backdrop, and have to: the posterize downstream quantises to 10 levels,
+     so anything under ~0.15 collapses onto one or two of them and every room
+     comes out the same near-black with a different tint of noise. These sit
+     high enough that each room's colour survives the quantiser. */
+  {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.05,
+   back:[[0.300,0.228,0.176],[0.272,0.204,0.158]]},
+  /* The first thing under the turf is the person, not the work. Warm timber
+     and lamplight, directly below the cottage on the meadow — it reads as that
+     cottage's cellar, which is why it can be personal without a label saying
+     so, and why the cold rooms underneath it land as a change of subject. */
+  {id:'workshop',cat:'about',  label:'THE WORKSHOP',top:1.05,bot:2.45,
+   back:[[0.312,0.228,0.160],[0.196,0.140,0.098]]},
+  {id:'crypt',   cat:'snap',   label:'THE VAULTS', top:2.45,bot:4.15,
+   back:[[0.214,0.244,0.312],[0.118,0.140,0.196]]},
+  {id:'lab',     cat:'awards', label:'THE LAB',    top:4.15,bot:5.85,
+   back:[[0.186,0.242,0.206],[0.104,0.146,0.124]]},
+  {id:'arcade',  cat:'games',  label:'THE ARCADE', top:5.85,bot:7.45,
+   back:[[0.232,0.184,0.272],[0.128,0.100,0.158]]},
+  /* The only zone whose ramp runs from cool to hot rather than bright to dark:
+     the hall at the top is pale stone, and the further down you look the more
+     of the magma under it you are seeing. It also has to start pale, because
+     the colonnade is stone and stone against a saturated orange backdrop reads
+     as silhouette rather than as marble. */
+  /* Picked against the posterize, not by eye. The fragment quantises to ten
+     levels per channel, so a nearly-neutral (0.150,0.132,0.130) does not come
+     out neutral — red rounds up to level 2 while green and blue round down to
+     1, and a stone hall renders as maroon. These three land on the same level
+     at the ceiling, which is what keeps it grey, and separate cleanly by the
+     floor, which is what makes the magma below read as heat. */
+  {id:'core',    cat:'edu',    label:'THE CORE',   top:7.45,bot:10.00,
+   back:[[0.235,0.228,0.220],[0.400,0.238,0.128]]},
+];
+// world-cell row bounds for a zone. Clamped to the grid so the last zone always
+// reaches the floor no matter how the fractions round.
+const zoneRows=z=>({y0:Math.round(z.top*VH),y1:Math.min(H-1,Math.round(z.bot*VH)-1)});
+function zoneAt(y){
+  for(let i=ZONES.length-1;i>=0;i--){if(y>=ZONES[i].top*VH)return ZONES[i];}
+  return ZONES[0];
+}
+const zoneById=id=>ZONES.find(z=>z.id===id);
 
 let grid,variant,frozen,updated,inChunk,maskOwner,artRGB;
 function allocArrays(){
@@ -1827,14 +1901,29 @@ function step(x,y){
   const m=grid[i];
   if(frozen[i]){
     if(inChunk[i])return;                 // a falling chunk owns this cell
-    const why=isDebris(m)?tryDecompose(x,y,i,m):0;
-    if(why===0)return;
-    // support loss on structural material → try to detach the whole
-    // connected region as one coherent chunk (or discover it's actually
-    // held up elsewhere and leave it standing)
-    if(why===2&&isChunkMat(m)&&tryChunkDetach(x,y))return;
-    frozen[i]=0;
-    wake3(x,y);pixDirty(x,y);
+    /* ── a breached vessel ──
+       Frozen ACID is how the lab's specimen tanks can glow without dissolving
+       the glass that holds them: a frozen cell never reaches the acid rule, so
+       a sealed tank is inert light. That is only right while the tank IS
+       sealed. The moment air opens beside the column — the player broke the
+       glass, or something fell through it — the acid unfreezes and behaves
+       like acid, which is the reason to break one.
+
+       Checked sideways only. A tank is a vertical column and its own top cell
+       always has air above it; testing up as well would unfreeze every tank on
+       the first frame. */
+    if(m===ACID&&(variant[i]&ACID_VESSEL)&&(mat(x-1,y)===EMPTY||mat(x+1,y)===EMPTY)){
+      frozen[i]=0;wake3(x,y);pixDirty(x,y);
+    } else {
+      const why=isDebris(m)?tryDecompose(x,y,i,m):0;
+      if(why===0)return;
+      // support loss on structural material → try to detach the whole
+      // connected region as one coherent chunk (or discover it's actually
+      // held up elsewhere and leave it standing)
+      if(why===2&&isChunkMat(m)&&tryChunkDetach(x,y))return;
+      frozen[i]=0;
+      wake3(x,y);pixDirty(x,y);
+    }
     // fall through into the falling-debris path below
   }
   if(m===EMPTY||isStatic(m))return;
@@ -2502,7 +2591,25 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
    // everything at the bottom of the frame, which is exactly where the mouth of
    // the hole sits — without a gap cut in it the shaft is invisible from the
    // surface and the arrow points at unbroken turf.
-   uniform vec2 uShaft;out vec4 c;
+   uniform vec2 uShaft;
+   // ── zone backdrop ──
+   // The colour of the empty cell BETWEEN particles, which underground is most
+   // of what you see — so this, not the rock, is what makes a room feel like a
+   // crypt or a lab. One colour per zone plus the world row each zone starts
+   // at; the fragment walks the list and crossfades at every boundary, so the
+   // rooms bleed into each other over uZoneFade cells instead of switching on
+   // a hard line the eye would read as a seam in the render.
+   const int ZMAX=8;
+   // Two colours per zone — at its ceiling and at its floor. One flat colour
+   // per room made every room a slab of one hue, and a room is mostly empty
+   // cell, so that slab WAS the room. The vertical ramp is what gives a
+   // chamber a top and a bottom.
+   uniform vec3 uZoneCol[ZMAX];
+   uniform vec3 uZoneCol2[ZMAX];
+   uniform float uZoneTop[ZMAX];
+   uniform float uZoneFade;
+   uniform int uZoneN;
+   out vec4 c;
    float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
    float noise(vec2 p){
      vec2 i=floor(p),f=fract(p);
@@ -2661,7 +2768,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      float wrow=uCam.x+(uCam.y-1.0-cell.y);          // world row, 0 = world top
      float ugK=smoothstep(uCam.y*0.86,uCam.y*1.06,wrow);
      if(ugK>0.0){
-       float dd=clamp((wrow-uCam.y)/max(1.0,uGrid.y-uCam.y),0.0,1.0);
        // mottling in WORLD coords so the rock face holds still while scrolling
        float rk=fbm(vec2(cell.x*0.045,wrow*0.045));
        // Lifted well off black. The first version was lit like a cave you had
@@ -2673,11 +2779,20 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        // bright and cool, and the void between rock came out a loud magenta:
        // most of what you see down here IS empty cell, so the backdrop is the
        // dominant colour of the whole underground, not an accent behind it.
-       vec3 shallow=vec3(0.225,0.168,0.129);         // packed earth behind roots
-       vec3 midRock=vec3(0.168,0.165,0.186);         // cold stone
-       vec3 deepRock=vec3(0.222,0.135,0.117);        // warmer as the core nears
-       vec3 ug=mix(shallow,midRock,smoothstep(0.05,0.45,dd));
-       ug=mix(ug,deepRock,smoothstep(0.55,1.0,dd));
+       // Sequential mix: start at the topmost zone's colour and fold in each
+       // lower one as the row crosses its boundary. Order matters and is the
+       // whole trick — one smoothstep per boundary, no branching per zone.
+       // Each zone contributes its own ceiling→floor ramp before it is folded
+       // in, so the crossfade at a boundary runs between two colours that are
+       // already the right ones for that depth.
+       float b0=(uZoneN>1)?uZoneTop[1]:uGrid.y;
+       vec3 ug=mix(uZoneCol[0],uZoneCol2[0],clamp((wrow-uZoneTop[0])/max(1.0,b0-uZoneTop[0]),0.0,1.0));
+       for(int i=1;i<ZMAX;i++){
+         if(i>=uZoneN)break;
+         float bi=(i+1<uZoneN)?uZoneTop[i+1]:uGrid.y;
+         vec3 zi=mix(uZoneCol[i],uZoneCol2[i],clamp((wrow-uZoneTop[i])/max(1.0,bi-uZoneTop[i]),0.0,1.0));
+         ug=mix(ug,zi,smoothstep(uZoneTop[i]-uZoneFade,uZoneTop[i]+uZoneFade,wrow));
+       }
        ug*=0.88+0.24*rk;
        // A cool fill from above, so a cave mouth is lighter at its lip than at
        // its back and the voids read as volumes instead of flat holes. AO in
@@ -2711,10 +2826,19 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      // lava, a lit fuse. ugK does the crossfade, so the transition happens at
      // the same world row where the sky stops.
      float ambSky=0.16+0.84*uDay;
-     // Bright enough to read the strata and anything buried in them, dim
-     // enough that a torch, a lava seam or a lit fuse still visibly changes
-     // the room. Above ~0.8 nothing you carry down there reads as light.
-     float ambUnder=0.72;
+     /* Bright enough to read the strata and anything buried in them, dim
+        enough that a torch, a lava seam or a lit fuse still visibly changes
+        the room.
+
+        0.72 was tuned against undifferentiated rock, where the only thing
+        that had to survive was a silhouette. It does not survive ROOMS: brick
+        sits low in the palette to begin with, the posterize below crushes
+        anything under ~32 to level zero, and a vault of dark brick under a
+        0.72 ambient came out as black with an orange fleck on the corners —
+        the arches were there and could not be seen. Raised until masonry
+        reads as masonry, and the emissive terms scaled back a touch below so
+        a lit fuse still visibly changes a room that is no longer near-black. */
+     float ambUnder=0.94;
      float amb=mix(ambSky,ambUnder,ugK)*(1.0-0.22*lc.a);
      vec3 partRGB=tx.rgb*(amb + lit*1.35);
      tx=vec4(partRGB,tx.a);
@@ -2796,6 +2920,31 @@ const uGridLoc=gl.getUniformLocation(prog,'uGrid');
 const uBarLoc=gl.getUniformLocation(prog,'uBar');
 const uCamLoc=gl.getUniformLocation(prog,'uCam');
 const uShaftLoc=gl.getUniformLocation(prog,'uShaft');
+const uZoneColLoc=gl.getUniformLocation(prog,'uZoneCol');
+const uZoneCol2Loc=gl.getUniformLocation(prog,'uZoneCol2');
+const uZoneTopLoc=gl.getUniformLocation(prog,'uZoneTop');
+const uZoneFadeLoc=gl.getUniformLocation(prog,'uZoneFade');
+const uZoneNLoc=gl.getUniformLocation(prog,'uZoneN');
+/* Zone uniforms are constant for the life of a grid size — they only move when
+   VH changes — so they are packed once here and re-packed on resize rather than
+   rebuilt every frame. The arrays are sized to the shader's ZMAX and padded
+   with the last real zone, so the shader's loop can read past uZoneN safely. */
+const ZMAX_JS=8;
+const zoneColBuf=new Float32Array(ZMAX_JS*3);   // colour at each zone's ceiling
+const zoneCol2Buf=new Float32Array(ZMAX_JS*3);  // and at its floor
+const zoneTopBuf=new Float32Array(ZMAX_JS);
+function packZoneUniforms(){
+  for(let i=0;i<ZMAX_JS;i++){
+    const z=ZONES[Math.min(i,ZONES.length-1)];
+    // back[0] is the colour at the zone's ceiling, back[1] at its floor
+    for(let k=0;k<3;k++){
+      zoneColBuf[i*3+k] =z.back[0][k];
+      zoneCol2Buf[i*3+k]=z.back[1][k];
+    }
+    zoneTopBuf[i]=z.top*VH;
+  }
+}
+packZoneUniforms();
 const TASKBAR_PX=30;          // keep in sync with #taskbar height
 let gTime=0;
 
@@ -2895,7 +3044,14 @@ function occRebuild(x0,y0,x1,y1){
 }
 function buildLight(){
   const day=dayFactor(), night=1-day;
-  const glassLit=night>0.25?1:0; // glass only glows after dusk
+  /* Glass glows after dusk — and underground, where there is no dusk to wait
+     for. This is the one change that gives the buried rooms a light of their
+     own: the vaults' ghost-lights and the arcade's screens are both glass, and
+     without this they are dead grey lumps in a room the sun cannot reach.
+     Keyed off the CAMERA rather than the cell so it stays a single global
+     table write; glass left up on the meadow is off screen by then anyway, and
+     the light buffers are only built for the camera band. */
+  const glassLit=(night>0.25||camY>VH*0.86)?1:0;
   // dusk and dawn turn every glass cell in the world into an emitter (or back)
   // at once, with no cell change to mark them — that needs a full re-scan
   if(EMIT[GLASS]!==glassLit){EMIT[GLASS]=glassLit;lightScanAll=1;}
@@ -3211,6 +3367,14 @@ function render(){
   gl.uniform1f(uBarLoc,TASKBAR_PX/SCALE);
   gl.uniform2f(uCamLoc,camY,VH);
   gl.uniform2f(uShaftLoc,SHAFT?SHAFT.x0:-1e9,SHAFT?SHAFT.x1:-1e9);
+  gl.uniform3fv(uZoneColLoc,zoneColBuf);
+  gl.uniform3fv(uZoneCol2Loc,zoneCol2Buf);
+  gl.uniform1fv(uZoneTopLoc,zoneTopBuf);
+  // A fade band of ~an eighth of a screen: wide enough that no boundary reads
+  // as a drawn line, narrow enough that each room still has a settled middle
+  // where its own colour is unmixed.
+  gl.uniform1f(uZoneFadeLoc,VH*0.13);
+  gl.uniform1i(uZoneNLoc,Math.min(ZMAX_JS,ZONES.length));
   gl.disable(gl.BLEND);
   // iterate dirty chunks: only re-fill+upload pixels that actually changed
   gl.pixelStorei(gl.UNPACK_ROW_LENGTH,W);
@@ -3587,6 +3751,19 @@ const SPRITE_MATS={
   D:{m:STONE,v:0},  E:{m:STONE,v:7},                                     // stone: dark, light (via jitter)
   P:{m:PLANT,v:0},  M:{m:MOSS,v:0},
   W:{m:WATER,v:0},  S:{m:STONE,v:3},  F:{m:FIRE,v:0},
+  // ── underground set-dressing ───────────────────────────────────────────
+  // Q/q: acid, the lab's light. Stamped FROZEN (see stampSprite) so a sealed
+  //      tank is a stable glowing column rather than a spill waiting to
+  //      happen — it only runs when its vessel is breached.
+  // +  : fuse, stamped UNFROZEN because a frozen fuse never runs its step and
+  //      a conduit you cannot light is just a painted line.
+  // V  : lava, for the core's fittings.
+  // ~  : seeping water, N: soot.
+  // 0x40 is ACID_VESSEL — sprite acid is always inside something, so breaking
+  // the something is what lets it out. Rendering reads only the low 3 bits.
+  Q:{m:ACID,v:0x40}, q:{m:ACID,v:0x41},
+  '+':{m:FUSE,v:0},
+  V:{m:LAVA,v:0},   '~':{m:WATER,v:1}, N:{m:ASH,v:0},
 };
 
 // ─── SPRITES ───
@@ -3854,6 +4031,223 @@ const SPRITES={
     ".tL.......Lt.",
     ".tl.......lt.",
   ],
+
+  /* ═══ UNDERGROUND PROPS ═══
+     Furniture for the four buried rooms. Authored to the same conventions as
+     the meadow set — one char per sim cell, material + shade per char — so a
+     tomb lid and a cottage roof crumble by the same rules. Sized against the
+     rooms rather than against each other: props run 8–24 cells tall, which at
+     SCALE 4 is roughly a third to a full panel height, big enough to read past
+     the dither and small enough that a room still looks like a room. */
+
+  // ── THE VAULTS ──
+  // A stone chest on a brick plinth, moss taking the lid. Long and low on
+  // purpose: it fills the floor of a bay without competing with the arches.
+  sarcophagus:[
+    "....EEEEEEEEEEEEEEEE....",
+    "..EEEEEEEEEEEEEEEEEEEE..",
+    ".EEEEEEEEEEEEEEEEEEEEEE.",
+    "DDDDDDDDDDDDDDDDDDDDDDDD",
+    "DEDDDDDDDDDDDDDDDDDDDDED",
+    "DEDDDDMDDDDDDDDDDDMDDDED",
+    "DEDDDDDDDDDDDDDDDDDDDDED",
+    "DDDDDDDDDDDDDDDDDDDDDDDD",
+    ".KKKKKKKKKKKKKKKKKKKKKK.",
+    ".kkkkkkkkkkkkkkkkkkkkkk.",
+  ],
+  // A glass globe on an iron stand. Glass is emissive underground (see
+  // glassLit), so this is a light source and not just a silhouette — which is
+  // the whole reason the vaults are lit by lamps rather than by an ambient
+  // nobody can account for.
+  candelabra:[
+    "...*G*...",
+    "..*GGG*..",
+    "..GGGGG..",
+    "..*GGG*..",
+    "...DDD...",
+    "....D....",
+    "....D....",
+    "....D....",
+    "....D....",
+    "...DDD...",
+    "..DDDDD..",
+    ".DDDDDDD.",
+  ],
+  // A toppled urn with its contents spilled — the one prop in the vaults that
+  // is broken, so the room does not read as freshly swept.
+  urn:[
+    "..KKKK..",
+    ".KkkkkK.",
+    "KkKKKKkK",
+    "KkKKKKkK",
+    ".KkkkkK.",
+    "..K..K..",
+    ".KK..KK.",
+  ],
+
+  // ── THE LAB ──
+  // A workstation: CRT on a timber bench. The screen is glass, so every
+  // console adds to the room's light budget the same way the tanks do.
+  console:[
+    "..DDDDDDDDDDDDD..",
+    "..DGGGGGGGGGGGD..",
+    "..DG*GGGGGGG*GD..",
+    "..DGGGGGGGGGGGD..",
+    "..DGGGGGGGGGGGD..",
+    "..DDDDDDDDDDDDD..",
+    "...DDDDDDDDDDD...",
+    ".TTTTTTTTTTTTTTT.",
+    ".!ttttttttttttt!.",
+    ".!.............!.",
+    ".!..TTTTTTT....!.",
+    ".!..!!!!!!!....!.",
+    ".!.............!.",
+    ".TT...........TT.",
+  ],
+  // A pressure cylinder with acid sealed inside it. The acid is stamped frozen
+  // and every neighbour is steel, so it holds and glows; cut the wall open and
+  // the breach rule in step() turns it back into acid.
+  cylinder:[
+    "..DDD..",
+    "..DDD..",
+    ".DDDDD.",
+    ".DBBBD.",
+    ".DDDDD.",
+    ".DDDDD.",
+    ".DQQQD.",
+    ".DQQQD.",
+    ".DQQQD.",
+    ".DQQQD.",
+    ".DDDDD.",
+    ".DBBBD.",
+    ".DDDDD.",
+    ".DDDDD.",
+    "DDDDDDD",
+    "EEEEEEE",
+  ],
+  // Stacked crates — the cheapest way to break up a long flat floor, and
+  // timber, so the one flammable thing in a room wired with live fuse.
+  crates:[
+    ".TTTTTTTT.....",
+    ".T!!!!!!T.....",
+    ".T!TTTT!T.....",
+    ".T!TTTT!T.....",
+    ".T!!!!!!T.....",
+    ".TTTTTTTT.....",
+    "TTTTTTTTTTTTT.",
+    "T!!!!!!T!!!!!T",
+    "T!TTTT!T!TTT!T",
+    "T!!!!!!T!!!!!T",
+    "TTTTTTTTTTTTT.",
+  ],
+
+  // ── THE ARCADE ──
+  // The upright. Marquee and screen are both glass, which is what lights the
+  // room: the only illumination down here comes off the things you would have
+  // been playing.
+  cabinet:[
+    "..TTTTTTTTTTT..",
+    "..T*GGGGGGG*T..",
+    "..TGGGGGGGGGT..",
+    "..TTTTTTTTTTT..",
+    ".TTTTTTTTTTTTT.",
+    ".T!!!!!!!!!!!T.",
+    ".T!GGGGGGGGG!T.",
+    ".T!G*GGGGG*G!T.",
+    ".T!GGGGGGGGG!T.",
+    ".T!GGGGGGGGG!T.",
+    ".T!GGGGGGGGG!T.",
+    ".T!G*GGGGG*G!T.",
+    ".T!GGGGGGGGG!T.",
+    ".T!!!!!!!!!!!T.",
+    ".TTTTTTTTTTTTT.",
+    ".ttttttttttttt.",
+    ".TBAB...BAB.TT.",
+    ".TTTTTTTTTTTTT.",
+    ".T!!!!!!!!!!!T.",
+    ".T!!!!!!!!!!!T.",
+    ".T!!!!!!!!!!!T.",
+    ".T!!!!!!!!!!!T.",
+    ".TTTTTTTTTTTTT.",
+    ".tt.........tt.",
+  ],
+  // A cocktail-table cabinet: same room, different silhouette, so a row of
+  // uprights reads as an arcade rather than as one asset repeated.
+  lowboy:[
+    ".TTTTTTTTTTTTT.",
+    "TTGGGGGGGGGGGTT",
+    "TG*GGGGGGGGG*GT",
+    "TGGGGGGGGGGGGGT",
+    "TG*GGGGGGGGG*GT",
+    "TTGGGGGGGGGGGTT",
+    ".TTTTTTTTTTTTT.",
+    ".ttBAB...BABtt.",
+    ".TTTTTTTTTTTTT.",
+    ".T!!!!!!!!!!!T.",
+    ".T!!!!!!!!!!!T.",
+    ".T!!!!!!!!!!!T.",
+    ".TTTTTTTTTTTTT.",
+    ".tt.........tt.",
+  ],
+  // A drinks machine against the back wall.
+  vending:[
+    ".DDDDDDDDD.",
+    ".DDDDDDDDD.",
+    ".DGGGGGGGD.",
+    ".DGBGBGBGD.",
+    ".DGGGGGGGD.",
+    ".DGBGBGBGD.",
+    ".DGGGGGGGD.",
+    ".DGBGBGBGD.",
+    ".DGGGGGGGD.",
+    ".DGBGBGBGD.",
+    ".DGGGGGGGD.",
+    ".DDDDDDDDD.",
+    ".DDBBBBBDD.",
+    ".DDDDDDDDD.",
+    ".DDDDDDDDD.",
+    ".DDDDDDDDD.",
+    ".DD.....DD.",
+    ".DDDDDDDDD.",
+    ".DDDDDDDDD.",
+    "DDDDDDDDDDD",
+    "EEEEEEEEEEE",
+  ],
+
+  // ── THE CORE ──
+  // A reading stand, open. The room at the bottom of the shaft is the one
+  // about school, and this is the only prop in the world that is furniture for
+  // sitting still with.
+  lectern:[
+    "..TTTTTTTTT..",
+    ".T^^^^^^^^^T.",
+    ".T^^^^^^^^^T.",
+    "T^^^^^^^^^^^T",
+    ".!TTTTTTTTT!.",
+    "...!TTTTT!...",
+    "....!TTT!....",
+    "....!TTT!....",
+    "....!TTT!....",
+    "....!TTT!....",
+    "....!TTT!....",
+    "...TTTTTTT...",
+    "..TTTTTTTTT..",
+    ".TTTTTTTTTTT.",
+    ".ttttttttttt.",
+  ],
+  // Books, stacked. Berry, so they read as cloth boards rather than as timber
+  // — and so they burn, which given what is directly underneath this room
+  // felt like the honest choice.
+  bookstack:[
+    "..BBBBBB..",
+    "..bbbbbb..",
+    ".AAAAAAAA.",
+    ".BBBBBBBB.",
+    ".bbbbbbbb.",
+    "AAAAAAAAAA",
+    "BBBBBBBBBB",
+    "bbbbbbbbbb",
+  ],
 };
 
 // Stamp a sprite anchored so its bottom-left lands at (gx, gy_bottom).
@@ -3963,9 +4357,22 @@ function carveShaft(){
   // find the turf: first solid cell going down from the sky
   let topY=0;
   for(let y=0;y<H;y++){const m=grid[idx(cx,y)];if(m!==EMPTY&&m!==PLANT&&m!==POLLEN){topY=y;break;}}
-  // Down to the top of the cave band. Not all the way to the magma: the shaft
-  // is an invitation, not an elevator — the rest you dig yourself.
-  const botY=Math.min(H-1,VH+((VH*0.75)|0));
+  /* Down to the floor of the last room. It used to stop at the cave band —
+     right for a world that was one long stratum, wrong for one that is a
+     stack of rooms, because a shaft that ends in rock leaves every room below
+     it sealed and unreachable except by digging.
+
+     It punches through each room's ceiling and floor on the way, which is the
+     point: the hole reads as continuous, and anything spilled in the vaults
+     finds its way down it to the arcade. */
+  /* Ends just inside the last room's CEILING, not at its floor. Run to the
+     floor, the shaft cut a ten-cell slot straight down the middle of the
+     core's pediment and entablature — the facade came out as two halves with a
+     gap where the apex should be. Stopping on the roof also reads better than
+     passing through it: the descent ends by arriving above a buried building
+     rather than by boring through one. */
+  const bottomRoom=ROOM_BOX.core||ROOM_BOX.arcade;
+  const botY=Math.min(H-1,bottomRoom?bottomRoom.ceil+2:VH+((VH*0.75)|0));
   for(let y=topY;y<=botY;y++){
     // the walls waver by a cell or two so it reads as dug rather than drilled
     const wob=Math.round(Math.sin(y*0.17)*1.6+Math.sin(y*0.055)*1.2);
@@ -3975,12 +4382,17 @@ function carveShaft(){
       const gi=idx(x,y);
       grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;
     }
-    // a rim of packed dirt on each wall so the shaft has an edge to read
+    /* A rim on each wall so the shaft has an edge to read. Packed dirt near
+       the surface, cut stone once it is into the rock — a dirt lip running
+       down the inside of a brick vault reads as a rendering mistake rather
+       than as the hole someone dug through it. Left as EMPTY where the shaft
+       crosses a room, so it does not draw a wall across an open floor. */
+    const deep=y>VH*1.02;
     for(const wx of [x0-1,x1+1]){
       if(wx<1||wx>=W-1)continue;
       const gi=idx(wx,y);
       if(grid[gi]===EMPTY)continue;
-      grid[gi]=DIRT;variant[gi]=Math.random()*5|0;frozen[gi]=0;
+      grid[gi]=deep?STONE:DIRT;variant[gi]=Math.random()*5|0;frozen[gi]=deep?1:0;
     }
   }
   SHAFT={x0:cx-halfW,x1:cx+halfW,topY};
@@ -4090,25 +4502,108 @@ function stampSignpost(){
 /* ═══════════════════════════════════════════════════════
    WORLD PANELS — the work, at a depth, in readable type
 ═══════════════════════════════════════════════════════ */
-// left/right alternates so the descent has a rhythm and the middle stays clear
-// for the shaft. `at` is [fraction of width, depth in screenfuls].
+/* A panel now belongs to a ROOM rather than to a depth.
+
+   `at` used to be [fraction of world width, depth in screenfuls] — absolute
+   world coordinates, hand-tuned. That could not survive rooms: the moment a
+   zone's bounds move, every panel underneath it is in the wrong place, and
+   half of them end up inside a pillar. So `at` is now [fx, fy] as fractions
+   of the panel's OWN room, resolved against ROOM_BOX at build time. Move a
+   zone and its panels move with it.
+
+   Three per room, staggered left/centre/right so the descent has a rhythm and
+   no two panels ever share a bay. The full list for each category stays in the
+   Start-menu window the panel links to — the room is the index, the window is
+   the record. */
 const WORLD_PANELS=[
-  {id:'agent-center', name:'Agent Center', badge:'OPEN SOURCE', meta:'Spectacles sample · Snap',
-   thumb:'images/projects/agent-center-thumb.webp', at:[0.06,1.25],
+  // ── THE WORKSHOP · who this is ──
+  // First thing under the turf, and the only panel that is about the person
+  // rather than a project. No thumbnail: a portrait would make it a profile
+  // card, and the room around it is already doing the introducing.
+  {id:'about', zone:'workshop', at:[0.50,0.45],
+   name:'Mitchell Kuppersmith', meta:'Design Engineer · Snap Inc. · Santa Monica',
+   blurb:'I sit at the intersection of design and engineering — prototyping new interaction models, building AI-native AR experiences for Spectacles, and shipping the developer tooling other people build on. Keep going down and the rooms below are the work, most recent first.'},
+
+  // ── THE VAULTS · Snap ──
+  {id:'imagine-together', zone:'crypt', at:[0.17,0.00],
+   name:'Imagine Together', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
+   thumb:'https://i.ytimg.com/vi/Od-_nZpmU9Q/hqdefault.jpg',
+   blurb:'Co-located multiplayer 3D generation — people in the same room create and share spatial content together.'},
+  {id:'translation', zone:'crypt', at:[0.82,0.50],
+   name:'Translation', meta:'Flagship · Spectacles',
+   thumb:'https://i.ytimg.com/vi/hR4W_Qtzij4/hqdefault.jpg',
+   blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.'},
+  {id:'agent-center', zone:'crypt', at:[0.28,1.00],
+   name:'Agent Center', badge:'OPEN SOURCE', meta:'Spectacles sample · Snap',
+   thumb:'images/projects/agent-center-thumb.webp',
    blurb:'Run coding agents from the glasses — each is a robot avatar whose animation says if it is working or waiting on you.'},
-  {id:'ai-playground', name:'AI Playground', badge:'OPEN SOURCE', meta:'Spectacles sample · Snap',
-   thumb:'images/projects/ai-playground-thumb.webp', at:[0.62,1.70],
-   blurb:'The starter project for AI on Spectacles — live voice models, image generation and text-to-3D in one sample.'},
-  {id:'snaptrap', name:'Snaptrap', badge:'AI/GTC GDC FINALIST', meta:'Game jam',
-   thumb:'images/projects/snaptrap-thumb.webp', at:[0.08,2.35],
-   blurb:'A room-scale Venus flytrap: you play the fly, it plays the trap.'},
-  {id:'catiator', name:'Catiator', badge:'HACKNJIT PRIZE', meta:'Hackathon · VR',
-   thumb:'images/projects/catiator-thumb.webp', at:[0.60,2.80],
+
+  // ── THE LAB · hackathons & awards ──
+  {id:'catiator', zone:'lab', at:[0.18,0.00],
+   name:'Catiator', badge:'HACKNJIT PRIZE', meta:'Hackathon · VR',
+   thumb:'images/projects/catiator-thumb.webp',
    blurb:'ASL sign-language trainer: fingerspell the manual alphabet to pull off cat-gladiator combat.'},
-  {id:'retrovirus-vr', name:'RetroVirus VR', meta:'Game · VR',
-   thumb:'images/projects/retrovirus-vr-thumb.webp', at:[0.10,3.40],
+  {id:'snaptrap', zone:'lab', at:[0.81,0.50],
+   name:'Snaptrap', badge:'AI/GTC GDC FINALIST', meta:'Game jam',
+   thumb:'images/projects/snaptrap-thumb.webp',
+   blurb:'A room-scale Venus flytrap: you play the fly, it plays the trap.'},
+  {id:'larp', zone:'lab', at:[0.29,1.00],
+   name:'lARp', meta:'Hackathon · AR',
+   thumb:'images/projects/larp-thumb.webp',
+   blurb:'Tabletop LARP in augmented reality — the table is the board and the room is the dungeon.'},
+
+  // ── THE ARCADE · games ──
+  {id:'retrovirus-vr', zone:'arcade', at:[0.19,0.05],
+   name:'RetroVirus VR', meta:'Game · VR',
+   thumb:'images/projects/retrovirus-vr-thumb.webp',
    blurb:'A VR game built inside the aesthetic of a machine that never existed.'},
+  {id:'songbird', zone:'arcade', at:[0.80,0.95],
+   name:'Songbird', meta:'Game',
+   thumb:'images/projects/songbird-thumb.webp',
+   blurb:'A bird, a song, and a world that answers back.'},
+
+  // ── THE CORE · where it started ──
+  // No thumbnail: this one is a plaque rather than a project card, and the room
+  // it hangs in is lit by magma rather than by anything installed in it.
+  {id:'education', zone:'core', at:[0.50,0.82],
+   name:'Education', meta:'University of Michigan',
+   blurb:'Where the descent bottoms out — the degree, the coursework, and the first things I built.'},
 ];
+/* The sign over each room's door. Stamped as particles into the lintel rather
+   than set as DOM, because it is the room talking rather than the work — and a
+   label made of the same stone as the wall it is cut into cannot be mistaken
+   for another panel. */
+const ROOM_SIGNS={
+  workshop:{text:'ABOUT ME',               m:SAND},
+  crypt: {text:'THE VAULTS · SNAP',        m:MOSS},
+  lab:   {text:'THE LAB · HACKATHONS',     m:ACID},
+  arcade:{text:'THE ARCADE · GAMES',       m:GLASS},
+  core:  {text:'THE CORE · SCHOOL',        m:LAVA},
+};
+/* Cut the room's name into the rock just under its ceiling.
+
+   The sign material is the same one that lights the room, so each label reads
+   in its room's own colour without a single new palette entry: moss-green in
+   the vaults, acid-green in the lab, glass-white in the arcade, lava-orange at
+   the core. Frozen, so a sign is masonry and not a cloud of loose grains that
+   drifts to the floor on the first physics tick. */
+function stampRoomSign(box,spec){
+  if(!box||!spec)return;
+  const gh=Math.max(9,(VH*0.045)|0);
+  const gw=Math.min(W-4,(W*0.34)|0);
+  const gx=Math.max(2,((box.x0+box.x1)/2-gw/2)|0);
+  const gy=box.ceil+Math.max(4,(VH*0.02)|0);
+  // clear a recess for it first: text stamped straight onto rock is unreadable
+  slab(gx-2,gy-2,gx+gw+1,gy+gh+1,EMPTY);
+  stampText(spec.text,spec.m,gx,gy,gw,gh,0,{bold:true});
+  for(let y=gy;y<gy+gh;y++)for(let x=gx;x<gx+gw;x++){
+    if(x<0||x>=W||y<0||y>=H)continue;
+    const gi=idx(x,y);
+    if(grid[gi]===spec.m)frozen[gi]=1;
+  }
+  wakeRect(gx-3,gy-3,gx+gw+2,gy+gh+2);
+  pixDirtyRect(gx-3,gy-3,gx+gw+2,gy+gh+2);
+}
 /* Hollow out the rock a panel sits in.
 
    Without this a panel is embedded in solid stone, and two things go wrong at
@@ -4143,18 +4638,35 @@ function carveChamber(el){
   wakeRect(x0-2,y0-2,x1+2,y1+2);
   pixDirtyRect(x0-2,y0-2,x1+2,y1+2);
 }
+/* The shell material each room hangs its panels in. Matching the wall is what
+   makes a bracket read as part of the room rather than as scaffolding: brick
+   in the brick vaults, cut stone everywhere else. */
+const PANEL_FRAME={workshop:WOOD,crypt:BRICK,lab:STONE,arcade:WOOD,core:STONE};
 function buildWorldPanels(){
   const wl=document.getElementById('worldLayer');
   if(!wl)return;
   wl.querySelectorAll('.world-panel').forEach(n=>n.remove());
+  PANEL_RECTS.length=0;
+  const made=[];
   for(const p of WORLD_PANELS){
+    const box=ROOM_BOX[p.zone];
+    if(!box)continue;                          // zone not built at this size
     const el=document.createElement('div');
     el.className='world-panel';
     el.dataset.project=p.id;
-    const depthM=Math.round(p.at[1]*12); // flavour: screenfuls read as metres
+    el.dataset.zone=p.zone;
+    // Resolve the panel's room-relative position into world pixels. Rooms are
+    // measured in cells, panels laid out in CSS pixels, and SCALE is the only
+    // conversion — the same one the camera transform uses.
+    const wx=(box.x0+(box.x1-box.x0)*p.at[0])*SCALE;
+    // depth in metres, read straight off the world row: one screenful ≈ 12m,
+    // so the number on the title bar tracks the actual descent rather than a
+    // figure hand-written next to each entry. Seeded from the room's ceiling
+    // and corrected below, once the panel's real height is known.
+    const depthM=Math.round(box.ceil/VH*12);
     el.innerHTML=
       '<div class="wp-bar"><span>'+p.name+'</span><span class="wp-depth">-'+depthM+'m</span></div>'+
-      '<img loading="lazy" src="'+p.thumb+'" alt="'+p.name+'">'+
+      (p.thumb?'<img loading="lazy" src="'+p.thumb+'" alt="'+p.name+'">':'')+
       '<div class="wp-body">'+
         (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
         '<h3>'+p.name+'</h3>'+
@@ -4162,15 +4674,60 @@ function buildWorldPanels(){
         '<p>'+p.blurb+'</p>'+
         '<a href="#/'+p.id+'">Full write-up &rarr;</a>'+
       '</div>';
-    el.style.left=Math.round(p.at[0]*W*SCALE)+'px';
-    el.style.top=Math.round(p.at[1]*VH*SCALE)+'px';
+    // Centred on its anchor rather than left-aligned to it, so `at` names where
+    // the panel IS instead of where its top-left corner lands — which is what
+    // makes a panel at 0.5 sit in the middle of the room at every window width.
+    el.style.left='0px';
+    el.style.top='0px';
     wl.appendChild(el);
+    /* `at[1]` is a fraction of the room's USABLE height — the room minus the
+       panel's own height — not of the room. Measured against the room outright,
+       the last panel in each room started 82% of the way down a 197-cell room
+       and its bottom 80 cells hung through the floor into solid rock. Against
+       the usable height, 0 is flush with the ceiling and 1 is resting on the
+       floor, and every value between fits by construction at any window size.
+       Needs the element in the DOM to be measured, which is why left and top
+       are written twice. */
+    const roomPx=(box.floor-box.ceil)*SCALE;
+    const usable=Math.max(0,roomPx-el.offsetHeight-8*SCALE);
+    const wy=box.ceil*SCALE+4*SCALE+p.at[1]*usable;
+    el.style.top=Math.round(wy)+'px';
+    /* Clamped to the ROOM, not to the canvas. `at[0]` is where the panel wants
+       to be; at a narrow window a 340px panel is most of the room's width and
+       cannot be there, and clamping to the canvas let five of the ten hang
+       through their own walls into solid rock. Advisory placement, hard bounds
+       — and if the panel is genuinely wider than the room, centre it and let
+       the chamber cut into both walls evenly rather than only the left one. */
+    const wpx=el.offsetWidth, roomL=box.x0*SCALE+8, roomR=box.x1*SCALE-8;
+    const left=(roomR-roomL)<wpx ? (roomL+roomR-wpx)/2
+             : Math.max(roomL,Math.min(roomR-wpx,wx-wpx/2));
+    el.style.left=Math.round(left)+'px';
+    el.querySelector('.wp-depth').textContent='-'+Math.round((wy/SCALE)/VH*12)+'m';
+    /* Claim the footprint, with a margin, so furnishRooms places around it.
+       Recorded here rather than derived from `at` because only the laid-out
+       element knows how tall the panel actually came out at this width — and
+       height is exactly what the collision was about. */
+    const px0=parseFloat(el.style.left)/SCALE, py0=wy/SCALE;
+    PANEL_RECTS.push({
+      x0:Math.floor(px0)-4, y0:Math.floor(py0)-4,
+      x1:Math.ceil(px0+el.offsetWidth/SCALE)+4,
+      y1:Math.ceil(py0+el.offsetHeight/SCALE)+4,
+    });
+    made.push({el,p});
+  }
+  // Two passes on purpose. Every panel has to be in the DOM and laid out
+  // before ANY of them is measured — carving a chamber for panel one while
+  // panel two is still unstyled would read a stale rect and cut the hole in
+  // the wrong place.
+  for(const {el,p} of made){
     carveChamber(el);
+    panelBracket(el,PANEL_FRAME[p.zone]||STONE);
   }
   // The write-up link is a real anchor into the hash router the windows
   // already use (#/agent-center), so the world is the navigation and the
   // existing window stays the full record — no new wiring, and the links
   // survive being middle-clicked, copied or crawled.
+  for(const id in ROOM_SIGNS)stampRoomSign(ROOM_BOX[id],ROOM_SIGNS[id]);
 }
 
 function stampSprite(name,gx,gyBottom){
@@ -4191,27 +4748,53 @@ function stampSprite(name,gx,gyBottom){
       if(cur===STONE||frozen[gi])continue;
       grid[gi]=spec.m;
       variant[gi]=spec.v;
-      if(spec.m!==FIRE&&spec.m!==WATER)frozen[gi]=1;
+      // FIRE and WATER are stamped live so they burn and flow on arrival;
+      // FUSE joins them because its whole point is that it can be lit, and
+      // step() returns immediately on any frozen cell that is not debris.
+      if(spec.m!==FIRE&&spec.m!==WATER&&spec.m!==FUSE)frozen[gi]=1;
     }
   }
 }
 
 /* ═══ DEPTH STRATA ═══
-   What fills the four screens under the meadow. Bands are keyed off VH so the
-   layer boundaries land at predictable scroll positions — one screen of
-   subsoil, then bedrock, then the deep. Materials come straight from the
-   existing set, which already runs dirt → stone → lava in the right order.
+   What fills the seven screens under the meadow. This used to be a geological
+   ramp — subsoil, rock, moss, bedrock — and the panels buried in it read as
+   fossils in undifferentiated dirt, because a gradient has no places in it.
 
+   Now the depth is ARCHITECTURE. Each zone in ZONES owns a band of world rows
+   and builds a room there; the rock between rooms is what is left over. The
+   descent runs backward in time, so the current work is the first room you
+   reach and school is the last.
+
+   strataMat still answers "what is the bulk material at this row", but the
+   answer is now the rock AROUND a room rather than the whole of the depth.
    d = cells below the local surface, y = absolute world row. */
+/* Is world row y on a seam?
+
+   Two incommensurate sines gate a coin flip, so the material lands in
+   horizontal courses a few cells thick with clear rock between them. Scattering
+   the same material per-cell at the same overall density instead puts one stray
+   pixel every twenty cells, which at this scale reads as noise on the lens
+   rather than as a band of something in the rock. */
+function seam(y,freq,p){
+  return (Math.sin(y*freq)+Math.sin(y*freq*0.34+2.1)>1.25)&&Math.random()<p;
+}
 function strataMat(d,y){
-  const t=(y-VH)/Math.max(1,H-VH);       // 0 at the meadow floor, 1 at bedrock
-  if(d<VH*0.10)return Math.random()<0.10?STONE:DIRT;     // subsoil
-  if(t<0.42)return Math.random()<0.09?DIRT:STONE;        // rock with dirt seams
-  // Damp rock. Moss is clustered along horizontal seams rather than sprinkled
-  // per-cell: scattered single green pixels read as noise, a seam reads as a
-  // vein of something growing where water gets in.
-  if(t<0.78)return (Math.sin(y*0.9)+Math.sin(y*0.31+7.0)>1.3&&Math.random()<0.35)?MOSS:STONE;
-  return STONE;                                          // bedrock
+  if(d<VH*0.10)return Math.random()<0.10?STONE:DIRT;     // subsoil, under the turf
+  const z=zoneAt(y);
+  switch(z.id){
+    // Old masonry buried in the rock: the vaults were built into something
+    // that was already down here, and the courses of brick are the evidence.
+    case 'crypt': return seam(y,0.7,0.55)?BRICK:(seam(y+9,1.3,0.30)?MOSS:STONE);
+    // Dry, engineered, no growth — the lab was cut, not found.
+    case 'lab':   return seam(y,0.5,0.45)?BRICK:STONE;
+    case 'arcade':return seam(y,0.9,0.40)?BRICK:STONE;
+    // Damp rock giving way to hot rock. Moss clusters along horizontal seams
+    // rather than per-cell: scattered green pixels read as noise, a seam reads
+    // as a vein of something growing where water gets in.
+    case 'core':  return (Math.sin(y*0.9)+Math.sin(y*0.31+7.0)>1.3&&Math.random()<0.30)?MOSS:STONE;
+    default:      return Math.random()<0.09?DIRT:STONE;
+  }
 }
 /* Cave-wall noise. hillNoise is a 1-D function of x and gives every row the
    same wobble, which on a cave rim reads as vertical banding; this needs both
@@ -4222,23 +4805,462 @@ function caveNoise(x,y){
         +Math.sin(x*0.07-y*0.31)*0.32
         +Math.sin(x*0.53+y*0.41)*0.18;
 }
-// Caves, a perched water table and the magma floor — the reasons to keep going.
-function spawnStrata(surf){
-  const caveTop=VH+((VH*0.55)|0);
-  const caveBot=H-((VH*0.42)|0);
-  // ── cave pockets ──
-  // Fewer and larger than a scatter of bubbles, and deliberately overlapping
-  // vertically between bands so some of them chain into a route downward
-  // rather than leaving every void sealed in rock.
-  for(let y=caveTop;y<caveBot;y+=(VH*0.42)|0){
+
+/* ═══════════════════════════════════════════════════════
+   ROOM PRIMITIVES
+   The three things every buried room is made of. Kept
+   separate from the zone builders so a room is a short
+   list of intentions rather than four nested loops.
+═══════════════════════════════════════════════════════ */
+/* How far inside its zone band a room's ceiling and floor sit — i.e. how much
+   solid rock is left above and below it. The gap between two rooms is one
+   room's `bot` plus the next one's `top`, so these two numbers are what set
+   the rhythm of the whole descent. */
+const ROOM_INSET={get top(){return (VH*0.30)|0;},get bot(){return (VH*0.30)|0;}};
+// Fill a rect with one material, frozen so it holds as built.
+function slab(x0,y0,x1,y1,m,v){
+  for(let y=Math.max(0,y0);y<=Math.min(H-1,y1);y++)
+    for(let x=Math.max(0,x0);x<=Math.min(W-1,x1);x++){
+      const gi=idx(x,y);
+      grid[gi]=m;variant[gi]=(v===undefined?(Math.random()*4|0):v);
+      frozen[gi]=(m===EMPTY)?0:1;
+    }
+}
+/* Hollow a room out of the rock and line it.
+
+   `shell` is what the walls are made of and is the single biggest cue for what
+   kind of place this is — raw STONE reads as a cave, BRICK as something built.
+   The lining is two cells thick because one cell of frozen brick against a
+   void gets eaten by the first thing that falls on it, and a room whose
+   ceiling collapses on load is a bug rather than a feature. */
+function carveRoom(x0,y0,x1,y1,shell){
+  slab(x0-2,y0-2,x1+2,y1+2,shell);          // the lining, solid
+  slab(x0,y0,x1,y1,EMPTY);                  // then the void inside it
+  wakeRect(x0-3,y0-3,x1+3,y1+3);
+  pixDirtyRect(x0-3,y0-3,x1+3,y1+3);
+}
+/* Stand a sprite on a floor, centred on a world column.
+
+   The meadow's `place` is the wrong tool underground: it samples the terrain
+   surface array to find the ground, and inside a carved room there is no
+   surface — the floor is a slab the builder just laid, at a row it already
+   knows. This takes that row directly.
+
+   Returns false rather than clipping when the prop will not fit inside the
+   room, so a builder can lay out props by fraction of the room's width and let
+   the ones that fall off the end at a narrow window simply not appear. */
+function prop(name,cx,bottomY,box){
+  const w=spriteW(name),h=spriteH(name);
+  if(!w||!h)return false;
+  const gx=Math.round(cx-w/2);
+  if(box&&(gx<box.x0+1||gx+w>box.x1-1))return false;
+  if(gx<1||gx+w>=W-1||bottomY-h<1||bottomY>=H-1)return false;
+  stampSprite(name,gx,bottomY);
+  wakeRect(gx-1,bottomY-h-1,gx+w+1,bottomY+1);
+  pixDirtyRect(gx-1,bottomY-h-1,gx+w+1,bottomY+1);
+  return true;
+}
+
+/* A round-headed arch springing between two pillars.
+
+   Drawn as a ring rather than a filled dome: the void under the arch is the
+   point, and a filled semicircle would just be a lower ceiling. Thickness is
+   in cells, and the test is on radius rather than on a scanline, which is what
+   keeps the voussoirs stepping evenly around the curve instead of bunching at
+   the crown the way a per-row width would. */
+function arch(cx,springY,r,m,thick){
+  thick=thick||2;
+  for(let y=springY-r-thick;y<=springY;y++){
+    for(let x=cx-r-thick;x<=cx+r+thick;x++){
+      if(x<0||x>=W||y<0||y>=H)continue;
+      const dx=x-cx,dy=y-springY;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      if(dist<r||dist>r+thick)continue;
+      const gi=idx(x,y);
+      grid[gi]=m;variant[gi]=Math.random()*4|0;frozen[gi]=1;
+    }
+  }
+}
+/* A mounting for a world panel: two short posts and a lintel, stamped at the
+   panel's own measured rect.
+
+   carveChamber (below) already clears the rock a panel sits in, and inside a
+   room there is no rock to clear — so a panel in a built room would float. The
+   bracket is what puts it on the wall: the same read as a framed board bolted
+   into a vault, and it costs the panel nothing because the frame sits OUTSIDE
+   its footprint and never overlaps the text. */
+function panelBracket(el,m){
+  const r=el.getBoundingClientRect();
+  if(r.width<=0||r.height<=0)return;
+  const cr=canvas.getBoundingClientRect();
+  const x0=Math.floor((r.left-cr.left)/SCALE)-3;
+  const x1=Math.ceil((r.right-cr.left)/SCALE)+3;
+  const y0=Math.floor((r.top-cr.top)/SCALE)+camY-3;
+  const y1=Math.ceil((r.bottom-cr.top)/SCALE)+camY+3;
+  slab(x0,y0,x1,y0+1,m);            // lintel over the top
+  slab(x0,y1-1,x1,y1,m);            // a shelf under the bottom
+  slab(x0,y0,x0+1,y1,m);            // and a post down each side
+  slab(x1-1,y0,x1,y1,m);
+  wakeRect(x0-1,y0-1,x1+1,y1+1);
+  pixDirtyRect(x0-1,y0-1,x1+1,y1+1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   THE ROOMS
+   One builder per zone. Each is handed its own row band and
+   owns everything inside it.
+═══════════════════════════════════════════════════════ */
+
+/* ── THE VAULTS (Snap) ────────────────────────────────────
+   A brick undercroft: pillars, round arches, moss in the joints, water finding
+   its way in. Lit by glass sconces, which underground now glow (see glassLit)
+   and give the room a cold pale light with no new material and no new code in
+   the light path. The ghost is Snap's, and the room is built to earn it. */
+function buildCrypt(y0,y1){
+  const x0=(W*0.045)|0, x1=(W*0.955)|0;
+  /* ROOM_INSET is what separates the rooms. At the original 0.10/0.06 the
+     floor of one room and the ceiling of the next were ~0.16 of a screen
+     apart, which is thinner than the walls: the descent read as one long
+     interior with the decor changing, and spawnCaves (threshold 0.18) never
+     fired at all. Nearly half a screen of rock between rooms is what makes
+     arriving in the next one feel like arriving. */
+  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
+  carveRoom(x0,ceil,x1,floor,BRICK);
+
+  // flagstone floor, with moss taking the joints
+  slab(x0,floor-1,x1,floor,BRICK,1);
+  for(let x=x0;x<=x1;x++){
+    if(x%7===0)slab(x,floor-1,x,floor,BRICK,3);           // a joint line
+    if(Math.random()<0.18)putCell(x,floor-2,MOSS,Math.random()*4|0);
+  }
+
+  // ── pillars and the arcade of arches between them ──
+  // Spaced so the bays are wider than a panel: a panel that overlapped a
+  // pillar would look wedged in rather than hung in a bay.
+  const bays=6;
+  const step=(x1-x0)/bays;
+  const pxs=[];
+  for(let k=0;k<=bays;k++)pxs.push(Math.round(x0+k*step));
+  const springY=ceil+((VH*0.16)|0);
+  for(const px of pxs){
+    slab(px-2,springY,px+2,floor,BRICK);                  // the shaft of the pillar
+    slab(px-3,springY,px+3,springY+2,BRICK,2);            // impost block, a lip at the spring
+    slab(px-3,floor-3,px+3,floor,BRICK,2);                // and a base
+  }
+  for(let k=0;k<bays;k++){
+    const a=pxs[k],b=pxs[k+1];
+    arch(((a+b)/2)|0,springY,((b-a)/2)|0,BRICK,3);
+  }
+  // clear the haunches so the bays read as open, not as a wall with holes
+  for(let k=0;k<bays;k++){
+    const a=pxs[k]+4,b=pxs[k+1]-4;
+    if(b>a)slab(a,springY+4,b,floor-4,EMPTY);
+  }
+
+  // ── water finding its way in ──
+  // Two drips and the pools under them. The pools are what sell it: a drip
+  // with nothing under it reads as a rendering artefact.
+  for(const f of [0.24,0.71]){
+    const dx=(x0+(x1-x0)*f)|0;
+    for(let y=ceil;y<ceil+4;y++)putCell(dx,y,WATER,0);
+    slab(dx-5,floor-2,dx+5,floor-2,EMPTY);
+    for(let x=dx-4;x<=dx+4;x++)putCell(x,floor-2,WATER,0);
+    for(let x=dx-6;x<=dx+6;x++)putCell(x,floor-3,MOSS,Math.random()*4|0);
+  }
+
+  // The bay grid goes into the box because furnishing needs it later — see
+  // furnishRooms, which runs after the panels are hung.
+  return {ceil,floor,x0,x1,bays,pxs,springY,step};
+}
+
+/* ── THE LAB (hackathons & awards) ────────────────────────
+   Cut, not found: flat floor, tiled bands, no growth anywhere. The light is
+   acid in glass — the only green emitter in the material set — so the room is
+   lit by the thing it is full of. Overhead runs a fuse conduit, stamped live,
+   which means the ceiling is a circuit: put fire to one end and the whole
+   room's wiring runs. */
+function buildLab(y0,y1){
+  const x0=(W*0.045)|0, x1=(W*0.955)|0;
+  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
+  carveRoom(x0,ceil,x1,floor,STONE);
+
+  // poured floor with tile joints every six cells
+  slab(x0,floor-1,x1,floor,STONE,7);
+  for(let x=x0;x<=x1;x+=6)slab(x,floor-1,x,floor,BRICK,1);
+
+  // ── the conduit ──
+  // One live fuse line the width of the room, two cells under the ceiling, with
+  // a drop to each tank. Unfrozen on purpose: see stampSprite.
+  const cy=ceil+2;
+  for(let x=x0+2;x<=x1-2;x++){
+    const gi=idx(x,cy);
+    grid[gi]=FUSE;variant[gi]=0;frozen[gi]=0;
+  }
+
+  return {ceil,floor,x0,x1,conduitY:cy};
+}
+
+/* ── THE ARCADE (games) ───────────────────────────────────
+   Low ceiling, checkerboard floor, a row of cabinets facing out. The screens
+   are glass and therefore the light: the room is lit entirely by the things
+   you would have been playing, which is the whole joke. */
+function buildArcade(y0,y1){
+  const x0=(W*0.045)|0, x1=(W*0.955)|0;
+  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
+  carveRoom(x0,ceil,x1,floor,STONE);
+
+  // ── checkerboard ──
+  // Three-cell squares. One cell would dither into flat grey at this scale,
+  // and six would read as a floor plan rather than a floor.
+  const sq=3;
+  for(let y=floor-2;y<=floor;y++)for(let x=x0;x<=x1;x++){
+    const dark=((((x/sq)|0)+(((floor-y)/sq)|0))&1)===0;
+    const gi=idx(x,y);
+    grid[gi]=dark?BRICK:STONE;variant[gi]=dark?1:7;frozen[gi]=1;
+  }
+
+  // ── ceiling tubes ──
+  const tubeGap=Math.max(8,(W*0.11)|0);
+  for(let x=x0+4;x<=x1-4;x+=tubeGap){
+    const w=(W*0.045)|0;
+    for(let k=0;k<w;k++){
+      const gi=idx(Math.min(W-1,x+k),ceil+2);
+      grid[gi]=GLASS;variant[gi]=2;frozen[gi]=1;
+    }
+    slab(x-1,ceil+1,x+w,ceil+1,STONE,1);
+  }
+
+  return {ceil,floor,x0,x1};
+}
+
+/* ── THE WORKSHOP (about me) ──────────────────────────────
+   The first room under the turf, and the only one that is not about work.
+   Timber and lamplight directly below the cottage on the meadow, so it reads
+   as that cottage's cellar — which is what lets it be personal without a
+   label saying so, and what makes the cold brick of the vaults underneath it
+   land as a change of subject rather than as more of the same.
+
+   Every other room is cut out of rock. This one is BUILT: a timber shell with
+   joists overhead and a packed-earth floor, so even the construction says
+   somebody lives here. */
+function buildWorkshop(y0,y1){
+  const x0=(W*0.05)|0, x1=(W*0.95)|0;
+  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
+  carveRoom(x0,ceil,x1,floor,WOOD);
+
+  // packed-earth floor on a brick footing — the floor of a cellar, not a slab
+  slab(x0,floor-1,x1,floor,DIRT);
+  slab(x0,floor+1,x1,floor+2,BRICK,1);
+  for(let x=x0;x<=x1;x++)if(Math.random()<0.07)putCell(x,floor-2,STONE,Math.random()*4|0);
+
+  // ── joists ──
+  // Beams across the ceiling on a regular bay, each with a post at the wall
+  // end. Cheap, and it is the single strongest cue that the room has a
+  // structure rather than an outline.
+  const bay=Math.max(9,(W*0.11)|0);
+  for(let x=x0+2;x<=x1-2;x+=bay){
+    slab(x,ceil+1,x+1,ceil+3,WOOD,3);
+  }
+  slab(x0,ceil+1,x1,ceil+1,WOOD,1);          // the plate they all sit on
+
+  // ── the hearth ──
+  // A brick chimney breast on the left wall with a fire in it. The one open
+  // flame in the world below ground, and it behaves like one: it is real FIRE,
+  // so it flickers, it lights the room, and the timber around it is genuinely
+  // flammable. Firewood stacked beside it is the fuel.
+  const hx=x0+((W*0.10)|0);
+  slab(hx-7,ceil+4,hx+7,floor,BRICK,1);      // the breast, floor to ceiling
+  slab(hx-4,floor-9,hx+4,floor-1,EMPTY);     // the opening
+  slab(hx-5,floor-10,hx+5,floor-10,BRICK,2); // a lintel over it
+  for(let x=hx-3;x<=hx+3;x++){
+    putCell(x,floor-2,WOOD,3);
+    if(Math.random()<0.7)putCell(x,floor-3,FIRE,0);
+  }
+  wakeRect(hx-8,ceil+3,hx+8,floor+1);
+  pixDirtyRect(hx-8,ceil+3,hx+8,floor+1);
+
+  return {ceil,floor,x0,x1,bay,hearthX:hx};
+}
+/* Lamps, a bench, and the clutter of somebody's workroom. */
+function furnishWorkshop(box){
+  const {ceil,floor,x0,x1,bay,hearthX}=box;
+  // hanging lanterns on alternate joists — glass, so they actually light it
+  for(let x=x0+2+bay,k=0;x<=x1-2;x+=bay*2,k++){
+    const ly=ceil+((VH*0.09)|0);
+    if(blocked(x-3,ceil+3,x+3,ly+3))continue;
+    for(let y=ceil+4;y<ly-2;y++){          // the chain
+      const gi=idx(x,y);
+      grid[gi]=WOOD;variant[gi]=3;frozen[gi]=1;
+    }
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+      if(dx*dx+dy*dy>5)continue;
+      putCell(x+dx,ly+dy,GLASS,dx===0&&dy===0?2:0);
+      frozen[idx(x+dx,ly+dy)]=1;
+    }
+    wakeRect(x-3,ceil+3,x+3,ly+3);
+    pixDirtyRect(x-3,ceil+3,x+3,ly+3);
+  }
+  // the desk, kept off the hearth wall, and the rest of the room's clutter
+  propClear('console',  ((x0+x1)/2)|0,       floor-2,box);
+  propClear('crates',   x0+((x1-x0)*0.72)|0, floor-2,box);
+  propClear('bookstack',x0+((x1-x0)*0.86)|0, floor-2,box);
+  propClear('bookstack',hearthX+14,          floor-2,box);
+  propClear('candelabra',x0+((x1-x0)*0.34)|0,floor-2,box);
+}
+
+/* ═══ CLASSICAL ORDER ═══
+   The core is the room about school, so it is built like a school: a fluted
+   colonnade under an entablature under a pediment. These three are the whole
+   vocabulary, and they are worth having as primitives rather than as one long
+   builder because a column has to be placeable one at a time — the panel in
+   that room takes a bay out of the middle, and the colonnade has to skip it
+   the way a real facade would have a doorway. */
+
+// One fluted column, capital to base, standing between topY and botY.
+function column(cx,topY,botY){
+  /* Seven cells across, not five. At five the shaft carried one shadowed flute
+     either side of a highlight and read, at this dither, as a dark line — two
+     of them in a room this size looked like scaffolding rather than an order.
+     Seven gives three flutes and, more importantly, enough lit surface that
+     the column reads as pale stone standing in a warm room. */
+  const HW=3;
+  for(let y=topY+3;y<=botY-2;y++){
+    if(y<0||y>=H)continue;
+    for(let dx=-HW;dx<=HW;dx++){
+      const x=cx+dx;
+      if(x<0||x>=W)continue;
+      const gi=idx(x,y);
+      // light down the middle of each flute, shadow in the quirks between them
+      grid[gi]=STONE;variant[gi]=(Math.abs(dx)%2===1)?1:7;frozen[gi]=1;
+    }
+  }
+  slab(cx-HW-1,topY+1,cx+HW+1,topY+2,STONE,7);   // capital
+  slab(cx-HW-2,topY-1,cx+HW+2,topY,STONE,7);     // abacus
+  slab(cx-HW-1,botY-1,cx+HW+1,botY,STONE,7);     // base
+  slab(cx-HW-2,botY+1,cx+HW+2,botY+2,STONE,7);   // plinth
+  wakeRect(cx-HW-3,topY-2,cx+HW+3,botY+3);
+  pixDirtyRect(cx-HW-3,topY-2,cx+HW+3,botY+3);
+}
+// Cornice, dentil course, architrave. `y` is the top of the band.
+function entablature(x0,x1,y){
+  slab(x0,y,x1,y+1,STONE,7);
+  for(let x=x0;x<=x1;x+=3)slab(x,y+2,x+1,y+2,STONE,1);   // dentils
+  slab(x0,y+3,x1,y+4,STONE,7);
+}
+/* The gable over it: a pale triangle with a recessed tympanum inside.
+
+   Two things had to change from the obvious version. The raking cornice was
+   three cells thick, which at this dither is below the width where a pale line
+   survives — so all you saw was the dark tympanum, and a dark triangle with a
+   thin apex reads as two wings sloping away from a notch rather than as one
+   roof. And the tympanum ran the full height, which is what put that notch at
+   the apex in the first place. Thicker cornice, and the recess stops well short
+   of the top so the apex stays solid. */
+function pediment(cx,baseY,halfW){
+  const h=Math.max(5,(halfW*0.45)|0);
+  const CORNICE=5;
+  for(let r=0;r<h;r++){
+    const w=Math.round(halfW*(1-r/h));
+    slab(cx-w,baseY-r,cx+w,baseY-r,STONE,7);
+  }
+  for(let r=2;r<h*0.62;r++){
+    const w=Math.round(halfW*(1-r/h))-CORNICE;
+    if(w>0)slab(cx-w,baseY-r,cx+w,baseY-r,STONE,1);
+  }
+  wakeRect(cx-halfW-1,baseY-h-1,cx+halfW+1,baseY+1);
+  pixDirtyRect(cx-halfW-1,baseY-h-1,cx+halfW+1,baseY+1);
+}
+
+/* ── THE CORE (education) ─────────────────────────────────
+   The bottom of the shaft: a lecture hall built over magma. It is the only
+   room lit by the world rather than by anything installed in it, and the only
+   one with a facade — the descent ends at a building rather than at a cavity.
+
+   The lava is a SEAM, not a floor. A solid slab saturates the light buffer and
+   the whole frame blows out to white — the glow has to have rock under it to
+   read as heat rather than as a blank exposure. */
+function buildCore(y0,y1){
+  const x0=(W*0.08)|0, x1=(W*0.92)|0;
+  /* Inset by hand rather than by ROOM_INSET: at the shared inset the chamber
+     came out 64 cells tall — shorter than a panel — so the one room that
+     closes the descent had nowhere to hang anything. */
+  const ceil=y0+((VH*0.20)|0), floor=y0+((VH*1.06)|0);
+  carveRoom(x0,ceil,x1,floor,STONE);
+
+  // ── stylobate: three steps, so the colonnade stands ON something ──
+  slab(x0,floor-1,x1,floor,STONE,7);
+  slab(x0+3,floor-3,x1-3,floor-2,STONE,7);
+  slab(x0+7,floor-5,x1-7,floor-4,STONE,7);
+
+  // ── the facade, hung from the ceiling end ──
+  const entY=ceil+((VH*0.17)|0);
+  pediment(((x0+x1)/2)|0,entY-1,((x1-x0)*0.40)|0);
+  entablature(x0+2,x1-2,entY);
+  const colTop=entY+5, colBot=floor-6;
+
+  // ── the magma below it ──
+  const lavaTop=Math.min(H-1,floor+((VH*0.34)|0));
+  const seam=Math.max(5,(VH*0.10)|0);
+  for(let x=0;x<W;x++){
+    const jag=(caveNoise(x,lavaTop)*3)|0;
+    const top=lavaTop+jag;
+    for(let y=floor+3;y<top;y++)putCell(x,y,STONE,Math.random()*4|0);
+    for(let y=top;y<Math.min(H,top+seam);y++)putCell(x,y,LAVA,0);
+    for(let y=top+seam;y<H;y++)putCell(x,y,STONE,Math.random()*4|0);
+  }
+  return {ceil,floor,x0,x1,colTop,colBot};
+}
+/* The colonnade, plus the furniture of a room for sitting still in.
+
+   Columns are furnished rather than built because the panel takes a bay out of
+   the middle of them, and a facade that simply stops where a doorway is is
+   more convincing than one carved through afterwards. */
+function furnishCore(box){
+  const {floor,x0,x1,colTop,colBot}=box;
+  /* Spanned rather than spaced. Seven columns at seven fixed fractions, each
+     vetoed if anything overlapped it, left two standing — the plaque hangs
+     across the middle of this room and took the other five with it. Dividing
+     the free runs instead gives a colonnade either side of the plaque, which
+     is what a facade with a doorway in it looks like anyway. */
+  const COL_HW=5, PITCH=13;
+  for(const [sx0,sx1] of freeSpans(x0+COL_HW+2,x1-COL_HW-2,colTop-2,colBot+3,COL_HW*2+4)){
+    const n=Math.max(1,Math.round((sx1-sx0)/PITCH));
+    for(let k=0;k<n;k++){
+      const cx=Math.round(sx0+(sx1-sx0)*(n===1?0.5:k/(n-1)));
+      if(blocked(cx-COL_HW,colTop-2,cx+COL_HW,colBot+3))continue;
+      column(cx,colTop,colBot);
+    }
+  }
+  /* A lectern and two stacks of books: the only room in the world furnished
+     for sitting still, directly above the only room lit by magma. Which is the
+     joke, and also why the books are BERRY — berry is flammable sprite debris,
+     so they can in fact burn. */
+  /* Placed into the free floor rather than at fixed fractions, for the same
+     reason the columns are: at 0.18 and 0.82 both stacks landed inside a
+     column plinth, where stampSprite skipped most of their cells and left two
+     red stubs at the base of the order. */
+  const spots=freeSpans(x0+8,x1-8,floor-16,floor-4,14);
+  const kit=['bookstack','lectern','bookstack'];
+  spots.forEach(([sx0,sx1],i)=>propClear(kit[i%kit.length],((sx0+sx1)/2)|0,floor-6,box));
+}
+
+/* Caves in the rock BETWEEN rooms.
+
+   Deliberately kept out of the rooms themselves: a room is a built thing and
+   should have straight walls. The caves are what makes the rock between them
+   read as rock rather than as the gap between two sets, and some of them chain
+   into a route down that is not the shaft. */
+function spawnCaves(y0,y1){
+  const stepY=Math.max(8,(VH*0.30)|0);
+  for(let y=y0;y<y1;y+=stepY){
     const n=1+(Math.random()*2|0);
     for(let k=0;k<n;k++){
       const cx=((Math.random()*0.80+0.10)*W)|0;
-      const cy=y+((Math.random()*2-1)*VH*0.18)|0;
-      const rx=(W*(0.09+Math.random()*0.13))|0;
-      const ry=(VH*(0.055+Math.random()*0.075))|0;
+      const cy=y+((Math.random()*2-1)*stepY*0.4)|0;
+      const rx=Math.max(4,(W*(0.06+Math.random()*0.09))|0);
+      const ry=Math.max(3,(VH*(0.030+Math.random()*0.045))|0);
       for(let py=cy-ry*2;py<=cy+ry*2;py++){
-        if(py<caveTop||py>=caveBot)continue;
+        if(py<y0||py>=y1||py<0||py>=H)continue;
         for(let px=cx-rx*2;px<=cx+rx*2;px++){
           if(px<1||px>=W-1)continue;
           const dx=(px-cx)/rx,dy=(py-cy)/ry;
@@ -4246,39 +5268,239 @@ function spawnStrata(surf){
           // is what turns an oval into something that reads as eaten out of rock
           if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.38)continue;
           putCell(px,py,EMPTY,0);
+          frozen[idx(px,py)]=0;
         }
       }
     }
   }
-  // ── a perched water table: a flooded pocket in the upper rock. Dig into it
-  // from the side and it drains down the shaft, which is the one thing down
-  // here that rewards breaking a wall on purpose.
+}
+
+/* Build every room, then the rock between them.
+
+   ROOM_BOX is kept because three later passes need to know where the void
+   actually ended up: the shaft has to stop at a floor rather than run through
+   it, the panels have to be hung inside their own room, and the caves have to
+   avoid the rooms entirely. */
+const ROOM_BOX={};
+function spawnStrata(surf){
+  const build={workshop:buildWorkshop,crypt:buildCrypt,lab:buildLab,arcade:buildArcade,core:buildCore};
+  const order=[];
+  for(const z of ZONES){
+    const fn=build[z.id];
+    if(!fn)continue;
+    const {y0,y1}=zoneRows(z);
+    ROOM_BOX[z.id]=fn(y0,y1);
+    order.push(z.id);
+  }
+  // caves in the leftover rock — the band between one room's floor and the
+  // next room's ceiling, wherever that band is thick enough to hold one
+  for(let k=0;k<order.length-1;k++){
+    const a=ROOM_BOX[order[k]],b=ROOM_BOX[order[k+1]];
+    if(b.ceil-a.floor>VH*0.18)spawnCaves(a.floor+((VH*0.06)|0),b.ceil-((VH*0.06)|0));
+  }
+  /* A perched water table in the rock above the first room: dig into it from
+     the side and it drains down the shaft, which is the one thing up here that
+     rewards breaking a wall on purpose.
+
+     It has to sit BELOW the meadow surface, which is around 0.95–0.99 of the
+     first screen — at 0.72 it was in open sky over the footpath, and the whole
+     pocket fell as rain and pooled between the cottage and the signpost. Keyed
+     off the first room's ceiling now, so it stays buried however the zone
+     bands are rebalanced. */
   {
-    const wy=VH*2+((VH*0.25)|0);
-    const cx=(W*0.34)|0,rx=(W*0.15)|0,ry=(VH*0.08)|0;
+    const firstRoom=ROOM_BOX[ZONES[1]&&ZONES[1].id];
+    const wy=Math.round(firstRoom?firstRoom.ceil-VH*0.14:VH*1.18);
+    const cx=(W*0.30)|0,rx=(W*0.15)|0,ry=Math.max(3,(VH*0.045)|0);
     for(let py=wy-ry;py<=wy+ry;py++)for(let px=cx-rx;px<=cx+rx;px++){
       if(px<1||px>=W-1||py<0||py>=H)continue;
       const dx=(px-cx)/rx,dy=(py-wy)/ry;
       if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.25)continue;
       putCell(px,py,py>wy-ry*0.3?WATER:EMPTY,0);
+      frozen[idx(px,py)]=0;
     }
   }
-  // ── magma. Deliberately the last thing you reach: LAVA is the only material
-  // that lights the world around it, so the bottom of the shaft is the one
-  // place down here that glows on its own.
-  //
-  // A SEAM, not a floor. A solid slab of lava saturates the light buffer and
-  // the whole frame blows out to white — the glow has to have rock under it to
-  // read as heat rather than as a blank exposure.
-  const lavaTop=H-((VH*0.30)|0);
-  const seam=Math.max(5,(VH*0.10)|0);
-  for(let x=0;x<W;x++){
-    const jag=(caveNoise(x,lavaTop)*3)|0;
-    const top=lavaTop+jag;
-    for(let y=top;y<Math.min(H,top+seam);y++)putCell(x,y,LAVA,0);
-    for(let y=top+seam;y<H;y++)putCell(x,y,STONE,Math.random()*4|0);
-  }
   wakeRect(0,VH,W-1,H-1);
+}
+
+/* ═══════════════════════════════════════════════════════
+   FURNISHING — what goes in a room once the work is hung
+
+   Split out of the builders, and it has to be: the builders run inside
+   spawnStrata, which happens BEFORE the panels exist, and carveChamber then
+   hollows a panel-sized hole through whatever the builder had just put there.
+
+   That was not cosmetic. Every one of the lab's five acid tanks fell inside a
+   panel's chamber, so on load the chambers cut the tanks open, the breach rule
+   in step() correctly noticed each column now had air beside it, and 483 of
+   514 acid cells unfroze and ran across the floor before anyone had scrolled
+   to them. The room was flooding itself.
+
+   So: architecture first (walls, floors, pillars, conduit), then the panels,
+   then furniture placed around what is now actually there. Furniture is the
+   only layer that has to yield, which is also the right order for a room.
+═══════════════════════════════════════════════════════ */
+
+/* Footprints nothing may be placed into: the hung panels, and the shaft.
+
+   Recorded in world cells with a margin, at the moment each panel is measured,
+   because a DOM rect is the only thing that knows how tall a panel came out at
+   this window width. */
+const PANEL_RECTS=[];
+function blocked(bx0,by0,bx1,by1){
+  for(const r of PANEL_RECTS){
+    if(bx1>=r.x0&&bx0<=r.x1&&by1>=r.y0&&by0<=r.y1)return true;
+  }
+  // and the shaft, which is a route rather than a shelf
+  if(SHAFT&&bx1>=SHAFT.x0-2&&bx0<=SHAFT.x1+2)return true;
+  return false;
+}
+/* The horizontal runs of a room left over once the panels are hung, within a
+   given band of rows.
+
+   Placing furniture at fixed fractions of the room and rejecting whatever
+   collides does not work when the panels are 39% of the room's width each:
+   the lab asked for five tanks at five fixed columns and got none, because
+   every one of them was under a panel somewhere. Asking what space is actually
+   free and then dividing THAT is the difference between a room that adapts to
+   its contents and a room that comes out empty at some window widths. */
+function freeSpans(x0,x1,y0,y1,minW){
+  const busy=new Uint8Array(Math.max(0,x1-x0+1));
+  const mark=(a,b)=>{for(let x=Math.max(x0,a);x<=Math.min(x1,b);x++)busy[x-x0]=1;};
+  for(const r of PANEL_RECTS)if(y1>=r.y0&&y0<=r.y1)mark(r.x0,r.x1);
+  if(SHAFT)mark(SHAFT.x0-2,SHAFT.x1+2);
+  const spans=[];
+  let run=-1;
+  for(let i=0;i<busy.length;i++){
+    if(!busy[i]){if(run<0)run=i;}
+    else{if(run>=0&&i-run>=minW)spans.push([x0+run,x0+i-1]);run=-1;}
+  }
+  if(run>=0&&busy.length-run>=minW)spans.push([x0+run,x0+busy.length-1]);
+  return spans;
+}
+
+/* prop(), but it declines rather than overwrites. Returns whether it landed,
+   so a caller can fall through to its next candidate position. */
+function propClear(name,cx,bottomY,box){
+  const w=spriteW(name),h=spriteH(name);
+  if(!w||!h)return false;
+  const gx=Math.round(cx-w/2);
+  if(blocked(gx-1,bottomY-h-1,gx+w+1,bottomY+1))return false;
+  return prop(name,cx,bottomY,box);
+}
+
+/* ── THE VAULTS ──
+   Sconces on alternating pillars, then one prop per bay on a three-beat cycle
+   so a wide window does not become a row of identical tombs. Furnished per BAY
+   rather than by fraction of the room: the bays are the room's real grid, and a
+   prop centred between two pillars reads as placed where the same prop two
+   cells off centre reads as dropped. */
+function furnishCrypt(box){
+  const {ceil,floor,x0,x1,bays,pxs,springY,step}=box;
+  for(let k=1;k<pxs.length-1;k+=2){
+    const px=pxs[k], sy=springY+((VH*0.10)|0);
+    if(blocked(px-4,sy-5,px+4,sy+3))continue;
+    slab(px-1,sy-4,px+1,sy-4,STONE,1);                    // the bracket
+    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){   // and the globe
+      if(dx*dx+dy*dy>5)continue;
+      putCell(px+dx,sy+dy,GLASS,dx===0&&dy===0?2:0);
+      frozen[idx(px+dx,sy+dy)]=1;
+    }
+    wakeRect(px-4,sy-5,px+4,sy+3);
+    pixDirtyRect(px-4,sy-5,px+4,sy+3);
+  }
+  for(let k=0;k<bays;k++){
+    const cx=((pxs[k]+pxs[k+1])/2)|0;
+    const pick=k%3===0?'sarcophagus':(k%3===1?'candelabra':'urn');
+    // a bay with a panel in it gets nothing; try the far side of the bay first,
+    // since a panel rarely fills one edge to edge
+    if(!propClear(pick,cx,floor-2,box))
+      propClear(pick,cx+((step*0.28)|0),floor-2,box);
+  }
+}
+
+/* ── THE LAB ──
+   Sealed acid columns, then apparatus in whatever the tanks and panels left.
+   The tanks are the room's light, so where a panel takes a tank's place the
+   room simply gets darker there — which is the correct trade, because the
+   panel is the thing you came down to read. */
+function furnishLab(box){
+  const {ceil,floor,x0,x1,conduitY}=box;
+  const tw=5, th=Math.max(10,(VH*0.11)|0);
+  const ty1=floor-2, ty0=ty1-th;
+  /* Tested against the tank's OWN rows, not the full height of the room. The
+     first version tested ceiling-to-floor because of the dropper that feeds
+     each tank from the conduit, which meant a panel anywhere above a column
+     vetoed the tank standing under it — and since the panels between them span
+     more than the room's width, that vetoed all five. The dropper is allowed
+     to be the thing that gets left out instead. */
+  const tankCols=[];
+  for(const [sx0,sx1] of freeSpans(x0+tw+2,x1-tw-2,ty0-2,ty1+2,(tw+2)*2)){
+    const n=Math.max(1,Math.round((sx1-sx0)/(tw*5)));
+    for(let k=0;k<n;k++)tankCols.push(Math.round(sx0+(sx1-sx0)*((k+0.5)/n)));
+  }
+  for(const tx of tankCols){
+    slab(tx-tw-1,ty0-2,tx+tw+1,ty0-1,STONE,1);            // cap
+    slab(tx-tw-1,ty1+1,tx+tw+1,ty1+2,STONE,1);            // base plinth
+    for(let y=ty0;y<=ty1;y++){
+      putCell(tx-tw,y,GLASS,1);frozen[idx(tx-tw,y)]=1;    // the glass shell
+      putCell(tx+tw,y,GLASS,1);frozen[idx(tx+tw,y)]=1;
+      for(let x=tx-tw+1;x<tx+tw;x++){
+        const gi=idx(x,y);
+        grid[gi]=ACID;variant[gi]=ACID_VESSEL|(Math.random()<0.2?1:0);frozen[gi]=1;
+      }
+    }
+    // A dropper from the ceiling conduit down to the tank cap — but only where
+    // its whole run is clear, so it never draws a wire across a panel.
+    if(!blocked(tx-1,conduitY,tx+1,ty0-2)){
+      for(let y=conduitY+1;y<ty0-2;y++){
+        const gi=idx(tx,y);
+        grid[gi]=FUSE;variant[gi]=0;frozen[gi]=0;
+      }
+    }
+    wakeRect(tx-tw-2,ty0-3,tx+tw+2,ty1+3);
+    pixDirtyRect(tx-tw-2,ty0-3,tx+tw+2,ty1+3);
+  }
+  /* Apparatus goes in the half-steps between tank centres — the space the
+     tanks are not using. Cylinders are the same chemistry at a different
+     scale, so the room stores what it is lit by; the crates are the only
+     timber down here, which makes them the one thing the ceiling's live fuse
+     can actually set alight. */
+  const kit=['console','crates','cylinder','console','crates'];
+  let n=0;
+  for(const [sx0,sx1] of freeSpans(x0+6,x1-6,floor-18,floor,18)){
+    // one piece per free run, offset off the run's centre so it does not line
+    // up with the tank that is already standing there
+    propClear(kit[n%kit.length],Math.round(sx0+(sx1-sx0)*0.22),floor-2,box);
+    propClear(kit[(n+2)%kit.length],Math.round(sx0+(sx1-sx0)*0.78),floor-2,box);
+    n++;
+  }
+}
+
+/* ── THE ARCADE ──
+   Two cabinet designs alternating, plus a machine at each end. The previous
+   version stacked rectangles: the right silhouette and nothing else — no
+   bezel, no coin door, no kickplate, and all six identical, so a row of them
+   read as a fence rather than as an arcade.
+
+   Everything here is timber with glass in it, and that is deliberate: the
+   screens ARE the lighting, so a cabinet that burns takes the light with it. */
+function furnishArcade(box){
+  const {floor,x0,x1}=box;
+  const cabs=6;
+  for(let k=0;k<cabs;k++){
+    const cx=Math.round(x0+(x1-x0)*((k+0.5)/cabs));
+    propClear(k%3===1?'lowboy':'cabinet',cx,floor-3,box);
+  }
+  propClear('vending',x0+9,floor-3,box);
+  propClear('vending',x1-9,floor-3,box);
+}
+
+function furnishRooms(){
+  const fns={workshop:furnishWorkshop,crypt:furnishCrypt,lab:furnishLab,arcade:furnishArcade,core:furnishCore};
+  for(const id in fns){
+    const box=ROOM_BOX[id];
+    if(box)fns[id](box);
+  }
 }
 
 function spawnNaturalLandscape(){
@@ -4491,6 +5713,7 @@ function spawnNaturalLandscape(){
 function spawnContent(){
   grid.fill(0);variant.fill(0);frozen.fill(0);
   birds.length=0;
+  ghosts.length=0;
   cats.length=0;
 
   // ─── meadow & pond landscape ───
@@ -4511,6 +5734,10 @@ function spawnContent(){
   carveShaft();
   stampSignpost();
   buildWorldPanels();
+  // Furniture last: it is the only layer that yields to the others. See the
+  // FURNISHING banner for what went wrong when it ran first.
+  furnishRooms();
+  spawnGhosts();
 
   spawnArtifacts();
 
@@ -5392,6 +6619,149 @@ function drawBirds(){
   }
 }
 
+
+/* ═══════════════════════════════════════════════════════
+   GHOSTS — the vaults' residents
+
+   Snap's ghost, haunting the room that holds the Snap work. Agents on the same
+   overlay canvas the birds and cats use, so they cost the cellular automaton
+   nothing and are not subject to it.
+
+   Deliberately NOT boids. Flocking is a description of birds — separation,
+   alignment, cohesion, a shared heading — and a crypt full of ghosts moving in
+   formation reads as a flock of sheets. These drift independently on a slow
+   bob, mind only two things (the walls of their room and the cursor), and are
+   otherwise unaware of each other.
+
+   They are also drawn rather than stamped. A ghost in the grid would be a
+   material, and every material here is something you can burn, dissolve or
+   pile sand on; the one thing a ghost should be is untouchable.
+═══════════════════════════════════════════════════════ */
+const ghosts=[];
+const GHOST_HW=6;              // half-width of the body, in cells
+const GHOST_H=17;              // total height, in cells
+const GHOST_HEM=4;             // how many bottom rows ripple
+
+function spawnGhost(x,y){
+  ghosts.push({
+    x,y,
+    vx:(Math.random()<0.5?-1:1)*(0.10+Math.random()*0.13),
+    vy:(Math.random()-0.5)*0.06,
+    // Per-ghost phase AND rate. A shared rate makes every hem in the room
+    // ripple on the same beat, which reads as one animation playing six times
+    // rather than as six things.
+    phase:Math.random()*Math.PI*2,
+    rate:0.020+Math.random()*0.018,
+  });
+}
+/* Populate the vaults. Spread across the room's width at staggered heights so
+   they are not a row; the count scales with how wide the window actually is,
+   because six ghosts in a narrow room is a crowd and in a wide one is a
+   scattering. */
+function spawnGhosts(){
+  ghosts.length=0;
+  const box=ROOM_BOX.crypt;
+  if(!box)return;
+  const n=Math.max(3,Math.min(8,Math.round((box.x1-box.x0)/46)));
+  for(let k=0;k<n;k++){
+    const fx=(k+0.5)/n;
+    spawnGhost(box.x0+(box.x1-box.x0)*fx,
+               box.ceil+(box.floor-box.ceil)*(0.22+0.5*Math.random()));
+  }
+}
+
+function updateGhosts(){
+  const box=ROOM_BOX.crypt;
+  if(!box||!ghosts.length)return;
+  const bx0=box.x0+GHOST_HW+2, bx1=box.x1-GHOST_HW-2;
+  const by0=box.ceil+GHOST_H+1, by1=box.floor-3;
+  for(const g of ghosts){
+    g.phase+=g.rate;
+    g.x+=g.vx;
+    g.y+=g.vy+Math.sin(g.phase*0.8)*0.075;
+
+    /* ── what a ghost will not pass through ──
+       Brick, yes: drifting through a pillar is the entire point, and it is the
+       one thing in this world that can. The work, no. The panels are stamped
+       into the grid as MASK, and a translucent sprite crossing body copy is a
+       legibility bug wearing a costume — so MASK is the one material a ghost
+       turns around at. Sampled a body-width ahead so the turn happens before
+       any part of it is over the text. */
+    const ax=(g.x+(g.vx>=0?1:-1)*(GHOST_HW+3))|0, ay=g.y|0;
+    if(ax>0&&ax<W&&ay>0&&ay<H&&grid[idx(ax,ay)]===MASK)g.vx=-g.vx;
+    const ny=(g.y+(g.vy>=0?1:-1)*(GHOST_H*0.6))|0, nx=g.x|0;
+    if(nx>0&&nx<W&&ny>0&&ny<H&&grid[idx(nx,ny)]===MASK)g.vy=-g.vy;
+
+    // ── spooked ──
+    // Shy away from the cursor, so sweeping through the room scatters them and
+    // they settle again a moment later. The only handle the visitor gets on
+    // something they otherwise cannot touch.
+    const dx=g.x-mouseSimX, dy=g.y-mouseSimY, d2=dx*dx+dy*dy;
+    if(d2<1200&&d2>1){
+      const d=Math.sqrt(d2), push=0.055*(1-d/34.6);
+      g.vx+=dx/d*push; g.vy+=dy/d*push;
+    }
+
+    // Bleed the scare off and hold a slow drift. Without the floor on |vx| a
+    // ghost that gets pushed to a standstill just hangs there.
+    g.vx*=0.985; g.vy*=0.965;
+    g.vx=Math.max(-0.55,Math.min(0.55,g.vx));
+    g.vy=Math.max(-0.40,Math.min(0.40,g.vy));
+    if(Math.abs(g.vx)<0.07)g.vx=g.vx>=0?0.07:-0.07;
+
+    if(g.x<bx0){g.x=bx0;g.vx=Math.abs(g.vx);}
+    if(g.x>bx1){g.x=bx1;g.vx=-Math.abs(g.vx);}
+    if(g.y<by0){g.y=by0;g.vy=Math.abs(g.vy);}
+    if(g.y>by1){g.y=by1;g.vy=-Math.abs(g.vy);}
+  }
+}
+
+/* Draw one ghost as rows rather than as a bitmap.
+
+   The silhouette is Snap's: a dome that widens over the first few rows, then
+   straight sides, then a hem that ripples. Rows are one fillRect each — a
+   per-pixel loop would be ~220 rects per ghost, and the hem is the only part
+   that actually needs per-column work.
+
+   The hem is a sine in x offset by the ghost's own phase, so the bottom edge
+   travels sideways as it ripples instead of pulsing in place. */
+function drawGhost(g){
+  const x=g.x|0, y=g.y|0;                 // y is the ghost's BOTTOM row
+  const top=y-GHOST_H+1;
+  const hemTop=y-GHOST_HEM+1;
+  for(let r=top;r<hemTop;r++){
+    const t=(r-top)/5;
+    // dome: quarter-sine to full width over the first five rows
+    const hw=t<1 ? Math.max(1,Math.round(GHOST_HW*Math.sin(t*Math.PI*0.5))) : GHOST_HW;
+    bctx.fillRect(x-hw,r,hw*2+1,1);
+  }
+  for(let dx=-GHOST_HW;dx<=GHOST_HW;dx++){
+    const wave=Math.sin(dx*0.85+g.phase*2.1);
+    const edge=y-Math.round(1.7*(1+wave));
+    if(edge>=hemTop)bctx.fillRect(x+dx,hemTop,1,edge-hemTop+1);
+  }
+  // eyes, punched back out of the body
+  bctx.save();
+  bctx.globalCompositeOperation='destination-out';
+  bctx.fillRect(x-4,top+5,2,3);
+  bctx.fillRect(x+3,top+5,2,3);
+  bctx.restore();
+}
+function drawGhosts(){
+  if(birdCanvas.width!==W||!ghosts.length)return;
+  bctx.save();
+  for(const g of ghosts){
+    // cheap cull: the overlay is one screenful and most ghosts are not on it
+    if(g.y<camY-GHOST_H||g.y>camY+VH+GHOST_H)continue;
+    // Breathe the opacity, out of phase with the hem so a ghost is never at
+    // once at its faintest and at its stillest.
+    bctx.globalAlpha=0.34+0.20*Math.sin(g.phase*0.55+1.1);
+    bctx.fillStyle='#cfe4ff';
+    drawGhost(g);
+  }
+  bctx.restore();
+}
+
 /* ═══════════════════════════════════════════════════════
    CATS — small ground-roaming critters. They walk on top of
    whatever terrain is currently there (sand/grass/dirt/sprite
@@ -5799,6 +7169,8 @@ window.addEventListener('resize',()=>{
     // the canvas has been tracking the viewport in CSS the whole drag; only pay
     // for a realloc + rebuild if the cell grid actually changed dimensions
     if(!computeDims())return;
+    // VH moved, so every zone boundary moved with it
+    packZoneUniforms();
     syncScrollHeight();syncCamFromScroll();syncWorldLayer();
     allocArrays();allocChunks();allocTexture();allocLight();
     spawnContent();buildBodies();syncBrushRing();
@@ -5847,7 +7219,7 @@ function loop(ts){
     let n=0;
     while(simAcc>=stepMs&&n<maxN){
       const t0=performance.now();
-      doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();
+      doRain();doAmbient();simulate();updateChunks();updateBoids();updateGhosts();updateCats();
       stepCostMs+=((performance.now()-t0)-stepCostMs)*0.15; // EMA, ~15 frames to settle
       simAcc-=stepMs;n++;
     }
@@ -5860,6 +7232,7 @@ function loop(ts){
   updateBurns(ts); // push fresh burn holes into the DOM even while paused
   renderAll();
   drawBirds();
+  drawGhosts();
   drawCats();
   updateEvil();
   requestAnimationFrame(loop);
