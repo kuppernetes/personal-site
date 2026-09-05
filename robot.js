@@ -509,6 +509,7 @@
 
     // Look-at-cursor: aim eyes/head toward the pointer relative to the robot.
     window.addEventListener("pointermove", (e) => {
+      if (!visible || document.hidden) return;
       const rect = canvas.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
@@ -527,22 +528,39 @@
 
     // Pause rendering when the robot isn't on screen.
     let visible = true;
+    let frameId = 0;
+    function scheduleFrame() {
+      if (!frameId && visible && !document.hidden) frameId = requestAnimationFrame(frame);
+    }
+    function syncAnimation() {
+      if (!visible || document.hidden) {
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      } else scheduleFrame();
+    }
     if ("IntersectionObserver" in window) {
       new IntersectionObserver((entries) => {
         visible = entries[0].isIntersecting && entries[0].intersectionRatio > 0;
+        syncAnimation();
       }, { threshold: 0 }).observe(canvas);
     }
 
+    // Window resizes and panel resizes cover layout changes; doing this inside
+    // every frame forced a layout measurement even when the size was unchanged.
+    if ("ResizeObserver" in window) new ResizeObserver(resize).observe(canvas);
     window.addEventListener("resize", resize);
+    document.addEventListener("visibilitychange", syncAnimation);
     resize();
 
     const start = performance.now();
     function frame(now) {
-      requestAnimationFrame(frame);
-      const shown = visible && canvas.offsetParent !== null;
-      if (!shown) return;
+      frameId = 0;
+      if (!visible || document.hidden) return;
+      scheduleFrame();
+      if (!("IntersectionObserver" in window) && canvas.offsetParent === null) return;
 
-      resize();
+      // Moving the page between displays can change DPR without changing CSS size.
+      if (dpr !== Math.min(window.devicePixelRatio || 1, 2)) resize();
       const t = (now - start) / 1000;
 
       // Lerp toward the active state (mirrors lerpShaderValues in the source).
@@ -605,7 +623,7 @@
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
-    requestAnimationFrame(frame);
+    scheduleFrame();
   }
 
   window.initRobot = init;

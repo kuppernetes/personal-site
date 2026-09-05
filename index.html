@@ -65,41 +65,74 @@ html,body{
    costs nothing, because burning was never about the pixels: it runs off the
    MASK footprint in the grid and punches the real element with clip-path. */
 #worldLayer{position:absolute;inset:0;pointer-events:none;z-index:6;will-change:transform}
-.world-panel{
-  /* absolute for placement in the world, and the containing block for the
-     scorch overlay the burn system appends — without that the overlay lays out
-     in flow, adds its own height to the panel, gets resized to match on the
-     next restamp, and the panel grows without bound. */
-  position:absolute;pointer-events:auto;
-  width:340px;max-width:calc(100vw - 40px);
-  background:#12100e;
-  border:2px solid;
-  border-color:#4a4038 #241e19 #241e19 #4a4038;
-  box-shadow:0 0 0 1px #0a0806, 0 6px 0 rgba(0,0,0,0.45);
-  color:#e8e2d6;font-family:'Courier New',monospace;
-  padding:0 0 10px 0;
-}
-.world-panel .wp-bar{
-  background:linear-gradient(90deg,#5a3f22,#8a6234);
-  color:#ffe9c8;font-weight:700;font-size:12px;letter-spacing:0.5px;
-  padding:4px 8px;display:flex;justify-content:space-between;align-items:center;
-  border-bottom:2px solid #241e19;
-}
-.world-panel .wp-depth{font-size:10px;opacity:0.75;font-weight:400}
-/* Thumbnails are not a consistent aspect (one is portrait), and an unbounded
-   height makes one panel tower over the others. Fixed box, cropped to fill. */
-.world-panel img{display:block;width:100%;height:150px;object-fit:cover;image-rendering:auto}
-.world-panel .wp-body{padding:8px 10px 0 10px}
-.world-panel h3{font-size:15px;margin:0 0 2px 0;color:#ffd9a0}
-.world-panel .wp-meta{font-size:10px;color:#9a8c78;margin-bottom:6px}
-.world-panel p{font-size:11.5px;line-height:1.45;margin:0 0 6px 0;color:#cfc6b6}
-.world-panel a{color:#b8e000}
-.world-panel .wp-badge{
-  display:inline-block;background:#b8e000;color:#12100e;font-size:9px;font-weight:700;
-  padding:1px 5px;margin-bottom:5px;
-}
-
-@media (max-width:600px){ .world-panel{width:calc(100vw - 28px)} }
+/* The room is a composition of equipment, not a grid of floating cards.
+   Only the readable instrument surfaces receive burn/collision masks; the
+   large open diorama remains directly touchable falling-sand terrain. */
+.room-exhibit{position:absolute;pointer-events:none;font-family:'Courier New',monospace;color:#eee8da;
+  --exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
+.room-exhibit[data-zone=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
+.room-exhibit[data-zone=lab]{--exhibit:#c4db86;--exhibit-dark:#586644;--exhibit-bg:#1d281e}
+.room-exhibit[data-zone=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
+.room-exhibit[data-zone=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
+.world-panel{position:absolute;pointer-events:auto;box-sizing:border-box;color:inherit;font-family:'Courier New',monospace;
+  background:var(--exhibit-bg,#211c19);border:2px solid var(--exhibit-dark,#63503a);
+  box-shadow:3px 4px 0 #0b1117;padding:0;min-width:0}
+.room-heading{border:0;border-left:4px solid var(--exhibit);box-shadow:none;padding:10px 18px;background:#121a1be8}
+.room-heading .room-kicker{font-size:10px;letter-spacing:2px;color:var(--exhibit);margin:0 0 8px}
+.room-heading h2{font-size:clamp(24px,3vw,40px);line-height:1.05;margin:0 0 10px;letter-spacing:-1.7px}
+.room-heading p{font-size:12px;line-height:1.5;margin:0;max-width:760px;color:#c1c7bc}
+.room-selector{display:flex;gap:4px;padding:5px;background:#141819;border-width:3px;border-bottom-width:7px}
+.room-selector button{flex:1;min-width:0;text-align:left;padding:8px 12px;cursor:pointer;
+  border:2px solid var(--exhibit-dark);background:#202729;color:#c6cec9;font:12px 'Courier New',monospace;line-height:1.3}
+.room-selector button small{display:block;font-size:9px;letter-spacing:1px;margin-bottom:4px;color:#a0ada4}
+.room-selector button[aria-pressed=true]{background:var(--exhibit);border-color:#f3eed7;color:#172125;box-shadow:inset 0 -4px #0002}
+.room-selector button[aria-pressed=true] small{color:#354539}
+.room-selector button:hover{border-color:var(--exhibit)}
+.room-exhibit a{color:var(--exhibit);text-underline-offset:4px}
+.room-exhibit button:focus-visible,.room-exhibit a:focus-visible{outline:3px solid #fff;outline-offset:3px}
+.room-diorama{position:absolute;pointer-events:none}
+.room-caption{font-size:11px;line-height:1.5;padding:10px 12px;border-left:4px solid var(--exhibit);box-shadow:none}
+.room-caption strong{display:block;font-size:10px;letter-spacing:1px;color:var(--exhibit);margin-bottom:4px}
+.room-monitor{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--exhibit-dark) var(--exhibit-bg);border-width:4px}
+.room-monitor .monitor-content{padding:18px}
+.room-monitor .wp-meta{font-size:10px;line-height:1.5;color:#bac6b8;margin:0 0 10px}
+.room-monitor h3{font-size:clamp(24px,2.5vw,34px);line-height:1.05;letter-spacing:-1px;margin:0 0 10px;color:var(--exhibit)}
+.room-monitor .project-hook{font-size:17px;line-height:1.4;margin:0 0 13px;font-weight:bold}
+.room-monitor p{font-size:13px;line-height:1.6;margin:0 0 12px}
+.room-monitor .wp-shot{display:block;background:#0d1519;border:2px solid var(--exhibit-dark);margin:0 0 16px;position:relative}
+.room-monitor img{display:block;width:100%;height:190px;object-fit:contain;background:#10161c}
+.room-monitor .wp-shot span{display:block;font-size:10px;padding:7px 9px;background:#11191d;color:var(--exhibit)}
+.room-monitor .wp-open{display:flex;justify-content:space-between;gap:10px;border-top:2px solid var(--exhibit-dark);padding-top:12px;font-size:12px;font-weight:bold;text-decoration:none}
+.room-monitor .wp-related{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;line-height:1.5;margin-top:12px}
+.room-monitor .wp-badge{display:block;font-size:10px;letter-spacing:1px;line-height:1.4;color:var(--exhibit);margin-bottom:9px}
+.room-monitor .room-manifesto{font-size:24px;line-height:1.25;color:var(--exhibit);margin:16px 0 22px}
+.room-monitor .room-evidence{border-left:3px solid var(--exhibit);padding-left:12px;color:#cdd5c2}
+.room-step{padding:12px 14px;border-top:4px solid var(--exhibit)}
+.room-step small{font-size:10px;letter-spacing:1px;color:var(--exhibit)}
+.room-step h4{font-size:15px;margin:7px 0 5px;line-height:1.2}
+.room-step p{font-size:11px;line-height:1.5;margin:0;color:#c6cec3}
+.room-exhibit[data-zone=crypt] .room-monitor{border:5px double #8babad;background:#17262b}
+.room-exhibit[data-zone=lab] .room-monitor{border:5px solid #718069;box-shadow:6px 6px #101918}
+.room-exhibit[data-zone=lab] .room-step{border-bottom:6px solid #8e9458}
+.room-exhibit[data-zone=arcade] .room-monitor{border:8px solid #754969;border-top:14px solid #c17eab;box-shadow:8px 8px #11101b}
+.room-exhibit[data-zone=arcade] .room-selector button{text-transform:uppercase}
+.room-exhibit[data-zone=core] .room-monitor{border:5px solid #8f805e;background:#28281f}
+.room-exhibit[data-zone=core] .room-step{border-bottom:5px solid #8f805e}
+.room-exhibit.is-compact .room-monitor img{height:180px}
+.room-exhibit.is-narrow .room-heading{padding:10px 12px}
+.room-exhibit.is-narrow .room-heading h2{font-size:26px}
+.room-exhibit.is-narrow .room-selector{flex-direction:column}
+.room-exhibit.is-narrow .room-selector button{padding:5px 8px;font-size:11px}
+.room-exhibit.is-narrow .room-selector button small{display:inline;font-size:8px;margin-right:7px;letter-spacing:0}
+.room-exhibit.is-narrow .room-monitor .monitor-content{padding:12px}
+.room-exhibit.is-narrow .room-monitor .project-hook{font-size:15px}
+.room-exhibit.is-narrow .room-monitor p{font-size:12px}
+.room-exhibit.is-narrow .room-monitor img{height:160px}
+#depthNav{position:absolute;left:7px;top:50%;transform:translateY(-50%);z-index:9;display:grid;gap:3px;pointer-events:auto}
+#depthNav button{width:36px;height:34px;background:#141c20;color:#a0afaa;border:1px solid #465654;font:9px 'Courier New',monospace;cursor:pointer;box-shadow:2px 2px #0b1115}
+#depthNav button[aria-current]{color:#192018;background:#d0dc9c;border-color:#edf1cc;font-weight:bold}
+#depthNav button:hover,#depthNav button:focus-visible{color:#fff;border-color:#fff;outline:1px solid #fff;outline-offset:2px}
+@media(max-width:799px){#depthNav{left:3px}#depthNav button{width:30px;height:32px;font-size:8px}}
 #simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 #birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
 #uiLayer{position:absolute;inset:0;pointer-events:none}
@@ -1400,7 +1433,42 @@ const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
      world cells   — grid[], sim rules, sprites, landscape       (y = 0..H-1)
      screen cells  — the texture window, light buffers, pointers (y = 0..VH-1)
    and the only conversion between them is camY. */
-const WORLD_SCREENS=10;       // world is this many viewports tall
+let WORLD_SCREENS=10,DEPTH_LAYOUT;
+// Preserve the long descent on desktop, but give stacked exhibits a physical
+// minimum height on phones and short windows. Content never shares a footprint.
+function exhibitBounds(cells,scale){
+  const shaftRight=Math.round(cells*.055)+Math.max(3,Math.round(cells*.022))+3;
+  const left=(shaftRight+8)*scale,right=(Math.floor(cells*.955)-5)*scale;
+  const width=Math.min(1260,right-left);
+  return {x:Math.round(left+(right-left-width)/2),width};
+}
+function roomMetrics(width,count=3){
+  const compact=width<720,narrow=width<430,gap=16;
+  const header=narrow?300:compact?160:112,selector=narrow?Math.max(64,count*43+16):76;
+  const caption=narrow?132:compact?92:92,monitor=narrow?700:compact?620:660;
+  const art=compact?(narrow?244:294):monitor-caption;
+  const stepHeight=narrow?152:156;
+  const stageY=header+selector+gap*2;
+  const leftWidth=compact?width:Math.floor((width-gap)*.43);
+  const rightWidth=compact?width:width-leftWidth-gap;
+  const stageHeight=compact?art+caption+gap+monitor:Math.max(art+caption,monitor);
+  const stepsY=stageY+stageHeight+gap;
+  return {compact,narrow,header,selector,art,caption,monitor,leftWidth,rightWidth,stageY,
+    monitorX:compact?0:leftWidth+gap,monitorY:compact?stageY+art+caption+gap:stageY,
+    stepsY,stepHeight,height:stepsY+(narrow?stepHeight*3+gap*2:stepHeight)};
+}
+function worldBands(vw,vh){
+  const scale=Math.max(4,Math.round(Math.sqrt(vw*vh)/346));
+  const width=exhibitBounds(Math.floor(vw/scale),scale).width;
+  const bands={surface:{top:0,bot:1.05}};
+  let top=1.05;
+  for(const [id,count] of [['workshop',1],['crypt',3],['lab',3],['arcade',2],['core',2]]){
+    const minimum=roomMetrics(width,count).height+Math.max(90,vh*.10)+60;
+    const height=minimum/vh+.36+(id==='core'?.45:0);
+    bands[id]={top,bot:top+height,minRoom:minimum};top+=height;
+  }
+  return {bands,total:top,columns:width<720?1:2};
+}
 let W,H,VH,SCALE;
 let camY=0;                   // world row at the top of the screen
 let SHAFT=null;               // {x0,x1,topY} in world cells — see carveShaft
@@ -1426,12 +1494,14 @@ function computeDims(){
   let s=Math.max(4,Math.round(Math.sqrt(vw*vh)/TARGET_SPAN));
   while((vw/s)*(vh/s)>CELL_BUDGET&&s<9)s++;
   const nW=Math.floor(vw/s),nVH=Math.floor(vh/s);
-  const nH=nVH*WORLD_SCREENS;
+  const layout=worldBands(vw,vh);
+  const nH=Math.ceil(nVH*layout.total);
   // Nothing to do if the grid lands on the same dimensions — assigning
   // canvas.width alone clears the canvas, and the caller would needlessly
   // reallocate and re-roll the whole scene for a few pixels of drag.
   if(s===SCALE&&nW===W&&nH===H)return false;
   SCALE=s;W=nW;VH=nVH;H=nH;
+  DEPTH_LAYOUT=layout;WORLD_SCREENS=H/VH;
   // Backing store is one screenful, not the whole world: the frame is what we
   // draw, the world is what we sample from.
   canvas.width=W;canvas.height=VH;
@@ -1473,6 +1543,7 @@ function setCam(y){
 function syncWorldLayer(){
   const wl=document.getElementById('worldLayer');
   if(wl)wl.style.transform='translate3d(0,'+(-camY*SCALE)+'px,0)';
+  syncDepthNav();
 }
 function syncCamFromScroll(){ setCam(window.scrollY/SCALE); }
 /* Spike instrumentation. Grouped on one global rather than five so it is
@@ -1513,38 +1584,43 @@ syncCamFromScroll();
    GLASS and LAVA, so each room has to earn its light out of that set. The lab
    glows green because acid glows green. */
 const ZONES=[
-  /* The `back` pairs are [ceiling colour, floor colour]. They read bright for
-     a backdrop, and have to: the posterize downstream quantises to 10 levels,
-     so anything under ~0.15 collapses onto one or two of them and every room
-     comes out the same near-black with a different tint of noise. These sit
-     high enough that each room's colour survives the quantiser. */
-  {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.05,
+  /* The `back` pairs are [ceiling colour, floor colour]. Quiet, shaded rear
+     walls sit below the value of props and masonry. Underground uses sixteen
+     hue-preserving luminance steps so these muted colours stay distinct. */
+  /* `bg` picks the motif the zone's parallax back layer is built from:
+     0 = a far colonnade, 1 = pipework and tanks, 2 = racking. It is a float
+     and it is interpolated between zones, so a value between two motifs is a
+     legitimate thing to ask for. The surface never shows it — ugK is zero
+     above the horizon — but it still has to carry a value for the crossfade
+     into the workshop to have something to come from. */
+  {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.05, bg:2,
    back:[[0.300,0.228,0.176],[0.272,0.204,0.158]]},
   /* The first thing under the turf is the person, not the work. Warm timber
      and lamplight, directly below the cottage on the meadow — it reads as that
      cottage's cellar, which is why it can be personal without a label saying
      so, and why the cold rooms underneath it land as a change of subject. */
   {id:'workshop',cat:'about',  label:'THE WORKSHOP',top:1.05,bot:2.45,
-   back:[[0.312,0.228,0.160],[0.196,0.140,0.098]]},
+   bg:2,
+   back:[[0.190,0.145,0.120],[0.125,0.100,0.090]]},
   {id:'crypt',   cat:'snap',   label:'THE VAULTS', top:2.45,bot:4.15,
-   back:[[0.214,0.244,0.312],[0.118,0.140,0.196]]},
+   bg:0,
+   back:[[0.135,0.180,0.210],[0.095,0.130,0.165]]},
   {id:'lab',     cat:'awards', label:'THE LAB',    top:4.15,bot:5.85,
-   back:[[0.186,0.242,0.206],[0.104,0.146,0.124]]},
+   bg:1,
+   back:[[0.115,0.180,0.165],[0.085,0.125,0.120]]},
   {id:'arcade',  cat:'games',  label:'THE ARCADE', top:5.85,bot:7.45,
-   back:[[0.232,0.184,0.272],[0.128,0.100,0.158]]},
+   bg:2,
+   back:[[0.165,0.120,0.205],[0.110,0.085,0.145]]},
   /* The only zone whose ramp runs from cool to hot rather than bright to dark:
      the hall at the top is pale stone, and the further down you look the more
      of the magma under it you are seeing. It also has to start pale, because
      the colonnade is stone and stone against a saturated orange backdrop reads
      as silhouette rather than as marble. */
-  /* Picked against the posterize, not by eye. The fragment quantises to ten
-     levels per channel, so a nearly-neutral (0.150,0.132,0.130) does not come
-     out neutral — red rounds up to level 2 while green and blue round down to
-     1, and a stone hall renders as maroon. These three land on the same level
-     at the ceiling, which is what keeps it grey, and separate cleanly by the
-     floor, which is what makes the magma below read as heat. */
+  /* A charcoal ceiling gives the pale colonnade a clear silhouette; the
+     muted amber at its feet anticipates the magma below. */
   {id:'core',    cat:'edu',    label:'THE CORE',   top:7.45,bot:10.00,
-   back:[[0.235,0.228,0.220],[0.400,0.238,0.128]]},
+   bg:0,
+   back:[[0.175,0.155,0.150],[0.280,0.165,0.105]]},
 ];
 // world-cell row bounds for a zone. Clamped to the grid so the last zone always
 // reaches the floor no matter how the fractions round.
@@ -1555,8 +1631,19 @@ function zoneAt(y){
 }
 const zoneById=id=>ZONES.find(z=>z.id===id);
 
-let grid,variant,frozen,updated,inChunk,maskOwner,artRGB;
+// Art direction by depth: quiet geology, lighter construction, coloured glass.
+// Cached per row so the hot pixel path never has to search the zone list.
+const UNDERGROUND_PALETTE={
+  workshop:{rock:[77,67,61],earth:[101,73,49],cut:[153,137,111],brick:[151,91,64],wood:[137,91,49],glass:[239,196,113],light:[0.52,0.31,0.10]},
+  crypt:   {rock:[65,76,83],earth:[84,78,62],cut:[141,158,157],brick:[111,130,132],wood:[109,85,63],glass:[143,221,226],light:[0.16,0.36,0.42]},
+  lab:     {rock:[62,77,75],earth:[81,81,61],cut:[143,166,156],brick:[108,132,119],wood:[122,95,64],glass:[165,231,188],light:[0.19,0.40,0.25]},
+  arcade:  {rock:[76,65,85],earth:[96,69,73],cut:[163,145,169],brick:[130,91,133],wood:[119,78,109],glass:[148,212,244],light:[0.22,0.27,0.46]},
+  core:    {rock:[77,66,66],earth:[103,72,54],cut:[180,166,137],brick:[143,99,77],wood:[129,87,52],glass:[245,209,145],light:[0.47,0.29,0.12]},
+};
+let grid,variant,frozen,updated,inChunk,maskOwner,artRGB,depthArt;
 function allocArrays(){
+  for(const z of ZONES)Object.assign(z,DEPTH_LAYOUT.bands[z.id]);
+  depthArt=Array.from({length:H},(_,y)=>y>=VH*1.05?UNDERGROUND_PALETTE[zoneAt(y).id]:null);
   grid=new Uint8Array(W*H);
   variant=new Uint8Array(W*H);
   frozen=new Uint8Array(W*H);
@@ -2310,6 +2397,9 @@ function step(x,y){
       // sand sprays as sand, dirt as chunks, wood as splinters.
       // Text/MASK survive so the page stays intact.
       const R_kill=10, R_push=22;
+      // furniture inside the blast stops being furniture first, so the crates
+      // are flung as bodies rather than shredded cell-by-cell into splinters
+      wakeSpriteBodies(x,y,R_push);
       const snap=[];
       for(let by=-R_push;by<=R_push;by++)for(let bx=-R_push;bx<=R_push;bx++){
         const d2=bx*bx+by*by;
@@ -2516,6 +2606,23 @@ function updateSun(){
 // SHADE: for sprite materials we use variant as an explicit shade index.
 // 0=base, 1=shadow, 2=highlight, 3=deep shadow. Values are RGB deltas.
 const SHADE=[[0,0,0],[-22,-22,-18],[14,14,10],[-38,-36,-30]];
+/* ═══ TONE ═══
+   A whole-UNIT brightness shift, carried in bits 6-7 of a structured variant,
+   so a builder can ask for "the same masonry, one shade down" for a string
+   course, an impost or a dentil without falling back to the flat hand-shaded
+   path and losing the coursing along with it. The four steps mean what SHADE's
+   four have always meant.
+
+   The steps are much wider than SHADE's, and have to be. Particles are
+   posterized to 8 levels per channel downstream, so a delta under ~32 lands on
+   the same level as the cell beside it for most of the range and simply does
+   not exist. SHADE's ±22 is below that line, which is why every hand-shaded
+   accent in the underground currently renders flat. */
+const TONE=[[0,0,0],[-30,-29,-25],[32,31,27],[-52,-50,-43]];
+/* Sprite stone, likewise widened. `D` and `E` in SPRITE_MATS have always meant
+   "dark stone" and "light stone" and have always rendered identically, because
+   the light one asked for JITTER[7] — which is zero. */
+const STONE_SHADE=[[0,0,0],[-34,-32,-28],[38,37,33],[-56,-54,-47]];
 function matColor(m,v){
   const j=JITTER[v&7];
   switch(m){
@@ -2575,7 +2682,7 @@ function matColor(m,v){
 /* ═══════════════════════════════════════════════════════
    WEBGL RENDERER — atmospheric bg + dirty-rect texture upload
 ═══════════════════════════════════════════════════════ */
-let texData=new Uint8Array(W*H*4);
+let texData;
 function mkSh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);return s;}
 const prog=gl.createProgram();
 gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
@@ -2609,6 +2716,11 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
    uniform float uZoneTop[ZMAX];
    uniform float uZoneFade;
    uniform int uZoneN;
+   // Which motif the zone's parallax back layer is built from: 0 arcade,
+   // 1 plant, 2 racking. Blended on world row exactly like the colours, so a
+   // room's BEHIND crossfades into the next room's at the same boundary its
+   // colour does and no seam appears at either.
+   uniform float uZoneStyle[ZMAX];
    out vec4 c;
    float hash(vec2 p){return fract(sin(dot(p,vec2(41.3,289.1)))*43758.5453);}
    float noise(vec2 p){
@@ -2618,6 +2730,62 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      return mix(mix(a,b,u.x),mix(cc,d,u.x),u.y);
    }
    float fbm(vec2 p){float s=0.0,a=0.5;for(int k=0;k<4;k++){s+=a*noise(p);p*=2.03;a*=0.5;}return s;}
+
+   /* ═══ PARALLAX BACK LAYER ═══
+      The rooms had no BEHIND. Every one of them is 55-75% empty cell, and an
+      empty cell was painted one flat zone colour — so the lab rendered as a
+      green rectangle with a few props along the bottom, and the void read as
+      a hole in the page rather than as the far side of a room.
+
+      This is the far side. It is drawn in its own coordinate space, scrolling
+      at PARA of the world's rate so it slides against the rock in front of
+      it, and it is deliberately soft, low-contrast and pulled toward grey:
+      the cue wanted here is DEPTH, and a background crisp enough to compete
+      with the terrain stops reading as distance and starts reading as
+      clutter. Everything is procedural and per-fragment — no second texture,
+      no second draw call, and nothing for the sim to own or collide with.
+
+      Distances are in sim cells, so the motifs stay the same physical size
+      whatever the window does. */
+   const float PARA=0.62;
+   float rbox(vec2 p, vec2 h, float r){
+     vec2 d=abs(p)-h+r;
+     return 1.0-smoothstep(r-1.5,r+1.5,length(max(d,0.0))+min(max(d.x,d.y),0.0));
+   }
+   // A far colonnade: piers with round-headed recesses let into them. The
+   // vaults and the core are both rooms with an order in them, and this is
+   // that order continuing into the dark behind the one you can touch.
+   float bgArches(vec2 p){
+     float bay=46.0, story=118.0;
+     float ax=mod(p.x,bay)-bay*0.5;
+     float ay=mod(p.y,story);
+     float springY=story*0.40;
+     float open=smoothstep(18.5,15.5,abs(ax));
+     float head=(ay<springY)
+       ? 1.0-smoothstep(15.0,17.0,length(vec2(ax,(ay-springY)*1.15)))
+       : 1.0;
+     float recess=open*head*(1.0-smoothstep(story*0.84,story*0.90,ay));
+     float impost=smoothstep(3.0,1.0,abs(ay-springY))*(1.0-smoothstep(19.0,21.0,abs(ax)));
+     return clamp(1.0-recess+impost*0.45,0.0,1.3);
+   }
+   // Plant: pipe runs, conduit bands and the shoulders of tanks too far back
+   // to be anything but silhouette. The lab is lit by what it stores, so what
+   // stands behind it should be more of the same, out of reach.
+   float bgPipes(vec2 p){
+     float pitch=31.0;
+     float pipe=smoothstep(5.0,2.5,abs(mod(p.x,pitch)-pitch*0.5));
+     float band=smoothstep(4.5,2.0,abs(mod(p.y,86.0)-43.0));
+     float tp=74.0;
+     float tank=rbox(vec2(mod(p.x,tp)-tp*0.5, mod(p.y,132.0)-66.0),vec2(17.0,38.0),9.0);
+     return clamp(max(max(pipe*0.80,band*0.62),tank*0.52),0.0,1.0);
+   }
+   // Racking: a wall of dark bays, for the rooms that are full of cabinets and
+   // shelves — the arcade, and the workshop above it.
+   float bgRack(vec2 p){
+     vec2 c=vec2(29.0,35.0);
+     float bay=rbox(vec2(mod(p.x,c.x)-c.x*0.5, mod(p.y,c.y)-c.y*0.5),vec2(10.5,12.5),2.5);
+     return clamp(1.0-bay*0.82,0.0,1.0);
+   }
    // hit test: 1.0 when p lies within w of segment ab (hard edge for pixel-art crispness)
    float seg(vec2 p,vec2 a,vec2 b,float w){
      vec2 pa=p-a,ba=b-a;
@@ -2787,12 +2955,43 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        // already the right ones for that depth.
        float b0=(uZoneN>1)?uZoneTop[1]:uGrid.y;
        vec3 ug=mix(uZoneCol[0],uZoneCol2[0],clamp((wrow-uZoneTop[0])/max(1.0,b0-uZoneTop[0]),0.0,1.0));
+       float zst=uZoneStyle[0];
        for(int i=1;i<ZMAX;i++){
          if(i>=uZoneN)break;
          float bi=(i+1<uZoneN)?uZoneTop[i+1]:uGrid.y;
          vec3 zi=mix(uZoneCol[i],uZoneCol2[i],clamp((wrow-uZoneTop[i])/max(1.0,bi-uZoneTop[i]),0.0,1.0));
-         ug=mix(ug,zi,smoothstep(uZoneTop[i]-uZoneFade,uZoneTop[i]+uZoneFade,wrow));
+         float zk=smoothstep(uZoneTop[i]-uZoneFade,uZoneTop[i]+uZoneFade,wrow);
+         ug=mix(ug,zi,zk);
+         zst=mix(zst,uZoneStyle[i],zk);
        }
+       /* ── the room's far side ──
+          Parallax coordinates: slower than the world vertically, and pulled in
+          a little from the frame edges horizontally, so the layer converges
+          rather than sitting flat behind the glass. */
+       vec2 bp=vec2((cell.x-uGrid.x*0.5)*0.88+uGrid.x*0.5, wrow-uCam.x*(1.0-PARA));
+       // Motif weights: a tent per style, so a zone between two styles gets a
+       // real blend of both instead of a hard switch at its boundary.
+       float sA=1.0-smoothstep(0.0,1.0,zst);
+       float sP=max(0.0,1.0-abs(zst-1.0));
+       float sR=smoothstep(1.0,2.0,zst);
+       float bstr=(bgArches(bp)*sA+bgPipes(bp)*sP+bgRack(bp)*sR)/max(0.001,sA+sP+sR);
+       // Break the grid up so it does not read as wallpaper, and let the
+       // structure fall away with depth into the room.
+       bstr=mix(bstr,bstr*(0.72+0.56*fbm(bp*0.03)),0.65);
+       /* Structure lifts, recess sinks, and the whole layer is pulled toward
+          its own luminance. Desaturating is what sells it as far away: the
+          rooms are already strongly tinted, and a saturated backdrop reads as
+          another coloured surface at the same distance rather than as air. */
+       /* The spread between recess and structure is narrow ON PURPOSE. At
+          0.60/1.08 the recesses bottomed out near black and the back layer
+          stopped reading as distance — a black arch-shaped hole is a hole,
+          and the posterize downstream has nothing left to resolve down
+          there. Distance is carried by LOW contrast and low saturation, not
+          by darkness; the room in front stays legible because it is the only
+          thing with hard edges and full colour. */
+       vec3 bgc=mix(ug*0.88,ug*1.14,clamp(bstr,0.0,1.0));
+       bgc=mix(vec3(dot(bgc,vec3(0.299,0.587,0.114))),bgc,0.72);
+       ug=bgc;
        ug*=0.88+0.24*rk;
        // A cool fill from above, so a cave mouth is lighter at its lip than at
        // its back and the voids read as volumes instead of flat holes. AO in
@@ -2843,16 +3042,40 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      vec3 partRGB=tx.rgb*(amb + lit*1.35);
      tx=vec4(partRGB,tx.a);
 
-     // ── ordered-dither posterize → smooth gradients become pixel bands ──
-     // more levels + softer dither = banded pixel-art feel without checkerboard noise
+     // Surface gradients retain a little ordered texture. Underground has NO
+     // Bayer pattern: authored shapes and light, not checkerboard, carry form.
      float L=10.0;
-     float dAmt=0.45;                       // dither strength (1.0 = full Bayer)
+     float dAmt=0.22;
      float d=(dither(cell)-0.5)*dAmt+0.5;
-     sky=floor(sky*(L-1.0)+d)/(L-1.0);
+     // More luminance steps retain quiet bevels without synthetic stippling.
+     float ud=0.5;
+     float blum=dot(sky,vec3(0.299,0.587,0.114));
+     vec3 under=sky*(floor(blum*31.0+ud)/31.0)/max(blum,0.0001);
+     sky=mix(floor(sky*(L-1.0)+d)/(L-1.0),under,ugK);
      sky=clamp(sky,0.0,1.0);
 
-     // posterize particles to 8 levels/channel to match the sky's wider palette
-     vec3 part=floor(tx.rgb*7.99)/7.0;
+     /* Posterize particle LUMINANCE and carry the colour along. The surface
+        keeps eight levels; underground gets 32 clean, undithered steps.
+
+        Independent channels do not preserve hue, and the error is worst
+        exactly where this world spends most of its pixels: neutral rock. Raw
+        stone is (66,64,70), which after the underground ambient lands near
+        (62,60,66) — all three within six units of the level boundary at 72.9.
+        Red and green floor to level 1 while blue rounds to level 2, and a
+        neutral grey renders as (36,36,73), a flat blue. Measured over the deep
+        rock below the core, 21% of it came out blue or magenta from a source
+        colour that has no hue in it at all. That is the static that made the
+        whole underground read as noise rather than as stone.
+
+        Scaling the original colour to a quantised luminance keeps the channel
+        RATIO exactly, so a grey quantises to a grey and a lit orange stays
+        orange. The dither is the same ordered one the sky uses — the particle
+        path never had it, which is also why gradients here hard-banded while
+        the sky's were smooth. */
+     float plum=dot(tx.rgb,vec3(0.299,0.587,0.114));
+     float levels=mix(7.0,31.0,ugK);
+     float pq=floor(plum*levels+mix(d,ud,ugK))/levels;
+     vec3 part=clamp(tx.rgb*(pq/max(plum,0.0001)),0.0,1.0);
      vec3 col=mix(sky,part,tx.a);
      col+=lit*0.30;                        // soft bloom over everything
 
@@ -2925,6 +3148,7 @@ const uZoneCol2Loc=gl.getUniformLocation(prog,'uZoneCol2');
 const uZoneTopLoc=gl.getUniformLocation(prog,'uZoneTop');
 const uZoneFadeLoc=gl.getUniformLocation(prog,'uZoneFade');
 const uZoneNLoc=gl.getUniformLocation(prog,'uZoneN');
+const uZoneStyleLoc=gl.getUniformLocation(prog,'uZoneStyle');
 /* Zone uniforms are constant for the life of a grid size — they only move when
    VH changes — so they are packed once here and re-packed on resize rather than
    rebuilt every frame. The arrays are sized to the shader's ZMAX and padded
@@ -2933,6 +3157,7 @@ const ZMAX_JS=8;
 const zoneColBuf=new Float32Array(ZMAX_JS*3);   // colour at each zone's ceiling
 const zoneCol2Buf=new Float32Array(ZMAX_JS*3);  // and at its floor
 const zoneTopBuf=new Float32Array(ZMAX_JS);
+const zoneStyleBuf=new Float32Array(ZMAX_JS);
 function packZoneUniforms(){
   for(let i=0;i<ZMAX_JS;i++){
     const z=ZONES[Math.min(i,ZONES.length-1)];
@@ -2942,6 +3167,7 @@ function packZoneUniforms(){
       zoneCol2Buf[i*3+k]=z.back[1][k];
     }
     zoneTopBuf[i]=z.top*VH;
+    zoneStyleBuf[i]=z.bg===undefined?0:z.bg;
   }
 }
 packZoneUniforms();
@@ -2949,10 +3175,12 @@ const TASKBAR_PX=30;          // keep in sync with #taskbar height
 let gTime=0;
 
 function allocTexture(){
-  // texData/tex are WORLD-sized: scrolling is then a uniform change, with no
-  // re-upload at all. The drawing buffer stays one screenful.
+  // Keep one world texture; scrolling uploads only newly revealed dirty chunks.
+  // The drawing buffer stays one screenful.
   texData=new Uint8Array(W*H*4);
   gl.viewport(0,0,W,VH);
+  // Body drawing may have left its own texture bound on the previous frame.
+  gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,W,H,0,gl.RGBA,gl.UNSIGNED_BYTE,texData);
 }
 allocTexture();
@@ -2982,6 +3210,9 @@ for(const t of [lightTexC,lightTexW]){
 // always uploads — the light textures have no data until it does.
 let emX0=BIG,emY0=BIG,emX1=-1,emY1=-1;
 let lightScanAll=1, lightHadEmitters=true;
+// Quantised night level the current light textures were built at, so a pass
+// that changes nothing else can tell whether the sky moved enough to matter.
+let lightNightQ=-1;
 function allocLight(){
   // Light + occlusion buffers cover the VISIBLE BAND only, not the world. A
   // world-sized core buffer would be cleared and blurred four times every other
@@ -2995,6 +3226,12 @@ function allocLight(){
   tmpF=new Float32Array(LW*LH);tmpW=new Float32Array(WW*WH);
   occRaw=new Float32Array(LW*LH);occBlur=new Float32Array(LW*LH);occTmp=new Float32Array(LW*LH);
   coreBuf=new Uint8Array(LW*LH*4);wideBuf=new Uint8Array(WW*WH*4);
+  // Reserve GPU storage once per size; light passes only update its contents.
+  gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lightTexC);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,LW,LH,0,gl.RGBA,gl.UNSIGNED_BYTE,coreBuf);
+  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightTexW);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,WW,WH,0,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
+  gl.activeTexture(gl.TEXTURE0);
 }
 allocLight();
 
@@ -3051,7 +3288,7 @@ function buildLight(){
      Keyed off the CAMERA rather than the cell so it stays a single global
      table write; glass left up on the meadow is off screen by then anyway, and
      the light buffers are only built for the camera band. */
-  const glassLit=(night>0.25||camY>VH*0.86)?1:0;
+  const glassLit=(night>0.25||camY+VH>VH*1.05)?1:0;
   // dusk and dawn turn every glass cell in the world into an emitter (or back)
   // at once, with no cell change to mark them — that needs a full re-scan
   if(EMIT[GLASS]!==glassLit){EMIT[GLASS]=glassLit;lightScanAll=1;}
@@ -3061,6 +3298,8 @@ function buildLight(){
   for(let c=0;c<rcMinX.length;c++){
     const rx0=rcMinX[c];
     if(rx0===BIG)continue;
+    // Deferred offscreen pixels cannot affect this screen's light buffers.
+    if(rcMaxY[c]<camY||rcMinY[c]>=camY+VH)continue;
     if(rx0<edX0)edX0=rx0; if(rcMinY[c]<edY0)edY0=rcMinY[c];
     if(rcMaxX[c]>edX1)edX1=rcMaxX[c]; if(rcMaxY[c]>edY1)edY1=rcMaxY[c];
   }
@@ -3073,6 +3312,25 @@ function buildLight(){
   // band-locally, so a scroll of one row shifts the meaning of every cell in
   // them. Cheaper to re-scan the band than to try to shift them in place.
   if(camDirty){lightScanAll=1;camDirty=false;}
+  /* Nothing repainted, the camera is still, and the sky has not moved a
+     perceptible step: the two light textures already hold exactly this pass's
+     answer, so the clears, twelve core blur passes, the packing and both
+     uploads would recompute a bitwise-identical result.
+
+     Underground this is the common case and the existing bail-out below never
+     reaches it: the vault lights are GLASS, so `found` is never zero, and a
+     scene standing perfectly still still paid ~1.7ms of blur every other
+     frame. ed* is a complete record of what changed - render() folds every
+     chunk it repaints into it (see the paint loop), and the fold above adds
+     anything dirtied since.
+
+     The night quantum keeps dusk smooth - 128 steps across the fade - while
+     collapsing the long flat stretches of noon and midnight. hoverCells covers
+     the one invalidation that leaves no dirty pixel behind: hover-freezing a
+     loose GLASS cell turns it into an emitter without touching its colour. */
+  const nightQ=(night*128)|0;
+  if(!lightScanAll&&edX1<edX0&&nightQ===lightNightQ&&!hoverCells.length)return;
+  lightNightQ=nightQ;
   let sx0=0,sy0=camY,sx1=W-1,sy1=camY+VH-1;
   if(lightScanAll)lightScanAll=0;
   else{
@@ -3105,8 +3363,12 @@ function buildLight(){
       else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
       else if(m===BOMB&&(variant[gi]&0x80)){r=0.7;g=0.10;b=0.05;}
       else if(m===ACID){r=0.10;g=0.22;b=0.02;}
-      else if(m===GLASS&&frozen[gi]&&night>0.25){
-        const k=(night-0.25)*1.1;r=0.55*k;g=0.38*k;b=0.14*k;
+      else if(m===GLASS&&frozen[gi]){
+        const art=depthArt[y];
+        if(art){r=art.light[0];g=art.light[1];b=art.light[2];}
+        else if(night>0.25){
+          const k=(night-0.25)*1.1;r=0.55*k;g=0.38*k;b=0.14*k;
+        }
       }
       if(r+g+b===0)continue;
       found++;
@@ -3141,9 +3403,9 @@ function buildLight(){
     for(let x=0;x<WW;x++){const s=y*WW+x,d=(fy*WW+x)*4;
       wideBuf[d]=Math.min(255,wideF[0][s]*140);wideBuf[d+1]=Math.min(255,wideF[1][s]*140);wideBuf[d+2]=Math.min(255,wideF[2][s]*140);wideBuf[d+3]=255;}}
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lightTexC);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,LW,LH,0,gl.RGBA,gl.UNSIGNED_BYTE,coreBuf);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,LW,LH,gl.RGBA,gl.UNSIGNED_BYTE,coreBuf);
   gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightTexW);
-  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,WW,WH,0,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
+  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,WW,WH,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
   gl.activeTexture(gl.TEXTURE0);
 }
 
@@ -3162,7 +3424,8 @@ function fillTexel(x,y){
    here, so anything that wants to look like it is built out of the same stuff
    the sim is built out of renders through it too (see the evil chest). */
 function matTexel(m,v,x,y,out,dst,s){
-  const j=JITTER[v&7];
+  const art=depthArt[y];
+  const j=art?0:JITTER[v&7];
   let r=0,g=0,b=0,a=0;
   switch(m){
     case EMPTY: break;
@@ -3170,7 +3433,7 @@ function matTexel(m,v,x,y,out,dst,s){
       // Sprite callers index variant as a shade level, not a grain id, so they
       // keep the old flat jitter — grain tones would read as noise on a 20px
       // bone rather than as sand.
-      if(s&S_SPRITE){r=205+j; g=170+j; b=82+j;}
+      if((s&S_SPRITE)||art){r=205+j; g=170+j; b=82+j;}
       else{const t=SAND_T[v&7]; r=205+t[0]; g=170+t[1]; b=82+t[2];}
       a=255; break;
     }
@@ -3183,7 +3446,44 @@ function matTexel(m,v,x,y,out,dst,s){
       g=gg>255?255:(gg<0?0:gg);
       b=12; a=255; break;
     }
-    case STONE: r=66+j;  g=64+j;  b=70+j;  a=255; break;
+    case STONE: {
+      /* Three stones, told apart by two flag bits, because "stone" is doing
+         three unrelated jobs in this world and they were all rendering as one
+         flat grey.
+
+           0x20  dressed ashlar — what a BUILDER cuts. Coursed blocks with a
+                 fine joint, and markedly paler than raw rock: that value gap
+                 is the whole "raw STONE reads as a cave, cut stone as
+                 something built" cue the zones are supposed to trade on.
+           0x40  hand-shaded sprite stone — iron and machinery, where the art
+                 supplies the shading per cell and nothing procedural should.
+           else  raw rock, textured below in the micro-texture block. */
+      if(v&0x20){
+        const role=v&3, tint=((v>>2)&7)-3, tn=TONE[(v>>6)&3];
+        /* A dressed joint is a fine dark line, not a gap. At 62 against a 108
+           face the joints outweighed the stone and the colonnade read as
+           stacked drums; the block is supposed to be the object and the joint
+           the incident. Same reasoning trims the lit top edge. */
+        if(role===3){ r=84+tint*2; g=81+tint*2; b=78+tint*2; }   // recessed joint
+        else{
+          // Per-block tint kept modest. At tint*5 the spread between the
+          // palest and darkest block in a course was wider than the joint
+          // between them, and a stylobate read as patched rather than laid.
+          r=108+tint*3; g=104+tint*3; b=100+tint*3;              // block face
+          if(role===1){ r-=20; g-=19; b-=17; }                   // shadowed bottom/right
+          else if(role===2){ r+=18; g+=17; b+=15; }              // lit top
+        }
+        if(art){r+=art.cut[0]-108;g+=art.cut[1]-104;b+=art.cut[2]-100;}
+        r+=tn[0]; g+=tn[1]; b+=tn[2];
+      } else if(v&0x40){
+        const sh=STONE_SHADE[v&3]; r=86+sh[0]; g=84+sh[1]; b=88+sh[2];
+      } else {
+        if(art){r=art.rock[0];g=art.rock[1];b=art.rock[2];}
+        else{r=66+j; g=64+j; b=70+j;}
+      }
+      r=r<0?0:(r>255?255:r); g=g<0?0:(g>255?255:g); b=b<0?0:(b>255?255:b);
+      a=255; break;
+    }
     case PLANT: r=44+j;  g=150+j; b=46+j;  a=255; break;
     case ACID:  r=170+j; g=212+j; b=22+j;  a=235; break;
     case OIL:   r=70+j;  g=58+j;  b=30+j;  a=240; break;
@@ -3200,7 +3500,10 @@ function matTexel(m,v,x,y,out,dst,s){
     case POLLEN:r=238+(j>0?j:0); g=205+j; b=96+j; a=210; break;
     case MOSS:  r=78+j;  g=124+j; b=58+j;  a=255; break;
     case SEED:  r=126+j; g=92+j;  b=44+j;  a=255; break;
-    case DIRT:  r=98+j;  g=72+j;  b=46+j;  a=255; break;
+    case DIRT:
+      if(art){r=art.earth[0];g=art.earth[1];b=art.earth[2];}
+      else{r=98+j;g=72+j;b=46+j;}
+      a=255;break;
     case GRASS: {
       const s=v&3;
       if(s===0){r=68+j;g=138+j;b=50+j;}
@@ -3224,31 +3527,49 @@ function matTexel(m,v,x,y,out,dst,s){
     case BODY:  r=28; g=26; b=34; a=255; break;
     // ─── sprite materials: variant is a SHADE index (0=base..3=deep) ───
     case WOOD:  {
-      if(v&0x20){ // structured planking: role + per-plank tint
-        const role=v&3, tint=((v>>2)&7)-3;
-        r=104+tint*5; g=68+tint*4; b=38+tint*2;
-        if(role===3){ r-=36; g-=30; b-=18; }                           // seam
-        else if(role===1){ r-=20; g-=16; b-=10; }                      // grain fleck
-        else if(role===2){ r=Math.min(255,r+14); g+=11; b+=7; }        // lit edge
+      if(v&0x20){ // structured planking: role + per-plank tint + unit tone
+        const role=v&3, tint=((v>>2)&7)-3, tn=TONE[(v>>6)&3];
+        r=104+tint*(art?2:5); g=68+tint*(art?2:4); b=38+tint*(art?1:2);
+        if(role===3){ r-=art?22:36; g-=art?18:30; b-=art?12:18; }     // seam
+        else if(role===1){ r-=art?6:20; g-=art?5:16; b-=art?3:10; }  // restrained grain
+        else if(role===2){ r+=art?12:20; g+=art?10:16; b+=art?6:10; } // lit edge
+        if(art){r+=art.wood[0]-104;g+=art.wood[1]-68;b+=art.wood[2]-38;}
+        r+=tn[0]; g+=tn[1]; b+=tn[2];
+        r=r<0?0:(r>255?255:r); g=g<0?0:(g>255?255:g); b=b<0?0:(b>255?255:b);
         a=255; break;
       }
-      const sh=SHADE[v&3]; r=104+sh[0]; g=68+sh[1]; b=38+sh[2]; a=255; break; }
-    case LEAF:  { const sh=SHADE[v&3]; r=60+sh[0]; g=128+sh[1]; b=48+sh[2]; a=255; break; }
+      const sh=SHADE[v&3];
+      r=(art?art.wood[0]:104)+sh[0];g=(art?art.wood[1]:68)+sh[1];b=(art?art.wood[2]:38)+sh[2];a=255;break; }
+    case LEAF:  { const sh=SHADE[v&3]; r=((v&0x10)?135:60)+sh[0]; g=((v&0x10)?179:128)+sh[1]; b=((v&0x10)?53:48)+sh[2]; a=255; break; }
     case BRICK: {
-      if(v&0x20){ // structured masonry: role + per-brick tint
-        const role=v&3, tint=((v>>2)&7)-3; // tint in [-3..4]
-        if(role===3){ r=186+tint*3; g=176+tint*3; b=164+tint*2; }      // mortar
+      if(v&0x20){ // structured masonry: role + per-brick tint + unit tone
+        const role=v&3, tint=((v>>2)&7)-3, tn=TONE[(v>>6)&3];
+        /* Mortar, well down from the 186 it started at. Above the brick face
+           in every channel, it was the brightest thing in a vault lit by two
+           sconces — a wall read as white lines with red confetti between them
+           rather than as masonry. It only has to sit clear of the brick's
+           GREEN and BLUE to read as lime; competing on red makes it grout. */
+        if(role===3){ r=128+tint*3; g=120+tint*3; b=110+tint*2; }      // mortar
         else{
-          r=168+tint*7; g=88+tint*4; b=62+tint*3;
-          if(role===1){ r-=30; g=(g-22)|0; b-=16; }                    // shadow edge
-          else if(role===2){ r=Math.min(255,r+22); g+=16; b+=10; }     // lit edge
+          r=168+tint*(art?3:7); g=88+tint*(art?2:4); b=62+tint*(art?1:3);
+          if(role===1){ r-=art?18:30; g-=art?13:22; b-=art?10:16; }   // shadow edge
+          else if(role===2){ r+=art?12:22; g+=art?9:16; b+=art?6:10; }// lit edge
         }
+        if(art){
+          // Recessed, cool mortar keeps the block faces visually connected.
+          if(role===3){r=art.brick[0]-20;g=art.brick[1]-18;b=art.brick[2]-14;}
+          else{r+=art.brick[0]-168;g+=art.brick[1]-88;b+=art.brick[2]-62;}
+        }
+        r+=tn[0]; g+=tn[1]; b+=tn[2];
+        r=r<0?0:(r>255?255:r); g=g<0?0:(g>255?255:g); b=b<0?0:(b>255?255:b);
         a=255; break;
       }
-      const sh=SHADE[v&3]; r=168+sh[0]; g=88+sh[1]; b=62+sh[2]; a=255; break; }
+      const sh=SHADE[v&3];
+      r=(art?art.brick[0]:168)+sh[0];g=(art?art.brick[1]:88)+sh[1];b=(art?art.brick[2]:62)+sh[2];a=255;break; }
     case THATCH:{ const sh=SHADE[v&3]; r=210+sh[0]; g=168+sh[1]; b=86+sh[2]; a=255; break; }
-    case BERRY: { const sh=SHADE[v&3]; r=214+sh[0]; g=52+sh[1]; b=68+sh[2]; a=255; break; }
-    case GLASS: { const sh=SHADE[v&3]; r=178+sh[0]; g=206+sh[1]; b=222+sh[2]; a=210; break; }
+    case BERRY: { const sh=SHADE[v&3]; r=((v&0x10)?174:214)+sh[0]; g=((v&0x10)?116:52)+sh[1]; b=((v&0x10)?188:68)+sh[2]; a=255; break; }
+    case GLASS: { const sh=SHADE[v&3];
+      r=(art?art.glass[0]:178)+sh[0];g=(art?art.glass[1]:206)+sh[1];b=(art?art.glass[2]:222)+sh[2];a=210;break; }
     case FUSE:
       if(v&0x80){ // lit: orange ember that flickers
         const f=Math.random();
@@ -3274,28 +3595,49 @@ function matTexel(m,v,x,y,out,dst,s){
   if(a){
     let tj=0;
     if(m===STONE){
-      const h=((x*7)^(y*13))&7;
-      if(h===0)tj=-16; else if(h===3)tj=8;
-      if(s&S_DEEP)tj-=7;               // deep rock sits back from a cut face
+      if(v&0x60){
+        // Dressed ashlar and hand-shaded sprite stone both already carry their
+        // own structure in the variant. A per-cell hash on top of either reads
+        // as grime on the marble rather than as stone.
+        if(s&S_DEEP)tj-=6;
+      } else {
+        /* Raw rock, at two scales. The old single per-cell hash handed every
+           cell an independent ±16, which at one pixel per cell is static and
+           not stone — a cliff face and a gravel pile came out identical, and
+           six screens of strata came out as one field of grey noise. A coarse
+           blotch (8x4 cells) carries the bedding; a fine one breaks its edges
+           so the blocks do not read as tiles. Position-hashed rather than
+           variant-hashed, which is free and safe here because STONE is static
+           and never carries a pattern across the screen as it falls. */
+        const cz=(hash2i(x>>3,y>>2)&7)-3, fz=(hash2i(x,y)&3)-1;
+        // Underground uses larger connected faces; retain the meadow texture.
+        tj=art?rockTexture(x,y):cz*5+fz*3;
+        if(s&S_DEEP)tj-=7;             // deep rock sits back from a cut face
+      }
     } else if(m===GRASS){
-      tj=(((x+y)&1)===0)?6:-5;
-      if(((x*5)^y)%13===0)tj=14;       // bright tip
+      tj=art?((hash2i(x>>2,y>>2)&1)?3:0):(((x+y)&1)===0?6:-5);
+      if(!art&&((x*5)^y)%13===0)tj=14;
     } else if(m===WATER){
       const r4=y%4;
       if(r4===0)tj=12; else if(r4===2)tj=-8;
       if(s&S_DEEP)tj-=8;               // the body of a pool sinks under its skin
     } else if(m===DIRT){
-      const h=((x*11)^(y*7))%13;
-      if(h===0)tj=-14; else if(h===5)tj=7;
+      if(art){
+        tj=((hash2i(x>>3,y>>2)%3)-1)*2;
+      }else{
+        const h=((x*11)^(y*7))%13;
+        if(h===0)tj=-14; else if(h===5)tj=7;
+      }
       if(s&S_DEEP)tj-=6;               // subsoil, out of the light
     } else if(m===SAND){
       // Interior sediment: a low-frequency 2x2 clump so a pile's body reads as
       // bedded sand rather than per-pixel static. Skipped for anything with
       // sky above it, because a falling grain would crawl through a pattern
       // anchored to world space — the one thing per-grain tones exist to fix.
-      if(!(s&S_UP))tj=((((x>>1)*7)^((y>>1)*11))%5===0)?-7:0;
+      if(!art&&!(s&S_UP))tj=((((x>>1)*7)^((y>>1)*11))%5===0)?-7:0;
     } else if(m===MOSS){
-      if(((x*7)^(y*11))%6===0)tj=12;
+      if(art)tj=(hash2i(x>>2,y>>1)&3)===0?4:0;
+      else if(((x*7)^(y*11))%6===0)tj=12;
       else if(((x*5)^(y*9))%9===0)tj=-8;
     } else if(m===OIL){
       if(y%3===0)tj=6;
@@ -3308,15 +3650,23 @@ function matTexel(m,v,x,y,out,dst,s){
     } else if(m===PLANT){
       if((y&1)===0)tj=8;
     } else if(m===WOOD){
-      // gentle vertical grain — variant already supplies the shade band
-      if(((x>>1)&1)===0)tj=-3;
+      // gentle vertical grain — variant already supplies the shade band.
+      // Skipped on structured planking, which has real seams and butt joints
+      // baked in and does not want a second grain laid across them.
+      if(!art&&!(v&0x20)&&((x>>1)&1)===0)tj=-3;
     } else if(m===BRICK){
-      // mortar grout only — staggered courses every 4 rows
-      if(y%4===3)tj=-22;
-      else if((x+((y/4)|0)*2)%9===0)tj=-18;
+      /* Mortar grout for UNSTRUCTURED brick only — a hand-shaded sprite, or a
+         crumb of debris that has come loose from a wall. Structured masonry
+         gets its bed and head joints from brickVariant, and running both put a
+         second dark course through every fourth row at an offset that did not
+         line up with the real one. */
+      if(!art&&!(v&0x20)){
+        if(y%4===3)tj=-22;
+        else if((x+((y/4)|0)*2)%9===0)tj=-18;
+      }
     } else if(m===THATCH){
       // single diagonal streak — keep it pixel-clean
-      if(((x+y)%4)===0)tj=8;
+      if(!art&&((x+y)%4)===0)tj=8;
     }
     // ── neighbourhood relief ──
     // One light model shared by every material that opts in. Sky above is the
@@ -3335,13 +3685,13 @@ function matTexel(m,v,x,y,out,dst,s){
       // shades, and at noon the term falls to nothing because the light is
       // directly overhead. This is the whole reason S_LEFT and S_RIGHT stayed
       // separate bits instead of collapsing into one "rim".
-      const hx=sunX*0.45;
+      const hx=art?-0.35:sunX*0.45;
       if(s&S_LEFT)k-=hx;
       if(s&S_RIGHT)k+=hx;
       // Round here, not at the end: texData is a plain Uint8Array, so a
       // fractional channel would truncate rather than round and quietly bias
       // every relieved cell half a level darker.
-      tj+=Math.round(k*rf*sunK);
+      tj+=Math.round(k*rf*(art?1:sunK));
     }
     if(tj){
       let rr=r+tj,gg=g+tj,bb=b+tj;
@@ -3351,6 +3701,16 @@ function matTexel(m,v,x,y,out,dst,s){
     }
   }
   out[dst]=r;out[dst+1]=g;out[dst+2]=b;out[dst+3]=a;
+}
+
+// Broad, stepped sediment faces. Sparse cracks follow the bed instead of
+// applying independent noise to every cell. No extra neighbour reads.
+function rockTexture(x,y){
+  const sy=y+Math.floor(x/18)+Math.floor(x/53);
+  const course=Math.floor(sy/14),fy=sy%14;
+  const offset=hash2i(course,71)%29,px=(x+offset)%31;
+  const face=(hash2i(Math.floor((x+offset)/31),course)%3-1)*5;
+  return face+(fy===0?9:fy>=12?-7:0)+(px===0&&fy>4?-8:0);
 }
 
 function render(){
@@ -3370,6 +3730,7 @@ function render(){
   gl.uniform3fv(uZoneColLoc,zoneColBuf);
   gl.uniform3fv(uZoneCol2Loc,zoneCol2Buf);
   gl.uniform1fv(uZoneTopLoc,zoneTopBuf);
+  gl.uniform1fv(uZoneStyleLoc,zoneStyleBuf);
   // A fade band of ~an eighth of a screen: wide enough that no boundary reads
   // as a drawn line, narrow enough that each room still has a settled middle
   // where its own colour is unmixed.
@@ -3382,6 +3743,11 @@ function render(){
     const x0=rcMinX[c];
     if(x0===BIG)continue;
     const y0=rcMinY[c],x1=rcMaxX[c],y1=rcMaxY[c];
+    // Keep offscreen chunks dirty until the camera reveals them. Upload whole
+    // intersecting chunks, including a one-cell sampling margin, so a scroll
+    // always paints current terrain before drawing without processing all ten
+    // screens at boot or on every change in the sun's direction.
+    if(y1<camY-1||y0>camY+VH)continue;
     // hand this chunk's rect to the next light pass before we clear it
     if(x0<edX0)edX0=x0; if(y0<edY0)edY0=y0;
     if(x1>edX1)edX1=x1; if(y1>edY1)edY1=y1;
@@ -3531,25 +3897,36 @@ function pointInBody(b,px,py){
   return Math.abs(lx)<=b.hw&&Math.abs(ly)<=b.hh;
 }
 
-function contact(b,px,py,nx,ny,pen){
+/* `k` scales this contact's share of the correction, and defaults to 1 so the
+   box path above is untouched.
+
+   A sprite body reports a dozen contacts at once — every bottom probe of a
+   cabinet standing flat on a floor — and resolving each at full strength both
+   moves it twelve times too far and applies twelve friction impulses, which
+   between them launched the body and then froze it solid. Handing each contact
+   1/n of the correction turns this into a Jacobi solve: softer per iteration,
+   but it converges instead of fighting itself, and a shoved cabinet keeps the
+   spin it was given. */
+function contact(b,px,py,nx,ny,pen,k){
+  k=(k===undefined)?1:k;
   const rx=px-b.x,ry=py-b.y;
   const rvx=b.vx-b.va*ry, rvy=b.vy+b.va*rx;
   const vn=rvx*nx+rvy*ny;
   if(vn<0){
     const rn=rx*ny-ry*nx;
     const denom=b.invM+b.invI*rn*rn;
-    const j=-(1+b.e)*vn/denom;
+    const j=-(1+b.e)*vn/denom*k;
     const jx=j*nx,jy=j*ny;
     b.vx+=jx*b.invM;b.vy+=jy*b.invM;b.va+=b.invI*(rx*jy-ry*jx);
     // friction
     const tx=-ny,ty=nx;
     const vt=rvx*tx+rvy*ty;
-    let jt=-vt/denom; const mx=b.fric*Math.abs(j);
+    let jt=-vt/denom*k; const mx=b.fric*Math.abs(j);
     if(jt>mx)jt=mx; if(jt<-mx)jt=-mx;
     const fx=jt*tx,fy=jt*ty;
     b.vx+=fx*b.invM;b.vy+=fy*b.invM;b.va+=b.invI*(rx*fy-ry*fx);
   }
-  b.x+=nx*pen*0.4;b.y+=ny*pen*0.4;
+  b.x+=nx*pen*0.4*k;b.y+=ny*pen*0.4*k;
 }
 
 function resolveWorld(b){
@@ -3742,15 +4119,27 @@ function putCell(x,y,m,v){
 // shading without an external sprite tool.
 const SPRITE_MATS={
   '.':null,
+  // Project colours remain real, reactive material: lavender berry for the
+  // Catiator, lime foliage for the physical Snaptrap installation.
+  Z:{m:BERRY,v:0x10},z:{m:BERRY,v:0x11},J:{m:BERRY,v:0x12},
+  I:{m:LEAF,v:0x10},i:{m:LEAF,v:0x11},j:{m:LEAF,v:0x13},h:{m:LEAF,v:0x12},
   T:{m:WOOD,v:0},   t:{m:WOOD,v:1},   '!':{m:WOOD,v:3},  '^':{m:WOOD,v:2},   // wood: base, shadow, deep, highlight
   L:{m:LEAF,v:0},   l:{m:LEAF,v:1},   H:{m:LEAF,v:2},  '%':{m:LEAF,v:3}, // leaf: base, shadow, highlight, deep
   R:{m:THATCH,v:0}, r:{m:THATCH,v:1}, Y:{m:THATCH,v:2},                  // thatch: base, shadow, highlight
   K:{m:BRICK,v:0},  k:{m:BRICK,v:1},  C:{m:BRICK,v:2},  c:{m:BRICK,v:3}, // brick: base, mortar, highlight, deep
   B:{m:BERRY,v:0},  b:{m:BERRY,v:1},  A:{m:BERRY,v:2},                   // berry: base, shadow, highlight
   G:{m:GLASS,v:0},  g:{m:GLASS,v:1},  '*':{m:GLASS,v:2},                 // glass: base, shade, sparkle
-  D:{m:STONE,v:0},  E:{m:STONE,v:7},                                     // stone: dark, light (via jitter)
+  // 0x40 marks stone as HAND-SHADED, which routes it to STONE_SHADE instead of
+  // the raw-rock mottle. D/E have always meant "dark stone / light stone" and
+  // have always rendered identically, because the light one asked for JITTER[7]
+  // and JITTER[7] is zero.
+  D:{m:STONE,v:0x40},  E:{m:STONE,v:0x40|2},                            // stone: dark, light
+  // The fourth step of STONE_SHADE, which nothing had ever asked for: at 30,30,41
+  // it is the only near-black in the sprite palette, and glossy black is exactly
+  // one bright edge away from black. The Spectacles are built out of it.
+  X:{m:STONE,v:0x40|3},                                                 // stone: deep
   P:{m:PLANT,v:0},  M:{m:MOSS,v:0},
-  W:{m:WATER,v:0},  S:{m:STONE,v:3},  F:{m:FIRE,v:0},
+  W:{m:WATER,v:0},  S:{m:STONE,v:0x40|1},  F:{m:FIRE,v:0},
   // ── underground set-dressing ───────────────────────────────────────────
   // Q/q: acid, the lab's light. Stamped FROZEN (see stampSprite) so a sealed
   //      tank is a stable glowing column rather than a spill waiting to
@@ -3771,6 +4160,240 @@ const SPRITE_MATS={
 // Designed at ~2× the original size so silhouettes read as deliberate pixel
 // art at the new chunkier SCALE.
 const SPRITES={
+  // Project exhibits. Their silhouettes are drawn from the work itself;
+  // exhibitMount scales and stamps these in the same grid as the terrain.
+  spatialCube:[
+    '.............................',
+    '......................GG.....',
+    '......................G*.....',
+    '.............E...............',
+    '...........EEGEE.............',
+    '.........EEGGGGGEE...........',
+    '.......EEGGGGGGGGGEE.........',
+    '.....EEGGGGGGGGGGGGGEE.......',
+    '.....E*EGGGGGGGGGGGEEgE......',
+    '.....E**EGGGGGGGGEEgggE......',
+    '.....E***EGGGGGEEgggggE......',
+    '.....E****EGGEEgggggggE......',
+    '.....E*****EEgggggggggE......',
+    '.....E*****EEgggggggggE......',
+    '.....E*****EEgggggggggE......',
+    '.....E*****EEgggggggggE......',
+    '......EE***EEgggggggEE.......',
+    '........EE*EEgggggEE.........',
+    '..........EEEgggEE...........',
+    '............EEE.............',
+    '..B..........................',
+    '.BBB.........................',
+    '..B..........E...............',
+    '.........EEEEDDEEEE..........',
+    '........SSSSSSSSSSSS.........',
+  ],
+  speechPair:[
+    '..EEEEEEEEEEEEEEEE...........',
+    '.E***************gS..........',
+    '.E*GGGGGGGGGGGGGGgS..........',
+    '.E*GXXGGXGGXGGXGGgS..........',
+    '.E*GXGXGXGGXGGXGGgS..........',
+    '.E*GXXGGXXXXGGXGGgS..........',
+    '.E*GXGXGXGGXGGGGGgS..........',
+    '.E*GXGXGXGGXGGXGGgS..........',
+    '.E*GGGGGGGGGGGGGGgS..........',
+    '..SSSSSGGSSSSSSSSS...........',
+    '.......GG.......EEEEEEEEEEE..',
+    '......GG.......EGGGGGGGGGGgS.',
+    '...............EGXXGGXXGGGgS.',
+    '...............EGGXGGXGGXGgS.',
+    '...............EGGXXXXXXXGgS.',
+    '...............EGGGGGGGGGGgS.',
+    '................SSSSSSGGSSS..',
+    '......................GG.....',
+    '.......................GG....',
+    '.............E...............',
+    '.........EEEEDDEEEE..........',
+    '........SSSSSSSSSSSS.........',
+  ],
+  agentBot:[
+    '..........B..........',
+    '..........E..........',
+    '.....EEEEEEEEEEE.....',
+    '....E**********DS....',
+    '....E*XXXXXXXXXDS....',
+    '...DE*XGGXXXGGXDSD...',
+    '...DE*XGGXXXGGXDSD...',
+    '...DE*XXXXXXXXXDSD...',
+    '....E*XXXGGGXXXDS....',
+    '....E*XXXXXXXXXDS....',
+    '....EDDDDDDDDDDDS....',
+    '.....SSSSSSSSSSS.....',
+    '........EDDS.........',
+    '....EEEEEEEEEEEDS....',
+    '..EDE*DDDDDDDDDSDES..',
+    '..EDE*DGGGGGDDDSDES..',
+    '..EDE*DGBGGGDDDSDES..',
+    '..EDS*DDDDDDDDDSDES..',
+    '..EDS*DDDDDDDDDSDES..',
+    '...S.EDDDDDDDDDS.S...',
+    '......SSSSSSSSS......',
+    '......EDS.EDS........',
+    '......EDS.EDS........',
+    '....EEEES.EEEES......',
+    '....SSSSS.SSSSS......',
+  ],
+  catGladiator:[
+    '........BBBBB........',
+    '.......BBBBBbb.......',
+    '.....YYYYYYYYYYY.....',
+    '....YYRRRRRRRRRRY....',
+    '...YYRRRRRRRRRRRRY...',
+    '...YRRRRRRRRRRRRRY...',
+    '...YYYYYYYYYYYYYYY...',
+    '....JZZZZZZZZZZz.....',
+    '...JJZXZZZZXZZZzz....',
+    '...JZZZZZZZZZZZZz....',
+    '...JZZZZXZZZZZZZz....',
+    '....JZZZXXZZZZZz.....',
+    '.....JZZZZZZZZz......',
+    '..E.JJJZZZZZZZZz.....',
+    '..EJJZZZZZZZZZZzz....',
+    '..EJZZZZZZZZZZZzzz...',
+    '.YYJZZZZZZZZZZZzRYR..',
+    '..D.JZZZZZZZZZZzRYR..',
+    '....JZZZZZZZZZzzRYR..',
+    '.....zzzzzzzzzz.RYR..',
+    '.....JZZz.JZZz.......',
+    '.....JZZz.JZZz.......',
+    '....JJZZz.JJZZz......',
+    '....zzzzz.zzzzz......',
+  ],
+  flytrap:[
+    '......hhhhh..................',
+    '....hhIIIIIhh................',
+    '...hIIIIIIIIIh...............',
+    '..hIIIIIIIIIIih..............',
+    '.hIIIIIIIIIIIIih.............',
+    '.hIIIIIIIIIIIIIh.............',
+    '..hIYIIYIIYIIYIh.............',
+    '...hY..Y..Y..Yh..............',
+    '....j.........j..............',
+    '.....j.........j.............',
+    '......j..Y..Y..Y..Y..Y.......',
+    '.......jhYhhYhhYhhYhhYh......',
+    '........hIIIIIIIIIIIIIih.....',
+    '.........hIIIIIIIIIIIIih.....',
+    '..........hIIIIIIIIIIih......',
+    '...........hIIIIIIIIih.......',
+    '............hhhhhhhh.........',
+    '..............Iii............',
+    '.....hIIh.....Iii.....hIIh....',
+    '......hIIIh...Iii...hIIIh.....',
+    '.......hIIIIh.Iii.hIIIih......',
+    '.........hIIIIIIIIIIih.......',
+    '...........hhhIiiihh.........',
+    '..............Iii............',
+    '..........EEEEEEEEEEE........',
+    '..........DDDDDDDDDDD........',
+    '...........SSSSSSSSS.........',
+  ],
+  larpMushroom:[
+    '..........YYYY...........',
+    '........YYYRRRYY.........',
+    '......YYYRRRRRRRYY.......',
+    '.....YYRRRYRRRYRRRY......',
+    '....YYRRRRRRRRRRRRRY.....',
+    '...YYRRRRRRRYRRRRRRRY....',
+    '..YYYYYYYYYYYYYYYYYYYY...',
+    '..rrrrrrrrrrrrrrrrrrrr...',
+    '......^TTTTTTTTt.........',
+    '......^TXTTTXTt..........',
+    '......^TTTTTTTTt.........',
+    '.......^TTXXTTt..........',
+    '........^TTTTt...........',
+    '....^^..^TTTTt..^^.......',
+    '...^TT^^TTTTTT^^TTt......',
+    '..^TTT^TTttTTTT^TTTt.....',
+    '..^TTt^TTttTTTTt^TTt.....',
+    '...tt.^TTTTTTTTt.tt......',
+    '......^TTttTTTTt.........',
+    '......^TTttTTTTt.........',
+    '......^TTTTTTTTt.........',
+    '.......^TTt^TTt..........',
+    '......^^TTt^TTtt.........',
+    '.....tttttttttttt........',
+  ],
+  hactor:[
+    '.........................G...',
+    '........................GG...',
+    '...E..E..E.............GG.....',
+    '..DDDDDDDDDD..........GG.....',
+    '.EDDDDDDDDDDSS.......GG......',
+    '.E**********DS......GG.......',
+    '.E*XXXXXXXX*DS.....GG........',
+    '.E*XGXXXXGX*DS....GG.........',
+    '.E*XXGXXGXX*DS...GG..........',
+    '.E*XXXGGXXX*DS.GG............',
+    '.E*XXXXXXXX*DSGG.............',
+    '.E*XXGXXGXX*DS...............',
+    '.E*XGGGGGGX*DS.....EDEDEDE...',
+    '.E**********DS....EDEDEDED...',
+    '.EDDDDDDDDDDDS....EDDDDDDS...',
+    '..SSSSSSSSSSS.....EDDDDDDS...',
+    '......EDDS........EDEDEDS....',
+    '....EEEEDSS.......EDDDDS.....',
+    '..................SSSSSS.....',
+  ],
+  songbirdSax:[
+    '..................GGG..',
+    '..................G.G..',
+    '.................GG.G..',
+    '.................GGGG..',
+    '......DDDDDD...........',
+    '.....DGGGGGgD..........',
+    '.....DGXGGXgD..........',
+    '.....DGGGGGgD..........',
+    '......DYYYYY...........',
+    '......DGYrY............',
+    '....DDGGGYrY...........',
+    '...DGGGGGYrY...........',
+    '..DGGGGGgYrY...........',
+    '..DGgGGGgYrY..YYY......',
+    '..DgggGGgYrY.YRRRY.....',
+    '...DggGGgYrYYRRRRY.....',
+    '...DggGGgYRRRRRRY......',
+    '....DggggYYYYYYY.......',
+    '.....DDDDDD............',
+    '......Y..Y.............',
+    '.....YY..YY............',
+    '....YYY..YYY...........',
+  ],
+  hoverstaff:[
+    '............YYY........',
+    '..........YYRRRYY......',
+    '.........YRRR*RRRY.....',
+    '.........YRR***RRY.....',
+    '.........YRRR*RRRY.....',
+    '..........YYRRRYY......',
+    '...........TYYYt.......',
+    '...........TLLLt.......',
+    '..........TLLLtt.......',
+    '.........TLLLtt........',
+    '........TLLLtt.........',
+    '.......TLLLtt..........',
+    '......TLLLtt...........',
+    '.....TLLLtt............',
+    '....TLLLtt.............',
+    '...TLLLtt..............',
+    '..TLLLtt...............',
+    '.TLLLtt................',
+    '.TLLtt.................',
+    '..Ttt..................',
+    '...........G...........',
+    '..........GGG..........',
+    '.........GGGGG.........',
+    '........EEEEEEE........',
+    '.......DDDDDDDDD.......',
+    '.......SSSSSSSSS.......',
+  ],
   // a broad asymmetric oak. shadows hang on right/bottom side, berries dot the
   // canopy, the highlighted ! is a darker knot in the trunk.
   oak:[
@@ -4045,100 +4668,100 @@ const SPRITES={
   // purpose: it fills the floor of a bay without competing with the arches.
   sarcophagus:[
     "....EEEEEEEEEEEEEEEE....",
-    "..EEEEEEEEEEEEEEEEEEEE..",
-    ".EEEEEEEEEEEEEEEEEEEEEE.",
-    "DDDDDDDDDDDDDDDDDDDDDDDD",
-    "DEDDDDDDDDDDDDDDDDDDDDED",
-    "DEDDDDMDDDDDDDDDDDMDDDED",
-    "DEDDDDDDDDDDDDDDDDDDDDED",
-    "DDDDDDDDDDDDDDDDDDDDDDDD",
-    ".KKKKKKKKKKKKKKKKKKKKKK.",
-    ".kkkkkkkkkkkkkkkkkkkkkk.",
+    "..EEDDDDDDEEEEDDDDDDDE..",
+    ".EEDDDDDDDEEEEDDDDDDDEES",
+    "EEEEEEEEEEEEEEEEEEEEEEDS",
+    "SDDDDDDDDDDDDDDDDDDDDDDS",
+    "SEDSSDDDDDEEDDDDDSSDDEDS",
+    "SEDSSDDDDDEEDDDDDSSDDEDS",
+    "SEDDDDDMDDDDDDDDDDDDDEDS",
+    "SSSSSSSSSSSSSSSSSSSSSSSS",
+    ".EEDDSSSSSSSSSSSSSSDDEE.",
   ],
   // A glass globe on an iron stand. Glass is emissive underground (see
   // glassLit), so this is a light source and not just a silhouette — which is
   // the whole reason the vaults are lit by lamps rather than by an ambient
   // nobody can account for.
   candelabra:[
-    "...*G*...",
-    "..*GGG*..",
-    "..GGGGG..",
-    "..*GGG*..",
-    "...DDD...",
+    "....Y....",
+    "...YRY...",
+    "..Y***Y..",
+    "..R*GgR..",
+    "..R*GgR..",
+    "..YRRRY..",
+    "...YSY...",
+    "....E....",
     "....D....",
-    "....D....",
-    "....D....",
-    "....D....",
-    "...DDD...",
-    "..DDDDD..",
-    ".DDDDDDD.",
+    "...EDS...",
+    "..EEDSS..",
+    ".EEDDDSS.",
   ],
   // A toppled urn with its contents spilled — the one prop in the vaults that
   // is broken, so the room does not read as freshly swept.
   urn:[
-    "..KKKK..",
-    ".KkkkkK.",
-    "KkKKKKkK",
-    "KkKKKKkK",
-    ".KkkkkK.",
-    "..K..K..",
-    ".KK..KK.",
+    "..CccC..",
+    ".CCKKkc.",
+    "CCKKKkkc",
+    "CKK.Kkkc",
+    ".C..Kkc.",
+    "..c..c..",
+    ".CK..Kk.",
   ],
 
   // ── THE LAB ──
   // A workstation: CRT on a timber bench. The screen is glass, so every
   // console adds to the room's light budget the same way the tanks do.
   console:[
-    "..DDDDDDDDDDDDD..",
-    "..DGGGGGGGGGGGD..",
-    "..DG*GGGGGGG*GD..",
-    "..DGGGGGGGGGGGD..",
-    "..DGGGGGGGGGGGD..",
-    "..DDDDDDDDDDDDD..",
-    "...DDDDDDDDDDD...",
-    ".TTTTTTTTTTTTTTT.",
-    ".!ttttttttttttt!.",
-    ".!.............!.",
-    ".!..TTTTTTT....!.",
-    ".!..!!!!!!!....!.",
-    ".!.............!.",
-    ".TT...........TT.",
+    "..EEEEEEEEEE.....",
+    "..EGGGGGGGgDS....",
+    "..EGXXGGGGgDS....",
+    "..EGGGXXXGgDS....",
+    "..EGGGGGGGgDS....",
+    "..DDDDDDDBDDS....",
+    ".....EDS........",
+    "..EEEEEEE...YY..",
+    ".^^^^^^^^^^^^^^^.",
+    ".Tttttttttttttt!.",
+    ".T!......T^^^T!!.",
+    ".T!......TtYtT!!.",
+    ".T!......TtttT!!.",
+    ".TT......TTTTTT!.",
   ],
   // A pressure cylinder with acid sealed inside it. The acid is stamped frozen
   // and every neighbour is steel, so it holds and glows; cut the wall open and
   // the breach rule in step() turns it back into acid.
   cylinder:[
-    "..DDD..",
-    "..DDD..",
-    ".DDDDD.",
-    ".DBBBD.",
-    ".DDDDD.",
-    ".DDDDD.",
-    ".DQQQD.",
-    ".DQQQD.",
-    ".DQQQD.",
-    ".DQQQD.",
-    ".DDDDD.",
-    ".DBBBD.",
-    ".DDDDD.",
-    ".DDDDD.",
-    "DDDDDDD",
-    "EEEEEEE",
+    "..BBB..",
+    "...D...",
+    ".EEEDS.",
+    "EEDDSSS",
+    "EDDDSSS",
+    "EDDDSSS",
+    "EDQQQSS",
+    "EDQqQSS",
+    "EDQQqSS",
+    "EDQqQSS",
+    "EDDDSSS",
+    "EDYBYSS",
+    "EDDDSSS",
+    "EDDDSSS",
+    "EEEEEDS",
+    "SSSSSSS",
   ],
   // Stacked crates — the cheapest way to break up a long flat floor, and
   // timber, so the one flammable thing in a room wired with live fuse.
   crates:[
-    ".TTTTTTTT.....",
-    ".T!!!!!!T.....",
-    ".T!TTTT!T.....",
-    ".T!TTTT!T.....",
-    ".T!!!!!!T.....",
-    ".TTTTTTTT.....",
-    "TTTTTTTTTTTTT.",
-    "T!!!!!!T!!!!!T",
-    "T!TTTT!T!TTT!T",
-    "T!!!!!!T!!!!!T",
-    "TTTTTTTTTTTTT.",
+    ".^^^^^^^^.....",
+    ".T^ttt^T!.....",
+    ".Tt^t^tT!.....",
+    ".Ttt^ttT!.....",
+    ".Tt^t^tT!.....",
+    ".TTTTTTT!.....",
+    "^^^^^^^^^^^^^.",
+    "T^ttt^T^ttt^T!",
+    "Tt^t^tTt^t^tT!",
+    "Ttt^ttTtt^ttT!",
+    "TTTTTTTTTTTTT!",
   ],
 
   // ── THE ARCADE ──
@@ -4146,72 +4769,72 @@ const SPRITES={
   // room: the only illumination down here comes off the things you would have
   // been playing.
   cabinet:[
-    "..TTTTTTTTTTT..",
-    "..T*GGGGGGG*T..",
-    "..TGGGGGGGGGT..",
-    "..TTTTTTTTTTT..",
-    ".TTTTTTTTTTTTT.",
-    ".T!!!!!!!!!!!T.",
-    ".T!GGGGGGGGG!T.",
-    ".T!G*GGGGG*G!T.",
-    ".T!GGGGGGGGG!T.",
-    ".T!GGGGGGGGG!T.",
-    ".T!GGGGGGGGG!T.",
-    ".T!G*GGGGG*G!T.",
-    ".T!GGGGGGGGG!T.",
-    ".T!!!!!!!!!!!T.",
-    ".TTTTTTTTTTTTT.",
-    ".ttttttttttttt.",
-    ".TBAB...BAB.TT.",
-    ".TTTTTTTTTTTTT.",
-    ".T!!!!!!!!!!!T.",
-    ".T!!!!!!!!!!!T.",
-    ".T!!!!!!!!!!!T.",
-    ".T!!!!!!!!!!!T.",
-    ".TTTTTTTTTTTTT.",
-    ".tt.........tt.",
+    ".EEEEEEEEEEEEE.",
+    ".EBYYYBYYYBBBS.",
+    ".EBBYBBBYYBBBS.",
+    ".DDDDDDDDDDDDS.",
+    "..TXXXXXXXXXS..",
+    "..T*GGGGGGGgS..",
+    "..T*GGXXGGGgS..",
+    "..TGGXXXXGGgS..",
+    "..TGGXGGXGGgS..",
+    "..TGGGGGGGGgS..",
+    "..TGXGGGGXGgS..",
+    "..TGGXXXXGGgS..",
+    "..TgggggggggS..",
+    "..TXXXXXXXXXS..",
+    "..TXXBXXXXXXS..",
+    ".EEEEDDDABDSSS.",
+    "ETTTTTTTTTTTTSS",
+    "TBBBBBBBBBBBbSS",
+    "TBBBBXSXBBBBbSS",
+    "TBBYBXSXBYBBbSS",
+    "TBBYBBBBBYBBbSS",
+    "TBBBBBBBBBBBbSS",
+    "TbbbbbbbbbbbbSS",
+    ".SS.........SS.",
   ],
   // A cocktail-table cabinet: same room, different silhouette, so a row of
   // uprights reads as an arcade rather than as one asset repeated.
   lowboy:[
-    ".TTTTTTTTTTTTT.",
-    "TTGGGGGGGGGGGTT",
-    "TG*GGGGGGGGG*GT",
-    "TGGGGGGGGGGGGGT",
-    "TG*GGGGGGGGG*GT",
-    "TTGGGGGGGGGGGTT",
-    ".TTTTTTTTTTTTT.",
-    ".ttBAB...BABtt.",
-    ".TTTTTTTTTTTTT.",
-    ".T!!!!!!!!!!!T.",
-    ".T!!!!!!!!!!!T.",
-    ".T!!!!!!!!!!!T.",
-    ".TTTTTTTTTTTTT.",
-    ".tt.........tt.",
+    ".EEEEEEEEEEEEE.",
+    "ED*GGGGGGGGGgDS",
+    "EDGGXGGGGXGGgDS",
+    "EDGGGXGGXGGGgDS",
+    "EDGGGGXXGGGGgDS",
+    "EDgggggggggggDS",
+    ".DDDDDDDDDDDDS.",
+    ".TtBABttBABtTS.",
+    ".T^^^^^^^^^^TS.",
+    ".T!tttttttt!TS.",
+    ".T!ttXSXttt!TS.",
+    ".T!tttttttt!TS.",
+    ".TTTTTTTTTTTTS.",
+    ".SS.........SS.",
   ],
   // A drinks machine against the back wall.
   vending:[
-    ".DDDDDDDDD.",
-    ".DDDDDDDDD.",
-    ".DGGGGGGGD.",
-    ".DGBGBGBGD.",
-    ".DGGGGGGGD.",
-    ".DGBGBGBGD.",
-    ".DGGGGGGGD.",
-    ".DGBGBGBGD.",
-    ".DGGGGGGGD.",
-    ".DGBGBGBGD.",
-    ".DGGGGGGGD.",
-    ".DDDDDDDDD.",
-    ".DDBBBBBDD.",
-    ".DDDDDDDDD.",
-    ".DDDDDDDDD.",
-    ".DDDDDDDDD.",
-    ".DD.....DD.",
-    ".DDDDDDDDD.",
-    ".DDDDDDDDD.",
-    "DDDDDDDDDDD",
-    "EEEEEEEEEEE",
+    ".EEEEEEEEE.",
+    ".EBYYBYBBS.",
+    ".DDDDDDDDS.",
+    ".E*GGGGDDS.",
+    ".EGYBYGDYS.",
+    ".EGYBYGDDS.",
+    ".ESSSSGDYS.",
+    ".EGBYBGDDS.",
+    ".EGBYBGDYS.",
+    ".ESSSSGDDS.",
+    ".EGYBYGDYS.",
+    ".EGYBYGDDS.",
+    ".EgggggDDS.",
+    ".EDDDDDDDS.",
+    ".EDXXXXDDS.",
+    ".EDXSSXDDS.",
+    ".EDDDDDDDS.",
+    ".EDDDDDDDS.",
+    ".EDDDDDDDS.",
+    "EEDDDDDDDSS",
+    "SSSSSSSSSSS",
   ],
 
   // ── THE CORE ──
@@ -4219,36 +4842,172 @@ const SPRITES={
   // about school, and this is the only prop in the world that is furniture for
   // sitting still with.
   lectern:[
-    "..TTTTTTTTT..",
-    ".T^^^^^^^^^T.",
-    ".T^^^^^^^^^T.",
-    "T^^^^^^^^^^^T",
-    ".!TTTTTTTTT!.",
-    "...!TTTTT!...",
-    "....!TTT!....",
-    "....!TTT!....",
-    "....!TTT!....",
-    "....!TTT!....",
-    "....!TTT!....",
-    "...TTTTTTT...",
-    "..TTTTTTTTT..",
-    ".TTTTTTTTTTT.",
+    "..YYYY.YYYY..",
+    ".YRrRRYRRrRY.",
+    ".YRRrRYRrRRY.",
+    "YYYYYYYRRRRRY",
+    ".BbbbbBbbbbB.",
+    "...^TTTTt!...",
+    "....^TTt!....",
+    "....^TTt!....",
+    "....^TTt!....",
+    "....^TTt!....",
+    "....^TTt!....",
+    "...^TTTTt!...",
+    "..^^TTTTTt!..",
+    ".^^TTTTTTTt!.",
     ".ttttttttttt.",
   ],
   // Books, stacked. Berry, so they read as cloth boards rather than as timber
   // — and so they burn, which given what is directly underneath this room
   // felt like the honest choice.
   bookstack:[
-    "..BBBBBB..",
-    "..bbbbbb..",
-    ".AAAAAAAA.",
-    ".BBBBBBBB.",
-    ".bbbbbbbb.",
-    "AAAAAAAAAA",
+    "..BBBBBBB.",
+    "..BRRrRYb.",
+    "..bbbbbbb.",
+    ".TTTTTTT..",
+    ".TrRYRRT..",
+    ".ttttttt..",
     "BBBBBBBBBB",
+    "BRRrRrRRYb",
     "bbbbbbbbbb",
   ],
 };
+
+/* ═══════════════════════════════════════════════════════
+   SPECTACLES — the one sprite that is drawn to order
+
+   Every other entry in SPRITES is a fixed grid of characters, and that works
+   because a mushroom is a mushroom at any window size. This one is the largest
+   object in the world and it has to stand BETWEEN two pillars of an arcade
+   whose bay width falls out of the viewport: hand-authored at one size it
+   would either overrun the colonnade on a wide window or come out as a pebble
+   on a narrow one. So it is rasterised — hand it a width in cells and it
+   returns exactly the same ASCII the hand-drawn sprites are, at that width,
+   and every downstream pass (stampSprite, sbArt, the rigid-body solver) goes
+   on treating it as an ordinary prop.
+
+   FRONT ELEVATION, because that is the silhouette a pair of glasses has. A
+   three-quarter view is what the product photography wants and it is also a
+   bent wire at one cell per pixel — the two lenses and the brow across them
+   are the whole recognition, and they only survive head-on.
+
+   The frame is hand-shaded STONE: four flat tones running black (X) through a
+   specular top edge (E), which is what glossy acetate does under a light from
+   above. The lenses are GLASS, and GLASS emits underground (see glassLit) — so
+   the room's existing rule makes the displays glow on their own, with no new
+   material and no new line in the light path.
+═══════════════════════════════════════════════════════ */
+const SPECS_MIN=26;              // narrower than this and the shape stops reading
+function specsArt(Wc){
+  Wc=Math.max(20,Math.round(Wc));
+  const Hc=Math.max(9,Math.round(Wc/3.0));    // the proportion the reference wears
+  const m=Math.max(2,Math.round(Wc*0.022));   // just enough for the endpieces to stand proud
+  const fw=Wc-2*m;
+  const t=Math.max(2,Math.round(fw*0.055));   // rim
+  const brow=Math.max(t+1,Math.round(fw*0.085));
+  const bw=Math.max(2,Math.round(fw*0.10));   // the gap the bridge spans
+  const lw=(fw-bw)>>1;
+  const L0=m,L1=m+lw-1,R0=Wc-m-lw,R1=Wc-m-1;
+  const y1=Hc-1;
+  const RAD=Math.max(2,Math.round(Hc*0.30));
+  const rad=Math.max(1,RAD-t);
+  /* The bridge reaches to where each lens box's rounded corner gives way to
+     its flat top. Anything less leaves a one-cell notch in the brow, which at
+     this scale is not a highlight, it is a hole. */
+  const bx0=L1-RAD, bx1=R0+RAD, by1=brow+Math.max(0,(t*0.5)|0);
+
+  // rounded rect: clamp into the inner rect, then a radius test on what is left
+  const rr=(x,y,x0,y0,x1,y1,r)=>{
+    if(x<x0||x>x1||y<y0||y>y1)return false;
+    const cx=Math.min(Math.max(x,x0+r),x1-r), cy=Math.min(Math.max(y,y0+r),y1-r);
+    const dx=x-cx,dy=y-cy;
+    return dx*dx+dy*dy<=r*r+r*0.5;
+  };
+  const box=(x,y,x0,x1)=>rr(x,y,x0,0,x1,y1,RAD);
+  const ap =(x,y,x0,x1)=>rr(x,y,x0+t,brow,x1-t,y1-t,rad);
+  const outer=(x,y)=>box(x,y,L0,L1)||box(x,y,R0,R1)||(x>=bx0&&x<=bx1&&y>=0&&y<=by1);
+  const aper =(x,y)=>ap(x,y,L0,L1)||ap(x,y,R0,R1);
+
+  // distance to a segment, for the temples and the strokes on the glass
+  const seg=(px,py,ax,ay,bx,by,w)=>{
+    const vx=bx-ax,vy=by-ay,wx=px-ax,wy=py-ay;
+    const L=vx*vx+vy*vy;let s=L?(wx*vx+wy*vy)/L:0;s=s<0?0:(s>1?1:s);
+    const dx=wx-vx*s,dy=wy-vy*s;return dx*dx+dy*dy<=w*w;
+  };
+
+  /* ── THE ENDPIECES ──
+     The hinge blocks, a couple of cells proud of the front on each side. Small
+     on purpose: an arm long enough to read as an arm out here costs a quarter
+     of the frame's width, and the frame is the thing that reads. */
+  const hy=brow+(y1-t-brow)*0.26;              // hinge height, up in the top third
+  const eh=Math.max(1.2,t*0.85);
+  const nub=(x,y)=>(x<=L0+t*0.5||x>=R1-t*0.5)&&Math.abs(y-hy)<=eh&&x>=0&&x<Wc;
+  const ah=y1-t-brow, aw=lw-2*t;
+
+  /* ── THE TEMPLES ──
+     Two rings and a bar is also a pair of binoculars, a mask, or a lorgnette.
+     What settles it is the arms — and on a pair worn open and seen head-on the
+     arms are not beside the front, they are BEHIND it, showing through the
+     glass. That is what the reference photograph shows, and it is the version
+     that costs the frame nothing: drawn outside, an arm long enough to read
+     takes a quarter of the width away from the lenses.
+
+     Stamped as stone rather than as a darker glass, for two reasons. Sprite
+     glass shades differ by ~22 and the render posterizes anything under ~32
+     into the same band, so a tinted-glass temple is a temple nobody can see.
+     And glass EMITS down here — an opaque arm is one that keeps its shape
+     against a lens that is lit from the inside, which is exactly how you read
+     it as being behind the lens rather than etched into it.
+
+     It enters at the outer edge, at the hinge, and tapers as it runs back
+     toward the bridge — foreshortening, three segments of it. */
+  const tw=Math.max(1.0,ah*0.115);
+  const ARM=[[0,0],[0.20,0.06],[0.38,0.15],[0.50,0.22]];
+  const temple=(x,y,ax,sx)=>{
+    for(let i=0;i<ARM.length-1;i++){
+      const a=ARM[i],b=ARM[i+1];
+      if(seg(x,y,ax+sx*a[0]*aw,hy+a[1]*ah,ax+sx*b[0]*aw,hy+b[1]*ah,tw*(1-i*0.28)))return true;
+    }
+    return false;
+  };
+  const arm=(x,y)=>temple(x,y,L0+t,1)||temple(x,y,R1-t,-1);
+
+  const gw=Math.max(0.6,aw*0.045);
+  /* The long-stroke-plus-short-stroke glint every piece of pixel-art glass has,
+     kept low and inboard so it falls clear of the temple above it. Both lenses
+     take it in the same screen direction, because it is one light. */
+  const glint=(x,y,ax)=>seg(x,y,ax+aw*0.24,brow+ah*0.46,ax+aw*0.46,brow+ah*0.92,gw)||
+                       seg(x,y,ax+aw*0.42,brow+ah*0.44,ax+aw*0.52,brow+ah*0.66,gw*0.8);
+  // and the round camera on each outer corner
+  const cdr=Math.max(0.9,t*0.42), ccy=brow+ah*0.30;
+  const cam=(x,y)=>Math.min((x-(L0+t*0.5))**2,(x-(R1-t*0.5))**2)+(y-ccy)**2<=cdr*cdr;
+
+  const rows=[];
+  for(let y=0;y<Hc;y++){
+    let row='';
+    for(let x=0;x<Wc;x++){
+      let c='.';
+      if(aper(x,y)){
+        c=arm(x,y)?'S':((glint(x,y,L0+t)||glint(x,y,R0+t))?'*':'G');
+      } else if(outer(x,y)||nub(x,y)){
+        /* Shade off the silhouette rather than off a table: the top-facing
+           cell of every column takes the specular, the one under it the
+           falloff, the bottom-facing cell a weak bounce, and the ring against
+           the glass a bevel. On a rounded frame that puts the highlight where
+           the curve actually turns into the light, which a per-row gradient
+           cannot do. */
+        const up=outer(x,y-1)||nub(x,y-1), up2=outer(x,y-2)||nub(x,y-2);
+        const dn=outer(x,y+1)||nub(x,y+1);
+        const nearAp=aper(x,y-1)||aper(x,y+1)||aper(x-1,y)||aper(x+1,y);
+        c=cam(x,y)?'E':(!up?'E':(!up2?'S':(!dn?'D':(nearAp?'S':'X'))));
+      }
+      row+=c;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
 
 // Stamp a sprite anchored so its bottom-left lands at (gx, gy_bottom).
 // Pixels are written FROZEN (the sprite holds its pixel-art shape) except
@@ -4351,12 +5110,24 @@ function spawnArtifacts(){
    amount of parallax can fake.
 ═══════════════════════════════════════════════════════ */
 // (declared early: render() reads it to cut the berm, and runs before spawn)
+/* Where the descent will be, before it has been dug.
+
+   carveShaft runs AFTER the rooms are built, so a room builder that wants to
+   keep out of the shaft's way cannot ask SHAFT — it is still null at that
+   point, and a builder that asked got a confident "no shaft here" and put its
+   centrepiece in the one column of the world that is a corridor. Both take
+   their geometry from here instead. The ±3 is the wobble the walls are dug
+   with, below. */
+function shaftBand(){
+  // On a phone the descent runs beside the exhibits, leaving one readable bay.
+  const cx=Math.round(W*0.055), halfW=Math.max(3,Math.round(W*0.022));
+  return {cx,halfW,x0:cx-halfW-3,x1:cx+halfW+3};
+}
 function carveShaft(){
-  const cx=Math.round(W*0.45);
-  const halfW=Math.max(3,Math.round(W*0.022));
+  const {cx,halfW}=shaftBand();
   // find the turf: first solid cell going down from the sky
   let topY=0;
-  for(let y=0;y<H;y++){const m=grid[idx(cx,y)];if(m!==EMPTY&&m!==PLANT&&m!==POLLEN){topY=y;break;}}
+  for(let y=0;y<H;y++){const m=grid[idx(cx,y)];if(m!==EMPTY&&m!==PLANT&&m!==POLLEN&&!inWordmark(cx,y)){topY=y;break;}}
   /* Down to the floor of the last room. It used to stop at the cave band —
      right for a world that was one long stratum, wrong for one that is a
      stack of rooms, because a shaft that ends in rock leaves every room below
@@ -4459,7 +5230,8 @@ function stampSignpost(){
   let groundY=H-1;
   for(let y=0;y<H;y++){
     const m=grid[idx(postX,y)];
-    if(m===GRASS||m===DIRT||m===STONE){groundY=y;break;}
+    // the wordmark's own turf/soil/bedrock bands are sky, not ground
+    if((m===GRASS||m===DIRT||m===STONE)&&!inWordmark(postX,y)){groundY=y;break;}
   }
   const ay=Math.max(1+SIGN_HANG+SIGN_ARM_H,groundY-26-ARROW_H); // arrow top
   const armY=ay-SIGN_HANG-SIGN_ARM_H;                           // arm top
@@ -4520,54 +5292,61 @@ const WORLD_PANELS=[
   // First thing under the turf, and the only panel that is about the person
   // rather than a project. No thumbnail: a portrait would make it a profile
   // card, and the room around it is already doing the introducing.
-  {id:'about', zone:'workshop', at:[0.50,0.45],
+  {id:'about', zone:'workshop', sprite:'console', exhibit:'FIELD NOTES', action:'Meet the maker',
    name:'Mitchell Kuppersmith', meta:'Design Engineer · Snap Inc. · Santa Monica',
-   blurb:'I sit at the intersection of design and engineering — prototyping new interaction models, building AI-native AR experiences for Spectacles, and shipping the developer tooling other people build on. Keep going down and the rooms below are the work, most recent first.'},
+   blurb:'I make new ways to interact with computers — from AI-native experiences on AR glasses to games played with your hands, your voice, or a giant carnivorous plant. This is a little world of the things I build.',
+   related:[['snap','My work at Snap'],['education','Background']]},
 
   // ── THE VAULTS · Snap ──
-  {id:'imagine-together', zone:'crypt', at:[0.17,0.00],
+  {id:'imagine-together', zone:'crypt', sprite:'spatialCube', exhibit:'SHARED SPACE', action:'Enter the shared world',
    name:'Imagine Together', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
    thumb:'https://i.ytimg.com/vi/Od-_nZpmU9Q/hqdefault.jpg',
-   blurb:'Co-located multiplayer 3D generation — people in the same room create and share spatial content together.'},
-  {id:'translation', zone:'crypt', at:[0.82,0.50],
+   blurb:'Speak an idea into existence. Generate 3D objects, grab them, and share them with people standing beside you.'},
+  {id:'translation', zone:'crypt', sprite:'speechPair', exhibit:'LIVE LANGUAGE', action:'See the conversation',
    name:'Translation', meta:'Flagship · Spectacles',
    thumb:'https://i.ytimg.com/vi/hR4W_Qtzij4/hqdefault.jpg',
-   blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.'},
-  {id:'agent-center', zone:'crypt', at:[0.28,1.00],
+   blurb:'A conversation across languages, with live subtitles, spoken translation, and a shared summary on the glasses.'},
+  {id:'agent-center', zone:'crypt', sprite:'agentBot', exhibit:'SPATIAL TOOLS', action:'Meet the agents',
    name:'Agent Center', badge:'OPEN SOURCE', meta:'Spectacles sample · Snap',
    thumb:'images/projects/agent-center-thumb.webp',
-   blurb:'Run coding agents from the glasses — each is a robot avatar whose animation says if it is working or waiting on you.'},
+   blurb:'Coding agents become little robot companions in your room. Their movements tell you who is working and who needs you.',
+   related:[['ai-playground','AI Playground'],['ai-music-gen','AI Music Gen'],['rsg','RemoteServiceGateway']]},
 
   // ── THE LAB · hackathons & awards ──
-  {id:'catiator', zone:'lab', at:[0.18,0.00],
-   name:'Catiator', badge:'HACKNJIT PRIZE', meta:'Hackathon · VR',
+  {id:'catiator', zone:'lab', sprite:'catGladiator', exhibit:'GESTURE EXPERIMENT', action:'Enter the arena',
+   name:'Catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021 · VR',
    thumb:'images/projects/catiator-thumb.webp',
-   blurb:'ASL sign-language trainer: fingerspell the manual alphabet to pull off cat-gladiator combat.'},
-  {id:'snaptrap', zone:'lab', at:[0.81,0.50],
-   name:'Snaptrap', badge:'AI/GTC GDC FINALIST', meta:'Game jam',
+   blurb:'Learn the ASL manual alphabet by fingerspelling your way through an arena of chonky cat gladiators.',
+   related:[['intarnet','Also: IntARnet · TartanHacks Grand Prize']]},
+  {id:'snaptrap', zone:'lab', sprite:'flytrap', exhibit:'LIVING INTERFACE', action:'Step inside the trap',
+   name:'Snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'Physical installation · GDC 2026',
    thumb:'images/projects/snaptrap-thumb.webp',
-   blurb:'A room-scale Venus flytrap: you play the fly, it plays the trap.'},
-  {id:'larp', zone:'lab', at:[0.29,1.00],
-   name:'lARp', meta:'Hackathon · AR',
+   blurb:'You are the fly. Brush the trigger hairs of a giant Venus flytrap and learn what makes it snap shut around you.'},
+  {id:'larp', zone:'lab', sprite:'larpMushroom', exhibit:'TALKING SPECIMEN', action:'Meet the mushrooms',
+   name:'lARp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021 · AR + GPT-3',
    thumb:'images/projects/larp-thumb.webp',
-   blurb:'Tabletop LARP in augmented reality — the table is the board and the room is the dungeon.'},
+   blurb:'Fight or befriend procedurally generated mushrooms. GPT-3 gives them a voice; your real-world steps earn the XP.'},
 
   // ── THE ARCADE · games ──
-  {id:'retrovirus-vr', zone:'arcade', at:[0.19,0.05],
-   name:'RetroVirus VR', meta:'Game · VR',
+  {id:'retrovirus-vr', zone:'arcade', sprite:'hactor', exhibit:'PLAYER 01 · TELEKINESIS', action:'Boot RetroVirus VR',
+   name:'RetroVirus VR', meta:'VR Jam 2020 · Unity + SteamVR',
    thumb:'images/projects/retrovirus-vr-thumb.webp',
-   blurb:'A VR game built inside the aesthetic of a machine that never existed.'},
-  {id:'songbird', zone:'arcade', at:[0.80,0.95],
-   name:'Songbird', meta:'Game',
+   blurb:'Break out of an antivirus prison with the H4CTOR B3AM. Snatch weapons and projectiles, then grapple across the level.'},
+  {id:'songbird', zone:'arcade', sprite:'songbirdSax', exhibit:'PLAYER 02 · MELODY', action:'Play a little chaos',
+   name:'Songbird', meta:'GMTK Jam 2020 · Unity',
    thumb:'images/projects/songbird-thumb.webp',
-   blurb:'A bird, a song, and a world that answers back.'},
+   blurb:'Cast spells with a saxophone in a musical bullet hell. Miss the melody under pressure and your instrument takes the damage.'},
 
   // ── THE CORE · where it started ──
   // No thumbnail: this one is a plaque rather than a project card, and the room
   // it hangs in is lit by magma rather than by anything installed in it.
-  {id:'education', zone:'core', at:[0.50,0.82],
-   name:'Education', meta:'University of Michigan',
-   blurb:'Where the descent bottoms out — the degree, the coursework, and the first things I built.'},
+  {id:'education', zone:'core', sprite:'bookstack', exhibit:'THE FOUNDATIONS', action:'Open the field notes',
+   name:'Minds & machines', meta:'University of Michigan · 2019–2022',
+   blurb:'Computer Science and Cognitive Science. Building XR communities, teaching interaction design, and learning how people think.'},
+  {id:'nira', zone:'core', sprite:'hoverstaff', exhibit:'THE FIRST WORLDS', action:'Follow the hoverstaff',
+   name:'Nira', meta:'EECS 494 · Michigan · Unity',
+   thumb:'images/projects/nira-thumb.webp',
+   blurb:'A girl, a magical hoverstaff named Kane, and a grandfather who left something at the observatory. A small world built with a team.'},
 ];
 /* The sign over each room's door. Stamped as particles into the lintel rather
    than set as DOM, because it is the room talking rather than the work — and a
@@ -4575,10 +5354,10 @@ const WORLD_PANELS=[
    for another panel. */
 const ROOM_SIGNS={
   workshop:{text:'ABOUT ME',               m:SAND},
-  crypt: {text:'THE VAULTS · SNAP',        m:MOSS},
-  lab:   {text:'THE LAB · HACKATHONS',     m:ACID},
+  crypt: {text:'SPECTACLES VAULT',         m:GLASS},
+  lab:   {text:'THE LIVING LAB',           m:ACID},
   arcade:{text:'THE ARCADE · GAMES',       m:GLASS},
-  core:  {text:'THE CORE · SCHOOL',        m:LAVA},
+  core:  {text:'THE ORIGIN · MICHIGAN',    m:SAND},
 };
 /* Cut the room's name into the rock just under its ceiling.
 
@@ -4587,6 +5366,17 @@ const ROOM_SIGNS={
    the vaults, acid-green in the lab, glass-white in the arcade, lava-orange at
    the core. Frozen, so a sign is masonry and not a cloud of loose grains that
    drifts to the floor on the first physics tick. */
+/* The rows a room's name will be cut into, before it has been cut.
+
+   Room signs are stamped with the panels, long after the room builders have
+   run, and the recess they clear takes whatever is in it. In the vaults that
+   was the crowns of the two arches under the sign — the arcade has always had
+   a hole in the middle of it for exactly this reason. A builder that wants to
+   keep its masonry out of the way can ask here. */
+function roomSignBand(ceilY){
+  const gy=ceilY+Math.max(4,(VH*0.02)|0), gh=Math.max(9,(VH*0.045)|0);
+  return {y0:gy-2,y1:gy+gh+1};
+}
 function stampRoomSign(box,spec){
   if(!box||!spec)return;
   const gh=Math.max(9,(VH*0.045)|0);
@@ -4594,7 +5384,8 @@ function stampRoomSign(box,spec){
   const gx=Math.max(2,((box.x0+box.x1)/2-gw/2)|0);
   const gy=box.ceil+Math.max(4,(VH*0.02)|0);
   // clear a recess for it first: text stamped straight onto rock is unreadable
-  slab(gx-2,gy-2,gx+gw+1,gy+gh+1,EMPTY);
+  const band=roomSignBand(box.ceil);
+  slab(gx-2,band.y0,gx+gw+1,band.y1,EMPTY);
   stampText(spec.text,spec.m,gx,gy,gw,gh,0,{bold:true});
   for(let y=gy;y<gy+gh;y++)for(let x=gx;x<gx+gw;x++){
     if(x<0||x>=W||y<0||y>=H)continue;
@@ -4642,92 +5433,310 @@ function carveChamber(el){
    makes a bracket read as part of the room rather than as scaffolding: brick
    in the brick vaults, cut stone everywhere else. */
 const PANEL_FRAME={workshop:WOOD,crypt:BRICK,lab:STONE,arcade:WOOD,core:STONE};
+// Each room is one working exhibit. Selecting a project changes the scene,
+// its real project footage, and the three explanatory instrument labels.
+const ROOM_STORIES={
+  workshop:{kicker:'01 / THE MAKER’S WORKBENCH',title:'Interfaces worth playing with.',
+    intro:'Mitchell Kuppersmith · Design Engineer at Snap. I build spatial experiences, unusual controllers, and small worlds with a life of their own.'},
+  crypt:{kicker:'02 / SNAP · SPATIAL COMPUTING',title:'Computing leaves the screen.',
+    intro:'AI-native experiences for Spectacles: ideas you can hold, conversations you can understand, and agents that share your room.'},
+  lab:{kicker:'03 / EXPERIMENTS · NEW WAYS TO PLAY',title:'Your body is the interface.',
+    intro:'A room of unlikely inputs. Hands become commands, steps become progress, and a carnivorous plant becomes a controller.'},
+  arcade:{kicker:'04 / GAMES · MECHANICS FIRST',title:'One strange mechanic. A whole world.',
+    intro:'Telekinesis and musical spellcasting: games built around an interaction you can feel, then pushed into playful chaos.'},
+  core:{kicker:'05 / MICHIGAN · THE FOUNDATIONS',title:'How people think. How worlds work.',
+    intro:'Computer Science meets Cognitive Science, teaching, community-building, and the first collaborative game worlds.'}
+};
+const PROJECT_STORIES={
+  about:{hook:'I prototype the interaction, then build the world around it.',
+    caption:'From the workbench: spatial objects, living controllers, and playful systems.',
+    evidence:'Design + engineering, from an early interactive prototype to an experience people can actually use.',
+    steps:[['Think spatially','Put the interface in the world, not just on a screen.'],['Make it tangible','Use hands, voices, movement, and physical objects.'],['Build the whole thing','Connect the interaction, the software, and the experience.']]},
+  'imagine-together':{hook:'Say it. Make it. Share the same space.',
+    caption:'The shared-space projector: an idea becomes an object between two people.',
+    steps:[['Speak an idea','Describe something you want to bring into the room.'],['Generate an object','AI turns the prompt into a 3D object on Spectacles.'],['Play together','Grab and share it with people standing beside you.']]},
+  translation:{hook:'Different languages. One conversation.',
+    caption:'Two sides of the same conversation, connected through the glasses.',
+    steps:[['Speak naturally','Start a conversation across languages.'],['See the meaning','Live subtitles and spoken translation make it understandable.'],['Keep the context','A shared summary captures the conversation.']]},
+  'agent-center':{hook:'Your coding agents are now your roommates.',
+    caption:'The agent dock: small robot companions make invisible work visible.',
+    steps:[['Bring agents in','Coding agents appear as spatial robot companions.'],['Read their behavior','Movement communicates who is working or needs attention.'],['Build on the sample','An open-source starting point for spatial agent interfaces.']]},
+  catiator:{hook:'Fingerspell your way past a cat gladiator.',
+    caption:'The gesture arena: a manual-alphabet learning game with very chonky opponents.',
+    steps:[['Form a letter','Practice the ASL manual alphabet with your hands.'],['Face the cats','Use fingerspelling in a VR gladiator arena.'],['Learn through play','Connect letter shapes to an immediate game action.']]},
+  snaptrap:{hook:'A giant Venus flytrap. You are the fly.',
+    caption:'The living controller: a human-scale trap, its trigger hairs, and a very physical response.',
+    steps:[['Enter the trap','Step into a human-scale carnivorous plant.'],['Touch the hairs','Brush its sensors to explore what triggers the plant.'],['Feel it react','The installation turns plant behavior into a physical encounter.']]},
+  larp:{hook:'Take a walk. Meet a mushroom. Start a conversation.',
+    caption:'The specimen garden: characters with a voice, powered by your real-world movement.',
+    steps:[['Move in real life','Your real-world steps become experience points.'],['Meet a character','Discover procedurally generated AR mushrooms.'],['Talk or fight','GPT-3 gives them a voice; choose how to interact.']]},
+  'retrovirus-vr':{hook:'Everything coming at you is something you can grab.',
+    caption:'The H4CTOR B3AM test range: catch projectiles, steal weapons, and pull yourself through space.',
+    steps:[['Catch the threat','Snatch weapons and incoming projectiles.'],['Turn it around','Use telekinesis against the antivirus prison.'],['Grapple away','Pull yourself through the level with the H4CTOR B3AM.']]},
+  songbird:{hook:'Your saxophone is the spellbook.',
+    caption:'The melody stage: notes become attacks in a musical bullet hell.',
+    steps:[['Play a melody','Use the saxophone to cast musical spells.'],['Dodge the chaos','Keep the phrase going under bullet-hell pressure.'],['Mind the instrument','Mistakes damage the saxophone itself.']]},
+  education:{hook:'A foundation in both computers and the people using them.',
+    caption:'The observatory: learning, teaching, and building a community around XR.',
+    evidence:'Michigan, 2019–2022 · CS + Cognitive Science. XR & Society teaching assistant; Alternate Reality Initiative co-president.',
+    steps:[['Study the system','Computer Science alongside Cognitive Science.'],['Teach the interaction','Helped teach 48 students in XR & Society.'],['Build a community','Co-led an 81-member XR club and a 312-attendee conference.']]},
+  nira:{hook:'A girl, a talking hoverstaff, and an unfinished story.',
+    caption:'At the observatory: a miniature of Nira’s world and her magical companion Kane.',
+    steps:[['Meet Kane','A magical hoverstaff becomes your companion.'],['Follow the story','Discover what a grandfather left at the observatory.'],['Build together','A team-built adventure for Michigan’s EECS 494.']]}
+};
+const ROOM_SELECTION={lab:'snaptrap'};
+function placeRoomSurface(el,x,y,width,height){
+  Object.assign(el.style,{left:Math.round(x)+'px',top:Math.round(y)+'px',width:Math.round(width)+'px',height:Math.round(height)+'px'});
+}
+function roomProjectHTML(p){
+  const story=PROJECT_STORIES[p.id];
+  return '<div class="monitor-content">'+
+    '<div class="wp-meta">'+p.exhibit+' / '+p.meta+'</div><h3>'+p.name+'</h3>'+
+    '<p class="project-hook">'+story.hook+'</p>'+
+    (p.thumb?'<a class="wp-shot" href="#/'+p.id+'" aria-label="Open '+p.name+' project and demo"><img loading="lazy" decoding="async" src="'+p.thumb+'" alt="'+p.name+' — actual project preview" width="480" height="190"><span>VIEW THE REAL PROJECT + DEMO ↗</span></a>':
+      '<p class="room-manifesto">'+(p.id==='about'?'Ideas you can hold.<br>Worlds you can touch.':'Minds, machines,<br>and imagined worlds.')+'</p>')+
+    (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
+    '<p>'+p.blurb+'</p>'+
+    (story.evidence?'<p class="room-evidence">'+story.evidence+'</p>':'')+
+    '<a class="wp-open" href="#/'+p.id+'"><span>'+p.action+'</span><span aria-hidden="true">↗</span></a>'+
+    (p.related?'<div class="wp-related">'+p.related.map(([id,label])=>'<a href="#/'+id+'">'+label+'</a>').join('')+'</div>':'')+'</div>';
+}
+function selectRoomProject(section,p,initial=false){
+  ROOM_SELECTION[p.zone]=p.id;
+  section.dataset.project=p.id;
+  const monitor=section.querySelector('.room-monitor'),story=PROJECT_STORIES[p.id];
+  if(!monitor)return; // A destroyed monitor stays destroyed until world reset.
+  // Keep the burn overlay and damage on the equipment when its display changes.
+  monitor.querySelector('.monitor-content')?.remove();
+  monitor.insertAdjacentHTML('afterbegin',roomProjectHTML(p));
+  monitor.scrollTop=0;
+  monitor.setAttribute('aria-label',p.name+' project');
+  const caption=section.querySelector('.room-caption .caption-content');
+  if(caption)caption.innerHTML='<strong>PIXEL DIORAMA / '+p.exhibit+'</strong>'+story.caption;
+  section.querySelectorAll('.room-step .step-content').forEach((el,i)=>{
+    el.innerHTML='<small>0'+(i+1)+' / '+['INPUT','INTERACTION','OUTCOME'][i]+'</small><h4>'+story.steps[i][0]+'</h4><p>'+story.steps[i][1]+'</p>';
+  });
+  section.querySelectorAll('.room-selector button').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.project===p.id)));
+  drawProjectScene(p,section._scene);
+  if(!initial){_winMaskHash='';lightScanAll=1;}
+}
 function buildWorldPanels(){
-  const wl=document.getElementById('worldLayer');
-  if(!wl)return;
-  wl.querySelectorAll('.world-panel').forEach(n=>n.remove());
+  const wl=document.getElementById('worldLayer');if(!wl)return;
+  wl.querySelectorAll('.room-exhibit,.world-panel').forEach(n=>n.remove());
   PANEL_RECTS.length=0;
-  const made=[];
-  for(const p of WORLD_PANELS){
-    const box=ROOM_BOX[p.zone];
-    if(!box)continue;                          // zone not built at this size
-    const el=document.createElement('div');
-    el.className='world-panel';
-    el.dataset.project=p.id;
-    el.dataset.zone=p.zone;
-    // Resolve the panel's room-relative position into world pixels. Rooms are
-    // measured in cells, panels laid out in CSS pixels, and SCALE is the only
-    // conversion — the same one the camera transform uses.
-    const wx=(box.x0+(box.x1-box.x0)*p.at[0])*SCALE;
-    // depth in metres, read straight off the world row: one screenful ≈ 12m,
-    // so the number on the title bar tracks the actual descent rather than a
-    // figure hand-written next to each entry. Seeded from the room's ceiling
-    // and corrected below, once the panel's real height is known.
-    const depthM=Math.round(box.ceil/VH*12);
-    el.innerHTML=
-      '<div class="wp-bar"><span>'+p.name+'</span><span class="wp-depth">-'+depthM+'m</span></div>'+
-      (p.thumb?'<img loading="lazy" src="'+p.thumb+'" alt="'+p.name+'">':'')+
-      '<div class="wp-body">'+
-        (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
-        '<h3>'+p.name+'</h3>'+
-        '<div class="wp-meta">'+p.meta+'</div>'+
-        '<p>'+p.blurb+'</p>'+
-        '<a href="#/'+p.id+'">Full write-up &rarr;</a>'+
-      '</div>';
-    // Centred on its anchor rather than left-aligned to it, so `at` names where
-    // the panel IS instead of where its top-left corner lands — which is what
-    // makes a panel at 0.5 sit in the middle of the room at every window width.
-    el.style.left='0px';
-    el.style.top='0px';
-    wl.appendChild(el);
-    /* `at[1]` is a fraction of the room's USABLE height — the room minus the
-       panel's own height — not of the room. Measured against the room outright,
-       the last panel in each room started 82% of the way down a 197-cell room
-       and its bottom 80 cells hung through the floor into solid rock. Against
-       the usable height, 0 is flush with the ceiling and 1 is resting on the
-       floor, and every value between fits by construction at any window size.
-       Needs the element in the DOM to be measured, which is why left and top
-       are written twice. */
-    const roomPx=(box.floor-box.ceil)*SCALE;
-    const usable=Math.max(0,roomPx-el.offsetHeight-8*SCALE);
-    const wy=box.ceil*SCALE+4*SCALE+p.at[1]*usable;
-    el.style.top=Math.round(wy)+'px';
-    /* Clamped to the ROOM, not to the canvas. `at[0]` is where the panel wants
-       to be; at a narrow window a 340px panel is most of the room's width and
-       cannot be there, and clamping to the canvas let five of the ten hang
-       through their own walls into solid rock. Advisory placement, hard bounds
-       — and if the panel is genuinely wider than the room, centre it and let
-       the chamber cut into both walls evenly rather than only the left one. */
-    const wpx=el.offsetWidth, roomL=box.x0*SCALE+8, roomR=box.x1*SCALE-8;
-    const left=(roomR-roomL)<wpx ? (roomL+roomR-wpx)/2
-             : Math.max(roomL,Math.min(roomR-wpx,wx-wpx/2));
-    el.style.left=Math.round(left)+'px';
-    el.querySelector('.wp-depth').textContent='-'+Math.round((wy/SCALE)/VH*12)+'m';
-    /* Claim the footprint, with a margin, so furnishRooms places around it.
-       Recorded here rather than derived from `at` because only the laid-out
-       element knows how tall the panel actually came out at this width — and
-       height is exactly what the collision was about. */
-    const px0=parseFloat(el.style.left)/SCALE, py0=wy/SCALE;
-    PANEL_RECTS.push({
-      x0:Math.floor(px0)-4, y0:Math.floor(py0)-4,
-      x1:Math.ceil(px0+el.offsetWidth/SCALE)+4,
-      y1:Math.ceil(py0+el.offsetHeight/SCALE)+4,
+  for(const z of ZONES){
+    const box=ROOM_BOX[z.id],projects=WORLD_PANELS.filter(p=>p.zone===z.id);
+    if(!box||!projects.length)continue;
+    const bounds=exhibitBounds(W,SCALE),m=roomMetrics(bounds.width,projects.length);
+    const top=(roomSignBand(box.ceil).y1+6)*SCALE;
+    const section=document.createElement('section'),story=ROOM_STORIES[z.id];
+    section.className='room-exhibit'+(m.compact?' is-compact':'')+(m.narrow?' is-narrow':'');
+    section.dataset.zone=z.id;section.setAttribute('aria-labelledby','room-title-'+z.id);
+    placeRoomSurface(section,bounds.x,top,bounds.width,m.height);
+    section.innerHTML='<header class="world-panel room-heading"><div class="room-kicker">'+story.kicker+'</div><h2 id="room-title-'+z.id+'">'+story.title+'</h2><p>'+story.intro+'</p></header>'+
+      '<div class="world-panel room-selector" role="group" aria-label="Select '+z.label+' exhibit">'+projects.map((p,i)=>
+        '<button type="button" data-project="'+p.id+'" aria-pressed="false" aria-controls="room-monitor-'+z.id+'"><small>'+String(i+1).padStart(2,'0')+' / '+(z.id==='arcade'?'LOAD GAME':z.id==='lab'?'SPECIMEN':'EXPLORE')+'</small>'+p.name+'</button>').join('')+'</div>'+
+      '<div class="room-diorama" aria-hidden="true"></div><div class="world-panel room-caption"><div class="caption-content"></div></div>'+
+      '<article class="world-panel room-monitor" id="room-monitor-'+z.id+'" aria-live="polite"></article>'+
+      [0,1,2].map(()=>'<div class="world-panel room-step"><div class="step-content"></div></div>').join('');
+    wl.appendChild(section);
+    placeRoomSurface(section.querySelector('.room-heading'),0,0,bounds.width,m.header);
+    placeRoomSurface(section.querySelector('.room-selector'),0,m.header+16,bounds.width,m.selector);
+    placeRoomSurface(section.querySelector('.room-diorama'),0,m.stageY,m.leftWidth,m.art);
+    placeRoomSurface(section.querySelector('.room-caption'),0,m.stageY+m.art,m.leftWidth,m.caption);
+    placeRoomSurface(section.querySelector('.room-monitor'),m.monitorX,m.monitorY,m.rightWidth,m.monitor);
+    section.querySelectorAll('.room-step').forEach((el,i)=>{
+      const width=m.narrow?bounds.width:(bounds.width-32)/3;
+      placeRoomSurface(el,m.narrow?0:i*(width+16),m.stepsY+(m.narrow?i*(m.stepHeight+16):0),width,m.stepHeight);
     });
-    made.push({el,p});
+    const rect={x0:Math.floor(bounds.x/SCALE)-3,y0:Math.floor(top/SCALE)-3,
+      x1:Math.ceil((bounds.x+bounds.width)/SCALE)+3,y1:Math.ceil((top+m.height)/SCALE)+4};
+    PANEL_RECTS.push(rect);
+    // Equipment lives in a carved, connected bay, not in rock behind a DOM card.
+    slab(rect.x0,rect.y0,rect.x1,rect.y1,EMPTY);
+    for(const el of section.querySelectorAll('.world-panel')){
+      const x=Math.floor((bounds.x+parseFloat(el.style.left))/SCALE),y=Math.floor((top+parseFloat(el.style.top))/SCALE);
+      const right=Math.ceil((bounds.x+parseFloat(el.style.left)+parseFloat(el.style.width))/SCALE);
+      const bottom=Math.ceil((top+parseFloat(el.style.top)+parseFloat(el.style.height))/SCALE);
+      const material=PANEL_FRAME[z.id];
+      slab(x-1,bottom+1,right+1,bottom+2,material,2);
+      slab(x-1,y-1,x-1,bottom,material,1);slab(right+1,y-1,right+1,bottom,material,1);
+    }
+    section._scene={x:Math.floor(bounds.x/SCALE),y:Math.floor((top+m.stageY)/SCALE),
+      w:Math.floor(m.leftWidth/SCALE),h:Math.floor(m.art/SCALE)};
+    section.addEventListener('click',e=>{
+      const button=e.target.closest('.room-selector button');if(!button)return;
+      const p=projects.find(p=>p.id===button.dataset.project);
+      if(p&&section.dataset.project!==p.id)selectRoomProject(section,p);
+    });
+    selectRoomProject(section,projects.find(p=>p.id===ROOM_SELECTION[z.id])||projects[0],true);
   }
-  // Two passes on purpose. Every panel has to be in the DOM and laid out
-  // before ANY of them is measured — carving a chamber for panel one while
-  // panel two is still unstyled would read a stale rect and cut the hole in
-  // the wrong place.
-  for(const {el,p} of made){
-    carveChamber(el);
-    panelBracket(el,PANEL_FRAME[p.zone]||STONE);
-  }
-  // The write-up link is a real anchor into the hash router the windows
-  // already use (#/agent-center), so the world is the navigation and the
-  // existing window stays the full record — no new wiring, and the links
-  // survive being middle-clicked, copied or crawled.
   for(const id in ROOM_SIGNS)stampRoomSign(ROOM_BOX[id],ROOM_SIGNS[id]);
+  buildDepthNav();
+}
+// Scene primitives are born in the material grid: no bitmap overlay or extra
+// animation loop. All dimensions snap to the same integer simulation pixels.
+function drawProjectScene(p,r){
+  const {x,y,w,h}=r;
+  const box=(a,b,c,d,m,v=1)=>slab(x+Math.round(a),y+Math.round(b),x+Math.round(c),y+Math.round(d),m,v);
+  const line=(a,b,c,d,m,v=1)=>{
+    const n=Math.max(1,Math.ceil(Math.max(Math.abs(c-a),Math.abs(d-b))));
+    for(let i=0;i<=n;i++){const t=i/n;box(a+(c-a)*t,b+(d-b)*t,a+(c-a)*t,b+(d-b)*t,m,v);}
+  };
+  const sprite=(name,cx,bottom,maxW,maxH)=>{
+    const src=SPRITES[name];if(!src)return;
+    const scale=Math.max(1,Math.min(4,Math.floor(Math.min(maxW/spriteW(name),maxH/spriteH(name)))));
+    const key='scene_'+name+'_'+scale;
+    if(!SPRITES[key])SPRITES[key]=src.flatMap(row=>Array(scale).fill([...row].map(ch=>ch.repeat(scale)).join('')));
+    const left=Math.round(cx-spriteW(key)/2),top=Math.round(bottom)-spriteH(key)+1;
+    // Painter's order within this owned scene: the subject can stand in front
+    // of its architecture. Clip to the diorama, never to neighboring text.
+    SPRITES[key].forEach((row,dy)=>[...row].forEach((ch,dx)=>{
+      const spec=SPRITE_MATS[ch],sx=left+dx,sy=top+dy;
+      if(!spec||sx<0||sx>=w||sy<0||sy>=h)return;
+      const i=idx(x+sx,y+sy);grid[i]=spec.m;variant[i]=spec.v;
+      frozen[i]=spec.m!==FIRE&&spec.m!==WATER&&spec.m!==FUSE?1:0;
+    }));
+  };
+  box(0,0,w-1,h-1,EMPTY);
+  const ground=h-9,cx=w/2;
+  // A recessed silhouette and layered plinth give the subject weight.
+  box(2,ground+2,w-3,h-2,PANEL_FRAME[p.zone],1);
+  box(4,ground,w-5,ground+1,STONE,2);
+  if(p.zone==='crypt'){
+    // Monumental glasses: the display is literally a portal into shared space.
+    const specsWidth=Math.min(w-10,Math.floor(h*.98));
+    const key='scene_specs_'+specsWidth;
+    if(!SPRITES[key])SPRITES[key]=specsArt(specsWidth);
+    const bottom=ground-3;
+    stampSprite(key,x+Math.round(cx-specsWidth/2),y+bottom);
+    const top=bottom-spriteH(key);
+    for(const side of [-1,1]){
+      const sx=cx+side*specsWidth*.31;
+      line(sx,top-2,cx,Math.max(10,top-22),GLASS,0);
+      box(sx-2,ground+2,sx+2,ground+5,GLASS,1);
+    }
+    sprite(p.sprite,cx,Math.max(28,top-7),w*.55,Math.max(26,top-12));
+    if(h>95){
+      // Two connected spatial terminals establish a shared room, not an icon
+      // on a pedestal. Fine routing is subordinate to the large glasses.
+      for(const a of [.22,.78]){
+        box(w*a-6,19,w*a+6,29,STONE,1);box(w*a-4,21,w*a+4,27,GLASS,0);
+        box(w*a-2,23,w*a+2,23,STONE,1);box(w*a,30,w*a,33,STONE,2);
+        line(w*a,34,cx,45,GLASS,0);
+      }
+      box(cx-2,43,cx+2,46,GLASS,1);
+    }
+    for(let k=0;k<3;k++)box(5+k*4,8,6+k*4,8,GLASS,k%3);
+    line(5,12,5,ground-4,STONE,1);
+    line(w-6,12,w-6,ground-4,STONE,1);
+  }else if(p.zone==='lab'){
+    // A full-height specimen chamber, plumbing, gauge, and soil bed.
+    box(4,7,w-5,9,STONE,2);box(5,10,5,ground-1,GLASS,0);box(w-6,10,w-6,ground-1,GLASS,0);
+    box(7,ground-4,w-8,ground-1,DIRT,2);
+    for(let k=8;k<w-8;k+=3)box(k,ground-5,k+1,ground-5,MOSS,1);
+    line(w-10,13,w-10,ground-8,STONE,1);
+    box(w-13,15,w-8,22,STONE,2);box(w-12,16,w-9,20,GLASS,0);line(w-11,19,w-9,17,BERRY,2);
+    if(h>95){
+      // Overhead reservoirs and a stepped sensor trace make the chamber a
+      // test apparatus; their scale stays below the living specimen.
+      for(const a of [.24,.57]){
+        const tx=w*a;box(tx-6,16,tx+6,19,STONE,2);box(tx-5,20,tx+5,36,GLASS,0);
+        box(tx-3,23,tx+3,34,LEAF,0x12);box(tx-6,37,tx+6,39,STONE,1);
+        line(tx,40,tx,46,STONE,2);line(tx,46,w-10,46,STONE,1);
+      }
+      for(let k=9;k<w-16;k+=7)line(k,53,k+3,50,LEAF,0x10);
+    }
+    sprite(p.sprite,cx-2,ground-6,w*.76,ground-17);
+    for(let k=8;k<w-9;k+=7)box(k,ground+3,k+3,ground+3,THATCH,1);
+    if(p.id==='snaptrap'){
+      line(cx,ground-3,cx-9,ground+1,LEAF,0x11);
+      line(cx+2,ground-3,cx+13,ground+1,LEAF,0x12);
+    }
+  }else if(p.zone==='arcade'){
+    // A large side-view game vignette inside a physical cabinet, with a deck.
+    box(2,5,w-3,8,BERRY,0x10);box(2,9,4,ground-2,WOOD,1);box(w-5,9,w-3,ground-2,WOOD,1);
+    box(6,11,w-7,12,STONE,2);
+    if(p.id==='retrovirus-vr'){
+      const floor=ground-11;
+      for(let k=10;k<w-12;k+=17){box(k,floor-((k/17|0)%2)*9,k+10,floor+2,BRICK,1);}
+      sprite('hactor',cx,Math.min(ground-18,h*.60),w*.7,h*.52);
+      line(10,ground-15,w-12,23,LEAF,0x10);
+      line(12,ground-15,w-10,23,GLASS,0);
+      for(let k=0;k<3;k++)box(w-15-k*6,25+k*7,w-14-k*6,26+k*7,BERRY,2);
+    }else{
+      for(let k=0;k<5;k++)line(8,18+k*5,w-9,18+k*5,STONE,0);
+      sprite('songbirdSax',cx,ground-10,w*.62,ground-19);
+      for(let k=0;k<5;k++){const nx=9+k*(w-20)/5,ny=18+(k%3)*7;box(nx,ny,nx+2,ny+1,THATCH,1);line(nx+2,ny,nx+2,ny-5,THATCH,1);}
+    }
+    box(0,ground-4,w-1,ground-2,WOOD,2);
+    box(w*.24,ground-9,w*.24+1,ground-5,STONE,0x40);box(w*.24-1,ground-10,w*.24+2,ground-9,BERRY,2);
+    for(let k=0;k<3;k++)box(w*.60+k*5,ground-6,w*.60+k*5+2,ground-5,k===1?GLASS:BERRY,2);
+    box(cx-3,ground+4,cx+3,ground+6,STONE,0x43);
+  }else if(p.zone==='core'){
+    // A miniature observatory rather than a plaque in an empty colonnade.
+    const base=ground-3,roof=Math.max(20,ground*.46);
+    box(w*.18,roof,w*.82,base,STONE,1);
+    for(let k=0;k<5;k++){const inset=k*2;box(w*.18+inset,roof-k*2,w*.82-inset,roof-k*2+1,STONE,2);}
+    box(cx-5,roof+5,cx+5,base,EMPTY);
+    for(const a of [.25,.70]){box(w*a,roof+5,w*a+3,base-5,GLASS,0);}
+    box(6,base+1,w-7,base+2,STONE,2);
+    for(const [a,b] of [[.17,.15],[.43,.09],[.76,.20],[.88,.08]]){box(w*a,h*b,w*a+1,h*b,GLASS,1);}
+    if(p.id==='nira')sprite('hoverstaff',cx,base,w*.5,ground*.72);
+    else{sprite('bookstack',w*.30,base,w*.33,ground*.34);sprite('lectern',w*.69,base,w*.32,ground*.45);}
+  }else{
+    // A connected prototyping bench: machine, spatial object, and living input.
+    const desk=ground-11;
+    box(3,desk,w-4,desk+2,WOOD,2);
+    for(const a of [.12,.86])box(w*a,desk+3,w*a+2,ground-1,WOOD,1);
+    sprite('console',w*.30,desk-1,w*.43,desk-8);
+    sprite('spatialCube',w*.73,desk-15,w*.34,desk-17);
+    line(w*.47,desk-5,w*.68,desk-5,GLASS,0);line(w*.68,desk-5,w*.68,desk-12,GLASS,0);
+    sprite('bookstack',w*.73,desk-1,w*.24,15);
+    box(5,7,w-6,8,WOOD,1);
+    for(let k=10;k<w-10;k+=12){line(k,9,k,13,STONE,1);box(k-1,14,k+1,15,GLASS,1);}
+    if(h>95){
+      // A built-in pegboard of spatial prototypes above the working desk.
+      box(8,25,w-9,64,WOOD,0);box(10,27,w-11,62,EMPTY);
+      line(14,47,w-15,47,GLASS,0);
+      for(const a of [.25,.50,.75]){
+        const tx=w*a;box(tx-4,35,tx+4,43,STONE,1);box(tx-2,37,tx+2,40,GLASS,0);
+        line(tx,44,tx,50,GLASS,0);box(tx-2,51,tx+2,53,THATCH,1);
+      }
+      for(let k=12;k<w-12;k+=5)box(k,58,k,58,WOOD,2);
+    }
+  }
+  wakeRect(x-1,y-1,x+w,y+h);pixDirtyRect(x-1,y-1,x+w,y+h);
+}
+function buildDepthNav(){
+  let nav=document.getElementById('depthNav');
+  if(!nav){
+    nav=document.createElement('nav');nav.id='depthNav';nav.setAttribute('aria-label','Portfolio depths');
+    document.getElementById('stage').appendChild(nav);
+    nav.addEventListener('click',e=>{
+      const button=e.target.closest('button[data-depth]');
+      if(!button)return;
+      const box=ROOM_BOX[button.dataset.depth];
+      const top=box?Math.max(0,box.ceil*SCALE-44):0;
+      window.scrollTo({top,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+    });
+  }
+  const labels={surface:['↑','Back to the meadow'],workshop:['ME','About Mitchell'],crypt:['AR','Spectacles work'],
+    lab:['LAB','Experiments and installations'],arcade:['PLAY','Games'],core:['UNI','Michigan and Nira']};
+  nav.innerHTML=ZONES.map(z=>'<button type="button" data-depth="'+z.id+'" aria-label="'+labels[z.id][1]+'" title="'+labels[z.id][1]+'">'+labels[z.id][0]+'</button>').join('');
+  nav.dataset.active='';
+  syncDepthNav();
+}
+function syncDepthNav(){
+  const nav=document.getElementById('depthNav');
+  if(!nav)return;
+  const zone=zoneAt(camY+VH*.25).id;
+  if(nav.dataset.active===zone)return;
+  nav.dataset.active=zone;
+  for(const button of nav.querySelectorAll('button')){
+    if(button.dataset.depth===zone)button.setAttribute('aria-current','location');
+    else button.removeAttribute('aria-current');
+  }
 }
 
 function stampSprite(name,gx,gyBottom){
@@ -4756,6 +5765,234 @@ function stampSprite(name,gx,gyBottom){
   }
 }
 
+/* ═══════════════════════════════════════════════════════
+   WORDMARK — the name, hung in the sky, made of the world
+
+   The masthead is not HTML floating over the canvas: it is matter in the grid,
+   on the same first screen as the meadow, so the sim's own rules apply to it.
+   Sand for the letterface, ash for the rim.
+
+   Those two materials and not the prettier sprite set, because a frozen cell
+   only reaches tryDecompose() if isDebris() claims it — and WOOD, BRICK and
+   LEAF all do. Hung in mid-air with nothing under them they lose support on
+   the first tick and the name rains onto the meadow before anyone reads it.
+   SAND and ASH are not debris, so step() returns on them immediately and the
+   letters hold.
+
+   Held is not the same as safe. Acid eats sand and ash, a bomb flings both,
+   and FIRE fuses sand into GLASS — so burning the name does not erase it, it
+   leaves it behind in the one material that lights itself after dusk.
+
+   Authored at cap-height 9 and stamped at an integer scale, so the same
+   letterforms serve a 97-cell phone (k=1) and a 360-cell desktop (k=3). The
+   bevel and the whole rim are derived AFTER scaling, at one-cell resolution,
+   which is what keeps a k=3 letter reading as a bevelled display face rather
+   than a sprite someone blew up.
+═══════════════════════════════════════════════════════ */
+const WM_ROWS=9;
+const WM_GLYPHS={
+  M:['##.....##','###...###','####.####','##.###.##','##..#..##','##.....##','##.....##','##.....##','##.....##'],
+  I:['##','##','##','##','##','##','##','##','##'],
+  T:['########','########','...##...','...##...','...##...','...##...','...##...','...##...','...##...'],
+  C:['.#####.','##...##','##.....','##.....','##.....','##.....','##.....','##...##','.#####.'],
+  H:['##...##','##...##','##...##','##...##','#######','#######','##...##','##...##','##...##'],
+  E:['######','######','##....','##....','#####.','##....','##....','######','######'],
+  L:['##....','##....','##....','##....','##....','##....','##....','######','######'],
+  K:['##...##','##..##.','##.##..','####...','###....','####...','##.##..','##..##.','##...##'],
+  U:['##...##','##...##','##...##','##...##','##...##','##...##','##...##','##...##','.#####.'],
+  P:['######.','##...##','##...##','##...##','######.','##.....','##.....','##.....','##.....'],
+  R:['######.','##...##','##...##','##...##','######.','##.##..','##..##.','##...##','##...##'],
+  S:['.#####.','##...##','##.....','###....','.#####.','....###','.....##','##...##','.#####.'],
+};
+const WM_LINES=['MITCHELL','KUPPERSMITH'];
+/* The name hangs in the sky with nothing under it, so every probe that walks a
+   column down from y=0 looking for GROUND has to fall straight through it —
+   the shaft would otherwise start its dig at the top of the M, and the cat
+   would spawn eight rows up in the air on the crossbar of an H. One rect the
+   probes test against is cheaper and far less error-prone than teaching each
+   of them what sand in mid-air means. */
+let WORDMARK_BOX=null;
+const inWordmark=(x,y)=>!!WORDMARK_BOX&&x>=WORDMARK_BOX.x0&&x<=WORDMARK_BOX.x1&&y>=WORDMARK_BOX.y0&&y<=WORDMARK_BOX.y1;
+function wmGlyphW(ch){const g=WM_GLYPHS[ch];return g?g[0].length:0;}
+function wmLineW(str,track){
+  let w=0;
+  for(let i=0;i<str.length;i++){w+=wmGlyphW(str[i]);if(i)w+=track;}
+  return w;
+}
+/* ─── THE NAME AS A CUT BANK ───
+   One material per letter was the first try and it read as a ransom note:
+   nineteen hues at nineteen different weights, each letter arguing for itself
+   instead of the word. So the materials band HORIZONTALLY across the whole
+   lockup instead, and every letter shares the same section — which makes the
+   two lines read as one object that happens to be made of layered ground.
+
+   The order is the world's own: turf over sand, cut the way the shaft cuts it.
+   The seam falls inside the given name, so MITCHELL carries the turf line and
+   the surname below it is all sand — the masthead is a core sample of the
+   place it is hanging over.
+
+   Two bands, down from the six it started with. Topsoil, the vaults' brick,
+   bedrock and a seam of the core's lava were the others, and they are why the
+   early versions read as busy: every material carries its own micro-texture in
+   matTexel, and brick's mortar courses stacked on dirt's speckle stacked on
+   stone's flecks put three competing patterns inside a letter twenty-seven
+   cells tall — with the lava seam glowing under all of it. Sand's 2x2 bedding
+   is the quietest thing in the palette, so it takes the bulk of the name.
+
+   The cost of dropping lava is that nothing in the name emits any more, so
+   after dusk it goes to silhouette along with the meadow. That is the honest
+   behaviour for turf and sand, and the rim keeps the shape readable against a
+   night sky; the alternative — a glass seam, the world's other emitter — buys
+   the night back but renders at alpha 200, so it spends the day as a pale
+   scratch under the surname.
+
+   `at` is where the band starts as a fraction of the block's height. `hi` is
+   the variant that reads as that material's lit face — 6 is sand's bright
+   quartz, 2 is the grass/leaf palette's highlight, 3 is +3 on the shared
+   jitter ramp everything else uses — so every band gets the same one-cell lit
+   top edge even though only SAND, STONE and DIRT carry RELIEF and would have
+   earned one for free.
+
+   Glass is deliberately absent. It is the prettiest material down there and
+   the only other emitter, but it renders at alpha 200 over a pale sky, so by
+   daylight a glass band is a hole through the middle of someone's name. */
+const WM_BANDS=[
+  {at:0.00, m:GRASS, hi:2},   // turf
+  {at:0.34, m:SAND,  hi:6},   // the site's own material, and the bulk of the name
+];
+/* The seams waver across the width for the same reason the shaft's walls do:
+   a ruled horizontal line reads as a mistake in a world where nothing else is
+   ruled. Under a cell of travel now rather than two — at this letter size a
+   fuller wave broke the bands into separate incidents per letter instead of
+   one section running through all of them. Two incommensurate sines, no
+   random, so the same wordmark comes back identical on every reset. */
+function wmBandAt(x,t){
+  const w=t+(Math.sin(x*0.13)*0.9+Math.sin(x*0.041+1.7)*0.7)*0.006;
+  let b=WM_BANDS[0];
+  for(const band of WM_BANDS)if(w>=band.at)b=band;
+  return b;
+}
+/* The world row the name has to start below to clear the materials picker.
+
+   The name is centred and runs to very nearly the full width of the world, so
+   its right end passes under the picker in the top-right corner however it is
+   tracked or scaled — vertical is the only axis with any give.
+
+   Measured, not assumed. The picker is ~245px tall on a desktop, shorter at
+   the phone breakpoint where it narrows to 146px, taller again when its list
+   is scrolled open, and it collapses to just its title bar when minimised. A
+   hard-coded row would be wrong for three of those four. */
+function wmClearTop(){
+  const base=Math.max(0,(VH*0.13)|0);
+  const mp=document.getElementById('matPicker');
+  if(!mp)return base;
+  const r=mp.getBoundingClientRect(), cr=canvas.getBoundingClientRect();
+  if(!r.height||!cr.height)return base;                  // not laid out yet
+  /* The gutter is in cells and is generous on purpose: the lockup's rim grows
+     upward into its own padding, so a clearance measured to the letterforms
+     leaves the bevel all but touching the picker's bottom edge. */
+  return Math.max(base,Math.ceil((r.bottom-cr.top)/SCALE)+11);
+}
+function stampWordmark(){
+  const [L1,L2]=WM_LINES;
+  WORDMARK_BOX=null;
+  if(wmLineW(L2,1)>W-2)return;                  // narrower than the name: leave the sky alone
+  // one integer step per screen size — k=1 on a phone, 2–3 on a desktop
+  const k=Math.max(1,Math.min(3,Math.floor((W*0.78)/wmLineW(L2,1))));
+  /* At k=1 the rim becomes a one-cell drop shadow rather than a keyline (see
+     below), and a shadow cast into a one-cell gap welds neighbouring letters
+     together — so the tracking opens to two there when the width allows it. */
+  let T2=1;
+  if(k===1&&wmLineW(L2,2)<=W-2)T2=2;
+  const base2=wmLineW(L2,T2);
+  /* The given name is three letters shorter than the surname, so set flush it
+     sits centred and stubby over a line half again its width. Tracking it out
+     to the surname's measure is the ordinary fix, and it is also the reason
+     the two lines can share one integer scale instead of needing two. */
+  const T1=Math.max(T2,Math.min(3,Math.round((base2-wmLineW(L1,0))/(L1.length-1))));
+  const baseW=Math.max(wmLineW(L1,T1),base2);
+  const gapY=3*k;
+  const blockW=baseW*k, blockH=WM_ROWS*2*k+gapY;
+  const pad=3;                                  // room for the rim to grow into
+  const bw=blockW+pad*2, bh=blockH+pad*2;
+  // rasterise both lines into a local bitmap first: the rim, the lit top edge
+  // and the footing are all neighbourhood tests, and they want the finished
+  // shape of the whole lockup to read from rather than one glyph at a time
+  const bm=new Uint8Array(bw*bh);
+  function draw(str,track,oy){
+    let cx=pad+(((blockW-wmLineW(str,track)*k)/2)|0);
+    for(const ch of str){
+      const g=WM_GLYPHS[ch];
+      if(!g){cx+=track*k;continue;}
+      for(let ry=0;ry<WM_ROWS;ry++){
+        const row=g[ry];
+        for(let rx=0;rx<row.length;rx++){
+          if(row[rx]!=='#')continue;
+          for(let sy=0;sy<k;sy++)for(let sx=0;sx<k;sx++){
+            const bx=cx+rx*k+sx, by=oy+ry*k+sy;
+            if(bx>=0&&bx<bw&&by>=0&&by<bh)bm[by*bw+bx]=1;
+          }
+        }
+      }
+      cx+=g[0].length*k+track*k;
+    }
+  }
+  draw(L1,T1,pad);
+  draw(L2,T2,pad+WM_ROWS*k+gapY);
+
+  const B=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:bm[y*bw+x];
+  const gx0=(((W-blockW)>>1))-pad;
+  /* Below the picker, but never so far down that the name lands in the
+     scenery. The clamp matters at the phone breakpoint, where the picker's
+     list can run most of the viewport height: overlapping the picker is bad,
+     and burying the name in the hill is worse, so the sky floor wins. */
+  const skyFloor=Math.max(0,((VH*0.66)|0)-bh);
+  const gy0=Math.min(skyFloor,Math.max(0,wmClearTop()-pad));
+  for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){
+    const wx=gx0+x, wy=gy0+y;
+    if(wx<0||wx>=W||wy<0||wy>=H)continue;
+    const gi=idx(wx,wy);
+    if(grid[gi]!==EMPTY)continue;
+    if(B(x,y)){
+      /* THE FOOTING — a one-cell ash sole under every stroke.
+
+         Turf and sand both hold on their own (neither is debris, so step()
+         returns on them the moment it sees frozen), so this is not holding the
+         name up today: it is the letter's dark underside, sitting between the
+         sand and its own drop shadow so the stroke has an edge to end on
+         rather than fading into the rim.
+
+         It is also what makes the palette safe to change. Add wood, brick or
+         leaf to WM_BANDS and every cell of that band is debris hung in mid-air
+         — tryDecompose is satisfied by any frozen cell below, and this is it.
+         Without the sole, a brick band would detach on its first tick. */
+      if(!B(x,y+1)){grid[gi]=ASH;variant[gi]=1;frozen[gi]=1;continue;}
+      const band=wmBandAt(x,(y-pad)/blockH);
+      grid[gi]=band.m;
+      // one lit cell along the top of every stroke, so six materials with six
+      // different ideas of shading still share one light source
+      variant[gi]=B(x,y-1)?0:band.hi;
+      frozen[gi]=1;
+      continue;
+    }
+    /* The rim is what stops a pale band from dissolving into a cloud. At k>=2
+       it is a keyline: one cell all round, two below and to the right, so the
+       letters read as standing slightly in front of the sky. At k=1 there is
+       no room for that — the counter of an H is three cells wide and a keyline
+       down both sides closes it — so it drops to the bottom-right half only,
+       which is a plain drop shadow. */
+    let rim=false;
+    if(k===1){
+      rim=!!(B(x-1,y)||B(x,y-1)||B(x-1,y-1));
+    }else{
+      for(let dy=-1;dy<=1&&!rim;dy++)for(let dx=-1;dx<=1;dx++)if(B(x+dx,y+dy)){rim=true;break;}
+      if(!rim)rim=!!(B(x-2,y)||B(x,y-2)||B(x-1,y-2)||B(x-2,y-1)||B(x-2,y-2));
+    }
+    if(rim){grid[gi]=ASH;variant[gi]=1;frozen[gi]=1;}
+  }
+  WORDMARK_BOX={x0:gx0,y0:gy0,x1:gx0+bw-1,y1:gy0+bh-1};
+}
+
 /* ═══ DEPTH STRATA ═══
    What fills the seven screens under the meadow. This used to be a geological
    ramp — subsoil, rock, moss, bedrock — and the panels buried in it read as
@@ -4769,33 +6006,162 @@ function stampSprite(name,gx,gyBottom){
    strataMat still answers "what is the bulk material at this row", but the
    answer is now the rock AROUND a room rather than the whole of the depth.
    d = cells below the local surface, y = absolute world row. */
-/* Is world row y on a seam?
+/* ═══ GROUND NOISE ═══
+   Everything below this point places material by asking a FIELD what is at a
+   position, never by flipping a coin per cell. That one change is what
+   separates rock from static: a threshold on a smooth field produces connected
+   regions with ragged rims, while an independent draw per cell produces
+   isolated pixels at exactly the density you asked for and no shape at all.
 
-   Two incommensurate sines gate a coin flip, so the material lands in
-   horizontal courses a few cells thick with clear rock between them. Scattering
-   the same material per-cell at the same overall density instead puts one stray
-   pixel every twenty cells, which at this scale reads as noise on the lens
-   rather than as a band of something in the rock. */
-function seam(y,freq,p){
-  return (Math.sin(y*freq)+Math.sin(y*freq*0.34+2.1)>1.25)&&Math.random()<p;
+   Value noise rather than gradient noise. It is a few lines, it is built on the
+   hash the masonry bakers already use, and its slightly blocky character is an
+   asset here — this is a world of one-cell pixels and a field with visible
+   cell structure quantises more honestly than a smooth one. */
+function vnoise(x,y){
+  const xi=Math.floor(x), yi=Math.floor(y);
+  const xf=x-xi, yf=y-yi;
+  // smoothstep the cell fractions so the lattice does not show as a grid
+  const u=xf*xf*(3-2*xf), v=yf*yf*(3-2*yf);
+  const h=(a,b)=>(hash2i(a,b)&0xffff)/65535;
+  const a=h(xi,yi),   b=h(xi+1,yi);
+  const c=h(xi,yi+1), d=h(xi+1,yi+1);
+  return (a*(1-u)+b*u)*(1-v)+(c*(1-u)+d*u)*v;
 }
-function strataMat(d,y){
-  if(d<VH*0.10)return Math.random()<0.10?STONE:DIRT;     // subsoil, under the turf
-  const z=zoneAt(y);
-  switch(z.id){
-    // Old masonry buried in the rock: the vaults were built into something
-    // that was already down here, and the courses of brick are the evidence.
-    case 'crypt': return seam(y,0.7,0.55)?BRICK:(seam(y+9,1.3,0.30)?MOSS:STONE);
-    // Dry, engineered, no growth — the lab was cut, not found.
-    case 'lab':   return seam(y,0.5,0.45)?BRICK:STONE;
-    case 'arcade':return seam(y,0.9,0.40)?BRICK:STONE;
-    // Damp rock giving way to hot rock. Moss clusters along horizontal seams
-    // rather than per-cell: scattered green pixels read as noise, a seam reads
-    // as a vein of something growing where water gets in.
-    case 'core':  return (Math.sin(y*0.9)+Math.sin(y*0.31+7.0)>1.3&&Math.random()<0.30)?MOSS:STONE;
-    default:      return Math.random()<0.09?DIRT:STONE;
+/* Fractal sum. Four octaves is the point where another one stops being visible
+   at one cell per pixel and starts being cost. */
+function fbm2(x,y,oct){
+  let s=0,amp=0.5,f=1,norm=0;
+  for(let i=0;i<(oct||4);i++){
+    s+=vnoise(x*f,y*f)*amp; norm+=amp;
+    amp*=0.5; f*=2.03;                    // 2.03, not 2 — an exact octave makes
+  }                                       // the lattices line up and streak
+  return s/norm;
+}
+/* Domain warp: push the sample point around by another noise field before
+   reading. This is the cheapest way to stop a threshold from looking like a
+   contour map — it turns concentric blobs into lobed, fingered shapes that
+   read as something that grew or seeped rather than something that was
+   plotted. */
+function warp2(x,y,amt,scale){
+  const wx=x+(fbm2(x*scale+31.7,y*scale-11.3,2)-0.5)*amt;
+  const wy=y+(fbm2(x*scale-57.1,y*scale+43.9,2)-0.5)*amt;
+  return [wx,wy];
+}
+
+/* ═══ THE BEDDING ═══
+   Sedimentary rock is laid down in courses, and the single strongest reason a
+   rock face reads as rock is that those courses are CONTINUOUS across it,
+   parallel to each other, and not level. `seam` gave horizontal bands from two
+   sines, which is the right instinct, but every band ran dead flat across the
+   whole world at the same thickness and the same spacing forever.
+
+   Real bedding dips, thickens and thins, and pinches out. bedAt returns a
+   continuous bed coordinate: its integer part identifies WHICH bed a cell is
+   in, its fractional part says how far through that bed the cell sits. Both
+   halves get used — the identity picks the material, the position within the
+   bed lets a bed be graded from coarse at its base to fine at its top, the way
+   a real one is. */
+function bedAt(x,y){
+  // the whole sequence dips gently and undulates, so no bed is a ruled line
+  const dip=x*0.045;
+  const fold=(fbm2(x*0.012,y*0.004,3)-0.5)*26;
+  return (y+dip+fold)/BED_H;
+}
+const BED_H=18;                            // broad strata leave room for quiet faces
+
+/* ═══ MATERIAL SUITES ═══
+   What each zone's rock is MADE OF, declared rather than branched.
+
+   The old strataMat was a switch with one expression per zone, so every zone
+   said its piece in a different vocabulary and nothing could be shared, tuned
+   or reasoned about across the set. A suite is data:
+
+     matrix    the bulk rock — what you get when no other rule fires
+     beds      bands in the sequence. `every` is the bed period, `of` how many
+               beds out of that period this material takes, so {every:5,of:1}
+               is one band in five. `p` lets a band be patchy along its length,
+               which is what makes a bed pinch out instead of running forever.
+     veins     deposits that cut ACROSS the bedding — threshold on a warped
+               field, so they come out as lobed bodies rather than blobs.
+     damp      how readily this rock grows things where it meets a void. Used
+               by the contact pass, which is the only rule that needs to know
+               where the air is and therefore cannot run here.
+
+   The point is not that the data is shorter. It is that "the vaults are older
+   masonry buried in limestone with moss where the water gets in" is now a
+   sentence the code can hold, and the lab differs from the arcade by the
+   numbers in its suite rather than by a different hand-written expression. */
+const SUITES={
+  /* Under the turf: soil grading into weathered rock, the way ground actually
+     does. No masonry — nothing was ever built this shallow. */
+  subsoil:{matrix:DIRT, beds:[{m:STONE,every:3,of:1,p:0.55}], veins:[], damp:0.30},
+  /* THE WORKSHOP — the cellar of a house. Ordinary ground with the builder's
+     rubble in it: brick courses close to the surface where somebody dug, and
+     clay lenses. It is the only suite with DIRT for a matrix underground, and
+     that is the point — this room is domestic, and the rock around it should
+     feel like a garden dug into rather than a mine. */
+  workshop:{matrix:DIRT,
+            beds:[{m:STONE,every:4,of:1,p:0.70},{m:BRICK,every:9,of:1,p:0.20}],
+            veins:[{m:STONE,scale:0.055,cover:0.30,warp:9}], damp:0.45},
+  /* THE VAULTS — limestone with occasional buried masonry. Keep most rock
+     quiet so the constructed arches stand out; moss belongs at wet contacts. */
+  crypt:{matrix:STONE,
+         beds:[{m:BRICK,every:8,of:1,p:0.30},{m:DIRT,every:7,of:1,p:0.20}],
+         veins:[], damp:0.95},
+  /* THE LAB — cut, not found. Even the rock is tidy: regular thin beds, one
+     mineral vein, and nothing damp anywhere. */
+  lab:{matrix:STONE,
+       beds:[{m:DIRT,every:9,of:1,p:0.25}],
+       veins:[{m:DIRT,scale:0.10,cover:0.05,warp:6}], damp:0.02},
+  /* THE ARCADE — fill, not bedrock: this is ground that was dumped rather than
+     laid, so it gets an earth matrix with rubble through it and beds that
+     barely hold together. It is the only zone whose bulk is DIRT below the
+     subsoil, and that is what makes the arcade's surroundings read as
+     backfill while the lab's read as something cut. */
+  arcade:{matrix:DIRT,
+          beds:[{m:STONE,every:4,of:1,p:0.65},{m:BRICK,every:9,of:1,p:0.25}],
+          veins:[{m:STONE,scale:0.08,cover:0.16,warp:11}], damp:0.25},
+  /* THE CORE — hot rock. The beds are nearly gone, cooked out; what is left is
+     a matrix shot through with mineral. Moss high in the zone where it is
+     still damp, and none of it low down where the magma is. */
+  core:{matrix:STONE,
+        beds:[{m:BRICK,every:11,of:1,p:0.22}],
+        veins:[{m:DIRT,scale:0.04,cover:0.08,warp:12}], damp:0.35},
+  default:{matrix:STONE, beds:[{m:DIRT,every:5,of:1,p:0.45}], veins:[], damp:0.35},
+};
+const suiteFor=id=>SUITES[id]||SUITES.default;
+
+/* What the bulk rock is at a cell.
+
+   Order of precedence is geological and matters: the matrix is the oldest
+   thing, beds were laid down into it, and veins cut across the beds — so a
+   vein wins over a bed, and a bed wins over the matrix. Reading them in the
+   other order gives a rock where the youngest event is buried by the oldest,
+   which is subtly wrong in a way that is hard to name but easy to see.
+
+   d = cells below the local surface, y = absolute world row. */
+function strataMat(d,y,x){
+  x=x||0;
+  const s=(d<VH*0.10)?SUITES.subsoil:suiteFor(zoneAt(y).id);
+  // veins first — youngest, so they cut everything
+  for(const v of s.veins){
+    const [wx,wy]=warp2(x,y,v.warp,v.scale*0.7);
+    if(fbm2(wx*v.scale,wy*v.scale,3)>1.0-v.cover)return v.m;
   }
+  // then the bedding
+  const bed=bedAt(x,y);
+  const bi=Math.floor(bed);
+  for(const b of s.beds){
+    if(((bi%b.every)+b.every)%b.every<b.of){
+      /* Patchiness along the bed, from a field rather than a coin flip — this
+         is what lets a bed thin out and disappear over a stretch and come back
+         further along, instead of dissolving into speckle. */
+      if(fbm2(x*0.035,bi*2.7,2)<b.p)return b.m;
+    }
+  }
+  return s.matrix;
 }
+
 /* Cave-wall noise. hillNoise is a 1-D function of x and gives every row the
    same wobble, which on a cave rim reads as vertical banding; this needs both
    axes. Three sines at incommensurate frequencies is enough turbulence for a
@@ -4819,10 +6185,20 @@ function caveNoise(x,y){
 const ROOM_INSET={get top(){return (VH*0.30)|0;},get bot(){return (VH*0.30)|0;}};
 // Fill a rect with one material, frozen so it holds as built.
 function slab(x0,y0,x1,y1,m,v){
+  /* Structural material is textured from its BIRTH POSITION, not filled with a
+     random shade index. That one line is the difference between a wall and a
+     rectangle: courses line up across a whole room, across the seam where
+     carveRoom's lining meets a pillar, and across an arch springing off it,
+     because every cell derives its role from where it sits in the world rather
+     than from a coin flip. The random path it replaces put ±38 of per-cell
+     salt-and-pepper on every wall in the underground, which swamped the mortar
+     courses the renderer was already drawing underneath it. */
+  const st=STRUCT_MAT[m], tone=st?toneOf(v):0;
   for(let y=Math.max(0,y0);y<=Math.min(H-1,y1);y++)
     for(let x=Math.max(0,x0);x<=Math.min(W-1,x1);x++){
       const gi=idx(x,y);
-      grid[gi]=m;variant[gi]=(v===undefined?(Math.random()*4|0):v);
+      grid[gi]=m;
+      variant[gi]=st?builtVariant(m,x,y,tone):(v===undefined?(Math.random()*4|0):v);
       frozen[gi]=(m===EMPTY)?0:1;
     }
 }
@@ -4868,16 +6244,35 @@ function prop(name,cx,bottomY,box){
    in cells, and the test is on radius rather than on a scanline, which is what
    keeps the voussoirs stepping evenly around the curve instead of bunching at
    the crown the way a per-row width would. */
-function arch(cx,springY,r,m,thick){
+/* `rise` is optional and defaults to the half-span, which is a semicircle and
+   exactly what this drew before. Pass a smaller one and it becomes a SEGMENTAL
+   arch: the same ring, struck from a longer radius whose centre sits below the
+   springline, so a wide bay can be spanned without the crown rising into the
+   ceiling. That is the whole reason the vault can have a bay twice the width
+   of its neighbours — a semicircle over a double span would want twice the
+   headroom, and there are seven cells of masonry up there. */
+function arch(cx,springY,halfSpan,m,thick,rise){
   thick=thick||2;
-  for(let y=springY-r-thick;y<=springY;y++){
-    for(let x=cx-r-thick;x<=cx+r+thick;x++){
+  const rs=(rise===undefined?halfSpan:Math.max(2,rise));
+  const r=(halfSpan*halfSpan+rs*rs)/(2*rs);   // radius of the striking circle
+  const cy=springY+(r-rs);                     // its centre, at or below the spring
+  for(let y=springY-rs-thick;y<=springY;y++){
+    for(let x=cx-halfSpan-thick;x<=cx+halfSpan+thick;x++){
       if(x<0||x>=W||y<0||y>=H)continue;
-      const dx=x-cx,dy=y-springY;
+      const dx=x-cx,dy=y-cy;
       const dist=Math.sqrt(dx*dx+dy*dy);
       if(dist<r||dist>r+thick)continue;
       const gi=idx(x,y);
-      grid[gi]=m;variant[gi]=Math.random()*4|0;frozen[gi]=1;
+      /* Voussoirs, not a strip of wall bent round a corner. The ring is
+         unrolled into (arc length, depth) and the masonry is baked in THAT
+         space, so the joints run radially — perpendicular to the curve — the
+         way an arch is actually cut. Baking on (x,y) leaves horizontal bed
+         joints sliding across the curve, which reads as a hole punched in a
+         wall rather than as something built to stand up over one. */
+      const arc=Math.round(Math.atan2(cy-y,x-cx)*r);
+      grid[gi]=m;
+      variant[gi]=STRUCT_MAT[m]?builtVariant(m,arc,Math.round(dist-r),0):(Math.random()*4|0);
+      frozen[gi]=1;
     }
   }
 }
@@ -4916,61 +6311,46 @@ function panelBracket(el,m){
    its way in. Lit by glass sconces, which underground now glow (see glassLit)
    and give the room a cold pale light with no new material and no new code in
    the light path. The ghost is Snap's, and the room is built to earn it. */
+// Rooms are built around their content envelope. Peripheral architecture stays
+// outside the equipment; it no longer divides the work into arbitrary bays.
+function buildExhibitShell(zone,y0,y1){
+  const bounds=exhibitBounds(W,SCALE);
+  const x0=Math.max(2,Math.floor(bounds.x/SCALE)-7),x1=Math.min(W-3,Math.ceil((bounds.x+bounds.width)/SCALE)+7);
+  const ceil=y0+Math.floor(VH*.18),floor=ceil+Math.ceil(DEPTH_LAYOUT.bands[zone].minRoom/SCALE);
+  const material=PANEL_FRAME[zone];
+  carveRoom(x0,ceil,x1,floor,material);
+  slab(x0,floor-1,x1,floor+1,material,2);
+  slab(x0,ceil,x1,ceil+1,material,2);
+  for(const x of [x0+1,x1-1]){
+    slab(x,ceil+3,x,floor-3,material,1);
+    for(let y=ceil+10;y<floor-5;y+=24){slab(x-1,y,x+1,y+3,STONE,2);slab(x,y+1,x,y+2,GLASS,0);}
+  }
+  if(zone==='workshop'){
+    for(let x=x0+6;x<x1-4;x+=14)slab(x,ceil+2,x+1,ceil+4,WOOD,3);
+    slab(x0,floor+2,x1,floor+3,BRICK,1);
+  }else if(zone==='crypt'){
+    for(let x=x0+5;x<x1-4;x+=20){slab(x,ceil+2,x+2,ceil+4,BRICK,2);}
+    for(let x=x0+4;x<x1-3;x+=9)slab(x,floor-2,x+2,floor-2,MOSS,1);
+  }else if(zone==='lab'){
+    for(let x=x0+3;x<x1-2;x++){
+      const i=idx(x,ceil+3);grid[i]=FUSE;variant[i]=0;frozen[i]=0;
+    }
+    for(let x=x0+3;x<x1-2;x+=6)slab(x,floor-2,x+2,floor-2,THATCH,1);
+  }else if(zone==='arcade'){
+    for(let x=x0+3;x<x1-2;x+=8){slab(x,ceil+3,x+4,ceil+3,GLASS,1);}
+    for(let y=floor-2;y<=floor;y++)for(let x=x0;x<=x1;x++){
+      const m=((Math.floor(x/3)+Math.floor(y/3))&1)?BRICK:STONE;slab(x,y,x,y,m,2);
+    }
+  }else{
+    slab(x0+2,floor-2,x1-2,floor-1,STONE,2);
+    const lavaY=Math.min(H-4,floor+Math.floor(VH*.15));
+    slab(x0,lavaY,x1,lavaY+3,LAVA,0);
+    for(let y=lavaY;y<=lavaY+3;y++)for(let x=x0;x<=x1;x++)frozen[idx(x,y)]=0;
+  }
+  return {ceil,floor,x0,x1,exhibit:true};
+}
 function buildCrypt(y0,y1){
-  const x0=(W*0.045)|0, x1=(W*0.955)|0;
-  /* ROOM_INSET is what separates the rooms. At the original 0.10/0.06 the
-     floor of one room and the ceiling of the next were ~0.16 of a screen
-     apart, which is thinner than the walls: the descent read as one long
-     interior with the decor changing, and spawnCaves (threshold 0.18) never
-     fired at all. Nearly half a screen of rock between rooms is what makes
-     arriving in the next one feel like arriving. */
-  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
-  carveRoom(x0,ceil,x1,floor,BRICK);
-
-  // flagstone floor, with moss taking the joints
-  slab(x0,floor-1,x1,floor,BRICK,1);
-  for(let x=x0;x<=x1;x++){
-    if(x%7===0)slab(x,floor-1,x,floor,BRICK,3);           // a joint line
-    if(Math.random()<0.18)putCell(x,floor-2,MOSS,Math.random()*4|0);
-  }
-
-  // ── pillars and the arcade of arches between them ──
-  // Spaced so the bays are wider than a panel: a panel that overlapped a
-  // pillar would look wedged in rather than hung in a bay.
-  const bays=6;
-  const step=(x1-x0)/bays;
-  const pxs=[];
-  for(let k=0;k<=bays;k++)pxs.push(Math.round(x0+k*step));
-  const springY=ceil+((VH*0.16)|0);
-  for(const px of pxs){
-    slab(px-2,springY,px+2,floor,BRICK);                  // the shaft of the pillar
-    slab(px-3,springY,px+3,springY+2,BRICK,2);            // impost block, a lip at the spring
-    slab(px-3,floor-3,px+3,floor,BRICK,2);                // and a base
-  }
-  for(let k=0;k<bays;k++){
-    const a=pxs[k],b=pxs[k+1];
-    arch(((a+b)/2)|0,springY,((b-a)/2)|0,BRICK,3);
-  }
-  // clear the haunches so the bays read as open, not as a wall with holes
-  for(let k=0;k<bays;k++){
-    const a=pxs[k]+4,b=pxs[k+1]-4;
-    if(b>a)slab(a,springY+4,b,floor-4,EMPTY);
-  }
-
-  // ── water finding its way in ──
-  // Two drips and the pools under them. The pools are what sell it: a drip
-  // with nothing under it reads as a rendering artefact.
-  for(const f of [0.24,0.71]){
-    const dx=(x0+(x1-x0)*f)|0;
-    for(let y=ceil;y<ceil+4;y++)putCell(dx,y,WATER,0);
-    slab(dx-5,floor-2,dx+5,floor-2,EMPTY);
-    for(let x=dx-4;x<=dx+4;x++)putCell(x,floor-2,WATER,0);
-    for(let x=dx-6;x<=dx+6;x++)putCell(x,floor-3,MOSS,Math.random()*4|0);
-  }
-
-  // The bay grid goes into the box because furnishing needs it later — see
-  // furnishRooms, which runs after the panels are hung.
-  return {ceil,floor,x0,x1,bays,pxs,springY,step};
+  return buildExhibitShell('crypt',y0,y1);
 }
 
 /* ── THE LAB (hackathons & awards) ────────────────────────
@@ -4980,24 +6360,7 @@ function buildCrypt(y0,y1){
    which means the ceiling is a circuit: put fire to one end and the whole
    room's wiring runs. */
 function buildLab(y0,y1){
-  const x0=(W*0.045)|0, x1=(W*0.955)|0;
-  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
-  carveRoom(x0,ceil,x1,floor,STONE);
-
-  // poured floor with tile joints every six cells
-  slab(x0,floor-1,x1,floor,STONE,7);
-  for(let x=x0;x<=x1;x+=6)slab(x,floor-1,x,floor,BRICK,1);
-
-  // ── the conduit ──
-  // One live fuse line the width of the room, two cells under the ceiling, with
-  // a drop to each tank. Unfrozen on purpose: see stampSprite.
-  const cy=ceil+2;
-  for(let x=x0+2;x<=x1-2;x++){
-    const gi=idx(x,cy);
-    grid[gi]=FUSE;variant[gi]=0;frozen[gi]=0;
-  }
-
-  return {ceil,floor,x0,x1,conduitY:cy};
+  return buildExhibitShell('lab',y0,y1);
 }
 
 /* ── THE ARCADE (games) ───────────────────────────────────
@@ -5005,32 +6368,7 @@ function buildLab(y0,y1){
    are glass and therefore the light: the room is lit entirely by the things
    you would have been playing, which is the whole joke. */
 function buildArcade(y0,y1){
-  const x0=(W*0.045)|0, x1=(W*0.955)|0;
-  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
-  carveRoom(x0,ceil,x1,floor,STONE);
-
-  // ── checkerboard ──
-  // Three-cell squares. One cell would dither into flat grey at this scale,
-  // and six would read as a floor plan rather than a floor.
-  const sq=3;
-  for(let y=floor-2;y<=floor;y++)for(let x=x0;x<=x1;x++){
-    const dark=((((x/sq)|0)+(((floor-y)/sq)|0))&1)===0;
-    const gi=idx(x,y);
-    grid[gi]=dark?BRICK:STONE;variant[gi]=dark?1:7;frozen[gi]=1;
-  }
-
-  // ── ceiling tubes ──
-  const tubeGap=Math.max(8,(W*0.11)|0);
-  for(let x=x0+4;x<=x1-4;x+=tubeGap){
-    const w=(W*0.045)|0;
-    for(let k=0;k<w;k++){
-      const gi=idx(Math.min(W-1,x+k),ceil+2);
-      grid[gi]=GLASS;variant[gi]=2;frozen[gi]=1;
-    }
-    slab(x-1,ceil+1,x+w,ceil+1,STONE,1);
-  }
-
-  return {ceil,floor,x0,x1};
+  return buildExhibitShell('arcade',y0,y1);
 }
 
 /* ── THE WORKSHOP (about me) ──────────────────────────────
@@ -5044,42 +6382,7 @@ function buildArcade(y0,y1){
    joists overhead and a packed-earth floor, so even the construction says
    somebody lives here. */
 function buildWorkshop(y0,y1){
-  const x0=(W*0.05)|0, x1=(W*0.95)|0;
-  const ceil=y0+ROOM_INSET.top, floor=y1-ROOM_INSET.bot;
-  carveRoom(x0,ceil,x1,floor,WOOD);
-
-  // packed-earth floor on a brick footing — the floor of a cellar, not a slab
-  slab(x0,floor-1,x1,floor,DIRT);
-  slab(x0,floor+1,x1,floor+2,BRICK,1);
-  for(let x=x0;x<=x1;x++)if(Math.random()<0.07)putCell(x,floor-2,STONE,Math.random()*4|0);
-
-  // ── joists ──
-  // Beams across the ceiling on a regular bay, each with a post at the wall
-  // end. Cheap, and it is the single strongest cue that the room has a
-  // structure rather than an outline.
-  const bay=Math.max(9,(W*0.11)|0);
-  for(let x=x0+2;x<=x1-2;x+=bay){
-    slab(x,ceil+1,x+1,ceil+3,WOOD,3);
-  }
-  slab(x0,ceil+1,x1,ceil+1,WOOD,1);          // the plate they all sit on
-
-  // ── the hearth ──
-  // A brick chimney breast on the left wall with a fire in it. The one open
-  // flame in the world below ground, and it behaves like one: it is real FIRE,
-  // so it flickers, it lights the room, and the timber around it is genuinely
-  // flammable. Firewood stacked beside it is the fuel.
-  const hx=x0+((W*0.10)|0);
-  slab(hx-7,ceil+4,hx+7,floor,BRICK,1);      // the breast, floor to ceiling
-  slab(hx-4,floor-9,hx+4,floor-1,EMPTY);     // the opening
-  slab(hx-5,floor-10,hx+5,floor-10,BRICK,2); // a lintel over it
-  for(let x=hx-3;x<=hx+3;x++){
-    putCell(x,floor-2,WOOD,3);
-    if(Math.random()<0.7)putCell(x,floor-3,FIRE,0);
-  }
-  wakeRect(hx-8,ceil+3,hx+8,floor+1);
-  pixDirtyRect(hx-8,ceil+3,hx+8,floor+1);
-
-  return {ceil,floor,x0,x1,bay,hearthX:hx};
+  return buildExhibitShell('workshop',y0,y1);
 }
 /* Lamps, a bench, and the clutter of somebody's workroom. */
 function furnishWorkshop(box){
@@ -5124,14 +6427,22 @@ function column(cx,topY,botY){
      Seven gives three flutes and, more importantly, enough lit surface that
      the column reads as pale stone standing in a warm room. */
   const HW=3;
+  /* Tone across the seven cells of the shaft: dark at both arrises, lit either
+     side of centre. At this width a column cannot have both real flutes and a
+     cylinder, and the cylinder is the one that makes it read as a column — so
+     the shaft is drum-coursed ashlar with a round light on it.
+
+     What was here alternated variants 1 and 7, which after JITTER amounted to
+     a 3/255 difference. That is why the colonnade rendered as seven flat bars:
+     the shading was there in the source and had never once reached a pixel. */
+  const CYL=[1,0,2,2,0,1,1];
   for(let y=topY+3;y<=botY-2;y++){
     if(y<0||y>=H)continue;
     for(let dx=-HW;dx<=HW;dx++){
       const x=cx+dx;
       if(x<0||x>=W)continue;
       const gi=idx(x,y);
-      // light down the middle of each flute, shadow in the quirks between them
-      grid[gi]=STONE;variant[gi]=(Math.abs(dx)%2===1)?1:7;frozen[gi]=1;
+      grid[gi]=STONE;variant[gi]=stoneVariant(x,y,CYL[dx+HW]);frozen[gi]=1;
     }
   }
   slab(cx-HW-1,topY+1,cx+HW+1,topY+2,STONE,7);   // capital
@@ -5180,35 +6491,7 @@ function pediment(cx,baseY,halfW){
    the whole frame blows out to white — the glow has to have rock under it to
    read as heat rather than as a blank exposure. */
 function buildCore(y0,y1){
-  const x0=(W*0.08)|0, x1=(W*0.92)|0;
-  /* Inset by hand rather than by ROOM_INSET: at the shared inset the chamber
-     came out 64 cells tall — shorter than a panel — so the one room that
-     closes the descent had nowhere to hang anything. */
-  const ceil=y0+((VH*0.20)|0), floor=y0+((VH*1.06)|0);
-  carveRoom(x0,ceil,x1,floor,STONE);
-
-  // ── stylobate: three steps, so the colonnade stands ON something ──
-  slab(x0,floor-1,x1,floor,STONE,7);
-  slab(x0+3,floor-3,x1-3,floor-2,STONE,7);
-  slab(x0+7,floor-5,x1-7,floor-4,STONE,7);
-
-  // ── the facade, hung from the ceiling end ──
-  const entY=ceil+((VH*0.17)|0);
-  pediment(((x0+x1)/2)|0,entY-1,((x1-x0)*0.40)|0);
-  entablature(x0+2,x1-2,entY);
-  const colTop=entY+5, colBot=floor-6;
-
-  // ── the magma below it ──
-  const lavaTop=Math.min(H-1,floor+((VH*0.34)|0));
-  const seam=Math.max(5,(VH*0.10)|0);
-  for(let x=0;x<W;x++){
-    const jag=(caveNoise(x,lavaTop)*3)|0;
-    const top=lavaTop+jag;
-    for(let y=floor+3;y<top;y++)putCell(x,y,STONE,Math.random()*4|0);
-    for(let y=top;y<Math.min(H,top+seam);y++)putCell(x,y,LAVA,0);
-    for(let y=top+seam;y<H;y++)putCell(x,y,STONE,Math.random()*4|0);
-  }
-  return {ceil,floor,x0,x1,colTop,colBot};
+  return buildExhibitShell('core',y0,y1);
 }
 /* The colonnade, plus the furniture of a room for sitting still in.
 
@@ -5275,6 +6558,95 @@ function spawnCaves(y0,y1){
   }
 }
 
+/* ═══ CONTACTS ═══
+   What happens where rock meets air.
+
+   This is the half of the grammar that strataMat cannot express, and the
+   reason it is a separate pass rather than another rule in the suite: a suite
+   is a function of position only, and "is there a void next to me, and is it
+   above me or below me" is a question about the world AFTER the rooms and
+   caves have been cut. So it runs last, once, over everything.
+
+   It is also the rule that does the most visible work. Every void in this
+   world is carved by thresholding a noise field, which gives a clean one-cell
+   rim everywhere — mathematically a surface, visually a cut. Real rock does
+   not end at a line: it weathers where the air touches it, it grows things
+   where the water sits, and the debris off the face piles at the bottom. Those
+   three are what turn a hole into a place.
+
+   Only UNFROZEN cells are touched, which is exactly the natural rock: every
+   wall, pillar, arch and floor a room builder laid is frozen and comes through
+   this pass untouched. A vault does not grow moss on its own masonry here —
+   the room builders place that deliberately where they want it. */
+function faceOf(x,y){
+  // which way the air is, if any. Bit per direction, cheap and enough.
+  let f=0;
+  if(y>0   &&grid[idx(x,y-1)]===EMPTY)f|=1;   // air above → this is a floor
+  if(y<H-1 &&grid[idx(x,y+1)]===EMPTY)f|=2;   // air below → this is a ceiling
+  if(x>0   &&grid[idx(x-1,y)]===EMPTY)f|=4;
+  if(x<W-1 &&grid[idx(x+1,y)]===EMPTY)f|=8;
+  return f;
+}
+/* Is there standing water within `r` cells? Moss answers to water far more
+   than to anything else, and a room with a drip in it should be visibly
+   greener around that drip than at the far end. */
+function nearWater(x,y,r){
+  for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    const nx=x+dx,ny=y+dy;
+    if(nx<0||nx>=W||ny<0||ny>=H)continue;
+    if(grid[idx(nx,ny)]===WATER)return true;
+  }
+  return false;
+}
+function spawnContacts(){
+  const y0=Math.max(0,(VH*0.9)|0);
+  for(let y=y0;y<H;y++){
+    const z=zoneAt(y), s=suiteFor(z.id);
+    for(let x=0;x<W;x++){
+      const gi=idx(x,y);
+      const m=grid[gi];
+      if(frozen[gi])continue;                       // architecture is not weather
+      if(m!==STONE&&m!==DIRT&&m!==BRICK)continue;   // only the bulk rock
+      const f=faceOf(x,y);
+      if(!f)continue;                               // buried: nothing reaches it
+
+      /* Coherent along the face. The field is sampled in world coords at a
+         scale of a few cells, so growth and weathering come in patches that
+         run along a rim — which is what they do — instead of alternating
+         cell by cell the way an independent draw would. */
+      const n=fbm2(x*0.11,y*0.11,3);
+
+      /* ── damp growth ──
+         Strongest on undersides, because that is where water hangs and where
+         it reads best: moss on a ceiling breaks the hard carved rim and hangs
+         INTO the void, which is the one place the eye is already looking.
+         Water nearby overrides the zone's own dampness entirely — a drip makes
+         its own microclimate. */
+      const wet=nearWater(x,y,4);
+      let dampness=wet?0.95:s.damp;
+      if(f&2)dampness*=1.15;                        // ceiling: drips form here
+      else if(f&1)dampness*=0.80;                   // floor: water runs off it
+      else dampness*=0.90;                          // wall
+      if(m!==BRICK&&n>1.0-dampness*0.42){
+        grid[gi]=MOSS;variant[gi]=hash2i(x,y)&3;
+        continue;
+      }
+
+      /* ── weathered rind ──
+         Dry rock does not grow anything, but it does break down where it is
+         exposed. A patchy fringe of DIRT along a face is enough: it puts a
+         second value against the rim so the face stops reading as one flat
+         plane meeting one flat void. Stone only — dirt weathering into dirt
+         is not a visible event. */
+      if(m===STONE&&n<0.30-s.damp*0.12){
+        grid[gi]=DIRT;variant[gi]=hash2i(x+7,y)&3;
+      }
+    }
+  }
+  wakeRect(0,y0,W-1,H-1);
+  pixDirtyRect(0,y0,W-1,H-1);
+}
+
 /* Build every room, then the rock between them.
 
    ROOM_BOX is kept because three later passes need to know where the void
@@ -5319,6 +6691,8 @@ function spawnStrata(surf){
       frozen[idx(px,py)]=0;
     }
   }
+  // contacts last: it is the only rule that needs the voids to already exist
+  spawnContacts();
   wakeRect(0,VH,W-1,H-1);
 }
 
@@ -5385,8 +6759,414 @@ function propClear(name,cx,bottomY,box){
   if(!w||!h)return false;
   const gx=Math.round(cx-w/2);
   if(blocked(gx-1,bottomY-h-1,gx+w+1,bottomY+1))return false;
-  return prop(name,cx,bottomY,box);
+  if(!prop(name,cx,bottomY,box))return false;
+  // A room's furniture is furniture: register it as a body so it can be knocked
+  // over, rather than leaving it as masonry that happens to be chair-shaped.
+  // Dormant on arrival — see makeSpriteBody.
+  if(SB_KINDS.has(name))makeSpriteBody(name,gx,bottomY);
+  return true;
 }
+
+/* ═══════════════════════════════════════════════════════
+   SPRITE BODIES — the props, as rigid bodies whose PIXELS are the shape
+═══════════════════════════════════════════════════════ */
+/* There were already two halves of this in the file and they had never been
+   introduced to each other.
+
+   The oriented-box solver above (makeBody / contact / resolveWorld) has real
+   rotation, impulse dynamics with restitution and friction, sleeping, and —
+   the part that matters — restampBodies, which writes a body's footprint into
+   the CA grid so sand piles on a body that is turning. That is the whole trick
+   a falling-sand world needs from its rigid bodies. It has been dead code
+   since the project panels moved to the DOM, and it was box-only: hw/hh, four
+   corners, and a decorative texture on a quad. The pixels were not the shape.
+
+   tryChunkDetach has the other half: a connected-component flood fill that
+   drops a region of masonry as one coherent piece, carrying each cell's baked
+   variant along so the coursing survives the fall. Pixel-accurate shape and
+   material identity — but it can only translate.
+
+   This is the union. The sprite's own cells are the body: they decide its
+   silhouette, they carry their own material and shade into the grid, and when
+   one of them is burnt or dissolved the body loses that pixel and carries on
+   with a hole in it.
+
+   Two decisions are load-bearing:
+
+   ROTATION IS QUANTISED to SB_ANGLES steps. These sprites are 7-24 cells tall.
+   Rotating that by an arbitrary angle and resampling into a one-cell-per-pixel
+   grid shimmers badly and eats the silhouette, which is the only thing a prop
+   this size has. Sixteen pre-rasterised angles cost a few KB, never shimmer,
+   and read as deliberate. Each angle is built by INVERSE mapping — for every
+   target cell, rotate backwards and sample the source — because forward
+   mapping leaves holes wherever two source cells round to the same target.
+
+   A BODY STAMPS ITS OWN MATERIALS, not a placeholder. RIGID renders as nothing
+   and is drawn over the top as a textured quad, which opts a body out of the
+   entire palette: no coursing, no relief, no light. Writing real WOOD/GLASS/
+   STONE means a toppled cabinet is lit, shaded and posterized by exactly the
+   same code as the wall behind it — and burns and dissolves by the same rules
+   too. */
+const SB_ANGLES=16;
+const spriteBodies=[];
+/* Which props are furniture rather than architecture. The sarcophagus is
+   deliberately absent: a stone chest on a brick plinth should read as part of
+   the room, and a tomb that skids across the floor is a different joke. */
+const SB_KINDS=new Set(['crates','console','cylinder','cabinet','lowboy',
+                        'vending','lectern','bookstack','candelabra','urn',
+                        'specs']);
+
+/* Per-sprite geometry, built once and shared by every instance of it. */
+const SB_ART={};
+function sbArt(name){
+  if(SB_ART[name]!==undefined)return SB_ART[name];
+  const art=SPRITES[name];
+  if(!art){SB_ART[name]=null;return null;}
+  const h=art.length, w=spriteW(name);
+  const ox=w>>1, oy=h>>1;
+  // source cells in local coords, plus a lookup so the inverse map is O(1)
+  const src=[], srcAt=new Int16Array(w*h).fill(-1);
+  for(let ry=0;ry<h;ry++){
+    const row=art[ry];
+    for(let rx=0;rx<row.length;rx++){
+      const spec=SPRITE_MATS[row[rx]];
+      if(!spec)continue;
+      srcAt[ry*w+rx]=src.length;
+      src.push({lx:rx-ox,ly:ry-oy,m:spec.m,v:spec.v});
+    }
+  }
+  if(!src.length){SB_ART[name]=null;return null;}
+  const R=Math.ceil(Math.sqrt(ox*ox+oy*oy))+2;
+  const ang=[];
+  for(let k=0;k<SB_ANGLES;k++){
+    const th=k*2*Math.PI/SB_ANGLES, c=Math.cos(th), sn=Math.sin(th);
+    const cells=[];
+    const low=new Map();                       // lowest cell per column
+    for(let ty=-R;ty<=R;ty++)for(let tx=-R;tx<=R;tx++){
+      // a world offset maps back into sprite space by the INVERSE rotation
+      const sx=Math.round(tx*c+ty*sn), sy=Math.round(-tx*sn+ty*c);
+      const ax=sx+ox, ay=sy+oy;
+      if(ax<0||ax>=w||ay<0||ay>=h)continue;
+      const si=srcAt[ay*w+ax];
+      if(si<0)continue;
+      cells.push(tx,ty,si);
+      const cur=low.get(tx);
+      if(cur===undefined||ty>cur)low.set(tx,ty);
+    }
+    /* Contact probes. A body rests correctly on uneven ground only if it is
+       tested at the LOWEST cell of several columns; probing a bounding box's
+       corners instead is what makes a physics prop hover over a step or sink
+       into one. Nine columns spread across the width, plus the extremes of the
+       silhouette so a body wedged into a wall gets pushed back out of it. */
+    const cols=[...low.keys()].sort((a,b)=>a-b);
+    const probes=[];
+    const NP=Math.min(9,cols.length);
+    for(let i=0;i<NP;i++){
+      const tx=cols[NP===1?0:Math.round(i*(cols.length-1)/(NP-1))];
+      probes.push(tx,low.get(tx));
+    }
+    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+    for(let i=0;i<cells.length;i+=3){
+      if(cells[i]<x0)x0=cells[i]; if(cells[i]>x1)x1=cells[i];
+      if(cells[i+1]<y0)y0=cells[i+1]; if(cells[i+1]>y1)y1=cells[i+1];
+    }
+    const my=((y0+y1)/2)|0;
+    probes.push(x0,my, x1,my, ((x0+x1)/2)|0,y0);
+    ang.push({cells:new Int16Array(cells),probes:new Int16Array(probes),
+              hw:Math.max(-x0,x1),hh:Math.max(-y0,y1)});
+  }
+  const A={src,ang,w,h,ox,oy,rad:R};
+  SB_ART[name]=A;
+  return A;
+}
+
+/* A prop, registered where prop() has just stamped it.
+
+   Born DORMANT: its cells are ordinary frozen sprite pixels in the grid, it
+   owns no dynamics, and it costs exactly what the prop cost before. It becomes
+   a live body only when something disturbs it — its support goes, a blast
+   reaches it, or the visitor picks it up. That is both the cheap way to carry
+   thirty of these and the honest one: a cabinet standing on a floor is not
+   doing any physics. */
+function makeSpriteBody(name,gx,bottomY){
+  const A=sbArt(name);
+  if(!A)return null;
+  const n=A.src.length;
+  const mass=Math.max(1,n*0.010);
+  let r2=0; for(const c of A.src)r2+=c.lx*c.lx+c.ly*c.ly;
+  const b={
+    name, art:A,
+    // world position of the sprite's local origin. prop() put its bottom row
+    // on bottomY and its left column on gx, so this backs that out.
+    x:gx+A.ox, y:bottomY-(A.h-1)+A.oy,
+    a:0, ang:0, vx:0, vy:0, va:0,
+    invM:1/mass, invI:1/Math.max(1,mass*(r2/n)*0.5),
+    e:0.05, fric:0.66,
+    live:false, sleeping:true, sleepT:0, dragging:false,
+    alive:new Uint8Array(n).fill(1),
+    owned:[],
+  };
+  spriteBodies.push(b);
+  return b;
+}
+
+/* What a body lands ON. Deliberately wider than solidT, which only knows
+   STONE/DIRT/GRASS: every floor underground is brick, dressed stone or timber,
+   and a body that collided only with terrain fell through all five rooms. */
+function sbSolid(x,y){
+  if(x<0||x>=W||y<0||y>=H)return false;
+  const i=idx(x,y), m=grid[i];
+  if(m===STONE||m===DIRT||m===GRASS||m===MASK)return true;
+  return (m===BRICK||m===WOOD||m===GLASS||m===THATCH)&&frozen[i]===1&&inChunk[i]===0;
+}
+
+/* Lift a live body's cells back out of the grid, noticing on the way which of
+   them did not survive. Anything that is no longer OUR material was burnt,
+   dissolved or blasted while it sat there — that pixel is struck off the body
+   for good, which is how a body damaged in flight keeps the damage. */
+function sbUnstamp(b){
+  const src=b.art.src;
+  for(let k=0;k<b.owned.length;k+=2){
+    const gi=b.owned[k], si=b.owned[k+1];
+    if(grid[gi]===src[si].m){
+      grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;inChunk[gi]=0;
+      pixDirty(gi%W,(gi/W)|0);
+    } else {
+      b.alive[si]=0;
+    }
+  }
+  b.owned.length=0;
+}
+
+function sbStamp(b){
+  const A=b.art;
+  const k=((Math.round(b.a/(2*Math.PI)*SB_ANGLES)%SB_ANGLES)+SB_ANGLES)%SB_ANGLES;
+  b.ang=k;
+  const cells=A.ang[k].cells, src=A.src;
+  const bx=Math.round(b.x), by=Math.round(b.y);
+  let x0=1e9,y0=1e9,x1=-1,y1=-1;
+  for(let i=0;i<cells.length;i+=3){
+    const si=cells[i+2];
+    if(!b.alive[si])continue;
+    const gx=bx+cells[i], gy=by+cells[i+1];
+    if(gx<1||gx>=W-1||gy<0||gy>=H)continue;
+    const gi=idx(gx,gy), g=grid[gi];
+    if(isStatic(g))continue;            // terrain and page text are not ours to move
+    if(g!==EMPTY)displace(gx,gy);       // shove loose grains out of the way
+    const s=src[si];
+    grid[gi]=s.m;variant[gi]=s.v;frozen[gi]=1;
+    /* inChunk is what keeps step() off these cells: a frozen cell that a
+       falling chunk owns returns immediately. Without it the sim spends every
+       frame trying to decompose a body that is mid-air, and a tumbling crate
+       sheds itself into splinters before it ever lands. */
+    inChunk[gi]=1;
+    b.owned.push(gi,si);
+    if(gx<x0)x0=gx; if(gy<y0)y0=gy; if(gx>x1)x1=gx; if(gy>y1)y1=gy;
+  }
+  if(x1>=x0){wakeRect(x0-1,y0-1,x1+1,y1+1);pixDirtyRect(x0-1,y0-1,x1+1,y1+1);}
+}
+
+/* Wake a dormant prop into a body.
+
+   Its pixels are read out of the grid rather than assumed, so a prop that has
+   already had half of it burnt away wakes up as the half that is left. */
+function sbActivate(b){
+  if(b.live)return;
+  const A=b.art, cells=A.ang[b.ang].cells, src=A.src;
+  const bx=Math.round(b.x), by=Math.round(b.y);
+  for(let i=0;i<cells.length;i+=3){
+    const si=cells[i+2];
+    if(!b.alive[si])continue;
+    const gx=bx+cells[i], gy=by+cells[i+1];
+    if(gx<0||gx>=W||gy<0||gy>=H){b.alive[si]=0;continue;}
+    const gi=idx(gx,gy);
+    if(grid[gi]!==src[si].m||frozen[gi]!==1){b.alive[si]=0;continue;}
+    grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;inChunk[gi]=0;
+    wake3(gx,gy);pixDirty(gx,gy);
+  }
+  b.live=true;b.sleeping=false;b.sleepT=0;b.owned.length=0;
+}
+
+/* Come to rest: hand the cells back to the world as ordinary frozen sprite
+   pixels, so a settled body burns, dissolves and takes weight exactly as the
+   prop it was before anybody pushed it over. */
+function sbSettle(b){
+  for(let k=0;k<b.owned.length;k+=2)inChunk[b.owned[k]]=0;
+  b.live=false;b.sleeping=true;b.vx=b.vy=b.va=0;b.sleepT=0;
+}
+
+/* Which way is OUT of the material this probe is buried in, and how far.
+
+   The first version answered "up, always", copying the box solver above — and
+   the box solver got away with it because a box only ever probed the ground
+   under itself. A sprite body probes its own silhouette, so its side and top
+   probes sit inside the wall beside it and the ceiling over it all the time,
+   and every one of them was shoving the body upward by up to five cells a
+   frame. An arcade cabinet climbed 330 cells out of its room.
+
+   Four short walks, shortest wins. Capped at 8: a probe buried deeper than
+   that is a tunnelling event, and easing it out over a few frames reads far
+   better than teleporting it clear in one. */
+const SB_ESC=[[0,-1],[0,1],[-1,0],[1,0]];
+function sbEscape(x,y){
+  let best=99,bnx=0,bny=-1;
+  for(let k=0;k<4;k++){
+    const dx=SB_ESC[k][0],dy=SB_ESC[k][1];
+    let n=0,cx=x,cy=y;
+    while(n<8&&sbSolid(cx,cy)){cx+=dx;cy+=dy;n++;}
+    if(n<best){best=n;bnx=dx;bny=dy;}
+  }
+  return [bnx,bny,Math.min(5,best)];
+}
+function sbResolveWorld(b){
+  const P=b.art.ang[b.ang].probes;
+  const floorY=H-5;
+  /* Gather the contacts BEFORE resolving any of them, and split the positional
+     correction between them.
+
+     contact() pushes the body out by 40% of the penetration it is handed. That
+     is fine for one contact and catastrophic for twelve: a cabinet resting flat
+     on a floor reports every one of its bottom probes as penetrating by about a
+     cell, and resolving them in sequence moved it twelve times as far as any of
+     them asked for. Three solver iterations on top of that launched the first
+     version of this 440 cells up through two rooms and into the lab.
+
+     Sharing the correction is the standard fix and it is the whole difference
+     between a body that settles and a body that explodes. The velocity impulse
+     is deliberately NOT shared — resolving the same contact set repeatedly is
+     what a sequential-impulse solver is supposed to do, and it just converges. */
+  const hits=[];
+  for(let i=0;i<P.length;i+=2){
+    const px=b.x+P[i], py=b.y+P[i+1];
+    if(px<1)hits.push(px,py,1,0,1-px);
+    else if(px>W-2)hits.push(px,py,-1,0,px-(W-2));
+    if(py>floorY)hits.push(px,py,0,-1,py-floorY);
+    else if(sbSolid(px|0,py|0)){
+      const e=sbEscape(px|0,py|0);
+      hits.push(px,py,e[0],e[1],e[2]);
+    }
+  }
+  const n=hits.length/5;
+  if(!n)return;
+  const share=1/n;
+  for(let i=0;i<hits.length;i+=5)
+    contact(b,hits[i],hits[i+1],hits[i+2],hits[i+3],hits[i+4],share);
+}
+
+/* Body-against-body, as axis-aligned overlap on the current angle's extent.
+   A real SAT pass would be more correct and, for a row of arcade cabinets
+   toppling into each other, entirely unnoticeable. */
+function sbResolvePairs(){
+  const live=spriteBodies.filter(b=>b.live&&!b.sleeping);
+  for(let i=0;i<live.length;i++)for(let j=0;j<spriteBodies.length;j++){
+    const a=live[i], b=spriteBodies[j];
+    if(a===b||!b.live)continue;
+    const ea=a.art.ang[a.ang], eb=b.art.ang[b.ang];
+    const ox=(ea.hw+eb.hw)-Math.abs(a.x-b.x);
+    const oy=(ea.hh+eb.hh)-Math.abs(a.y-b.y);
+    if(ox<=0||oy<=0)continue;
+    let nx=0,ny=0,pen;
+    if(ox<oy){pen=ox;nx=(a.x<b.x)?-1:1;}else{pen=oy;ny=(a.y<b.y)?-1:1;}
+    const rvx=b.vx-a.vx, rvy=b.vy-a.vy, vn=rvx*-nx+rvy*-ny;
+    const impact=vn<-0.4;
+    if(impact&&b.sleeping){b.sleeping=false;b.sleepT=0;}
+    const ia=a.dragging?0:a.invM;
+    const ib=(b.sleeping&&!impact)||b.dragging?0:b.invM;
+    const tot=ia+ib; if(tot===0)continue;
+    a.x+=nx*pen*(ia/tot); a.y+=ny*pen*(ia/tot);
+    b.x-=nx*pen*(ib/tot); b.y-=ny*pen*(ib/tot);
+    if(vn<0){
+      const jj=-1.02*vn/tot, jx=jj*-nx, jy=jj*-ny;
+      a.vx-=jx*ia;a.vy-=jy*ia; b.vx+=jx*ib;b.vy+=jy*ib;
+    }
+  }
+}
+
+/* Has a dormant prop lost the ground under it?
+
+   Cheap because it only asks the bottom-profile probes, and only on a cadence:
+   a room full of standing furniture should cost nothing to leave standing. */
+function sbCheckSupport(b){
+  const P=b.art.ang[b.ang].probes;
+  const bx=Math.round(b.x), by=Math.round(b.y);
+  for(let i=0;i<P.length;i+=2){
+    const gx=bx+P[i], gy=by+P[i+1]+1;
+    if(gy>=H)return true;
+    if(sbSolid(gx,gy))return true;
+  }
+  return false;
+}
+
+/* Everything within R of (x,y) stops being furniture and starts being debris.
+   Called from the bomb blast, which is the one event in the world violent
+   enough that leaving the crates standing would be conspicuous. */
+function wakeSpriteBodies(x,y,R){
+  for(const b of spriteBodies){
+    if(b.dragging)continue;
+    const dx=b.x-x, dy=b.y-y, rr=R+b.art.rad;
+    if(dx*dx+dy*dy>rr*rr)continue;
+    sbActivate(b);
+    b.sleeping=false;b.sleepT=0;
+    const d=Math.sqrt(dx*dx+dy*dy)||1;
+    b.vx+=(dx/d)*4.5; b.vy+=(dy/d)*4.5-1.5; b.va+=(Math.random()-0.5)*0.22;
+    clampVel(b);
+  }
+}
+
+let sbFrame=0;
+function updateSpriteBodies(){
+  if(!spriteBodies.length)return;
+  sbFrame++;
+  // dormant props: has the floor gone? asked on a cadence, and only for props
+  // near enough to the camera band for the answer to be visible
+  if((sbFrame&7)===0){
+    for(const b of spriteBodies){
+      if(b.live)continue;
+      if(b.y<camY-VH||b.y>camY+VH*2)continue;
+      if(!sbCheckSupport(b))sbActivate(b);
+    }
+  }
+  const live=[];
+  for(const b of spriteBodies)if(b.live&&(!b.sleeping||b.dragging))live.push(b);
+  if(!live.length)return;
+  // unstamp → integrate → resolve → restamp. Lifting every live body out of
+  // the grid first is what stops a body colliding with its own footprint.
+  for(const b of live)sbUnstamp(b);
+  for(const b of live){
+    if(b.dragging)continue;
+    b.vy+=GRAV; b.x+=b.vx; b.y+=b.vy; b.a+=b.va;
+    b.vx*=0.985; b.va*=0.94;
+    clampVel(b);
+  }
+  for(let it=0;it<3;it++){
+    for(const b of live){if(b.dragging)continue;sbResolveWorld(b);}
+    sbResolvePairs();
+  }
+  for(const b of live){
+    if(b.dragging){b.sleepT=0;continue;}
+    const calm=Math.abs(b.vx)<0.22&&Math.abs(b.vy)<0.5&&Math.abs(b.va)<0.02;
+    if(calm){ if(++b.sleepT>22){ sbStamp(b); sbSettle(b); continue; } }
+    else b.sleepT=0;
+    sbStamp(b);
+  }
+}
+
+/* Point test for the mouse: the body's extent at its current angle, then a
+   confirming lookup in the rasterised mask so you cannot grab a cabinet by the
+   empty corner of its bounding box. */
+function sbAt(sx,sy){
+  for(let k=spriteBodies.length-1;k>=0;k--){
+    const b=spriteBodies[k], E=b.art.ang[b.ang];
+    const dx=sx-Math.round(b.x), dy=sy-Math.round(b.y);
+    if(Math.abs(dx)>E.hw||Math.abs(dy)>E.hh)continue;
+    const cells=E.cells;
+    for(let i=0;i<cells.length;i+=3){
+      if(cells[i]===dx&&cells[i+1]===dy&&b.alive[cells[i+2]])return b;
+    }
+  }
+  return null;
+}
+
 
 /* ── THE VAULTS ──
    Sconces on alternating pillars, then one prop per bay on a three-beat cycle
@@ -5408,7 +7188,41 @@ function furnishCrypt(box){
     wakeRect(px-4,sy-5,px+4,sy+3);
     pixDirtyRect(px-4,sy-5,px+4,sy+3);
   }
+  /* ── WHAT IS ACTUALLY DOWN HERE ──
+     A pair of Spectacles, standing on the flagstones at the full clear width
+     of a bay. Everything else in this room is furniture and set dressing; this
+     is the thing the vault was dug for, and it is sized to say so — twice the
+     height of the tallest prop in the world and wider than the arch above it.
+
+     Built to the bay rather than to a number, because the arcade's bay width
+     is a function of the viewport (see specsArt). It is a real sprite body:
+     dormant while it stands, so it costs nothing until the visitor picks it
+     up, blows it over, or digs the floor out from under it — at which point
+     several hundred cells of glossy black and glowing glass tumble through the
+     arcade under the same solver as everything else, and settle wherever they
+     land, keeping whatever damage they took on the way down.
+
+     The bay it takes is the bay it takes: the prop that would have stood there
+     is skipped rather than stacked inside it. */
+  let specsBay=-1;
+  delete SB_ART.specs;                        // the art is about to change shape
+  /* Widest bay first — which is the crossing, unless a panel is hanging in it,
+     in which case the arcade's next-widest opening gets a smaller pair rather
+     than the room getting none. The art is rebuilt per candidate because it is
+     rasterised to the opening it stands in; only the one that lands pays for a
+     set of rotations. */
+  const order=[];
+  for(let k=0;k<bays;k++)order.push(k);
+  order.sort((a,b)=>(pxs[b+1]-pxs[b])-(pxs[a+1]-pxs[a]));
+  for(const k of order){
+    const clearW=(pxs[k+1]-pxs[k])-9;         // the pillar bases eat ~4 cells either side
+    if(clearW<SPECS_MIN)break;                // sorted widest-first: nothing after this fits either
+    SPRITES.specs=specsArt(Math.min(clearW,120));
+    const cx=((pxs[k]+pxs[k+1])/2)|0;
+    if(propClear('specs',cx,floor-2,box)){specsBay=k;break;}
+  }
   for(let k=0;k<bays;k++){
+    if(k===specsBay)continue;
     const cx=((pxs[k]+pxs[k+1])/2)|0;
     const pick=k%3===0?'sarcophagus':(k%3===1?'candelabra':'urn');
     // a bay with a panel in it gets nothing; try the far side of the bay first,
@@ -5499,7 +7313,7 @@ function furnishRooms(){
   const fns={workshop:furnishWorkshop,crypt:furnishCrypt,lab:furnishLab,arcade:furnishArcade,core:furnishCore};
   for(const id in fns){
     const box=ROOM_BOX[id];
-    if(box)fns[id](box);
+    if(box&&!box.exhibit)fns[id](box);
   }
 }
 
@@ -5552,7 +7366,7 @@ function spawnNaturalLandscape(){
       const d=y-surf[x];
       if(d===0)putCell(x,y,GRASS);
       else if(d<soilDepth)putCell(x,y,DIRT);
-      else putCell(x,y,strataMat(d,y));
+      else putCell(x,y,strataMat(d,y,x));
     }
   }
   spawnStrata(surf);
@@ -5711,13 +7525,16 @@ function spawnNaturalLandscape(){
    PORTFOLIO LAYOUT — everything below is particles
 ═══════════════════════════════════════════════════════ */
 function spawnContent(){
-  grid.fill(0);variant.fill(0);frozen.fill(0);
+  grid.fill(0);variant.fill(0);frozen.fill(0);inChunk.fill(0);
+  spriteBodies.length=0;
   birds.length=0;
   ghosts.length=0;
   cats.length=0;
 
   // ─── meadow & pond landscape ───
   spawnNaturalLandscape();
+  // the name, in the sky over it, out of the same grid
+  stampWordmark();
 
   // a small black cat patrolling the village (signpost → fence)
   {
@@ -5846,6 +7663,12 @@ function stampGlyphMask(el,cr){
    only when a window moves/opens/closes/resizes.
 ═══════════════════════════════════════════════════════ */
 let _winMaskCells=[];
+/* Per-window bbox of the cells stamped on the last pass. Kept so the NEXT
+   pass can retire those cells as a handful of rectangles instead of tens of
+   thousands of single-cell invalidations. Per window and not one global
+   union: world panels sit whole screens apart, and a single bbox spanning
+   them would dirty every chunk in between. */
+let _winMaskRects=[];
 let _winMaskHash='';
 /* Windows overlap, and the mask is only one layer deep, so a cell under a pile
    can belong to just one of them. Ownership follows what you can actually see:
@@ -5853,38 +7676,48 @@ let _winMaskHash='';
    down to the next window in the stack instead of opening a hole in thin air. */
 let _stack=[];   // live windows, topmost first — {b,x0,y0,x1,y1} in grid cells
 let _stampSeq=0; // bumped every restamp, so a stale b.zi can't be trusted
-function _winsHash(){
-  let s='';
-  document.querySelectorAll('.win-app,.world-panel').forEach(el=>{
-    if(el.style.display==='none'||el.dataset.minimized==='1')return;
-    const r=el.getBoundingClientRect();
-    // z-order is part of the hash: clicking a window to raise it changes who
-    // owns the overlap even though nothing has moved
-    s+=(r.left|0)+','+(r.top|0)+','+(r.width|0)+','+(r.height|0)+','+(el.style.zIndex||0)+';';
-  });
-  return s+W+'x'+H+'@'+camY;
-}
-function updateWindowMasks(){
-  const h=_winsHash();
-  if(h===_winMaskHash)return;
-  _winMaskHash=h;
-  for(const i of _winMaskCells){
-    if(grid[i]===MASK){
-      grid[i]=EMPTY;variant[i]=0;
-      const x=i%W,y=(i/W)|0;
-      pixDirty(x,y);wake3(x,y);
-    }
-    maskOwner[i]=0;
-  }
-  _winMaskCells.length=0;
-  const cr=canvas.getBoundingClientRect();
+function _windowRects(){
   const wins=[];
   document.querySelectorAll('.win-app,.world-panel').forEach(el=>{
     if(el.style.display==='none'||el.dataset.minimized==='1')return;
     const r=el.getBoundingClientRect();
-    if(r.width<=0||r.height<=0)return;
-    wins.push({el,r,z:+(el.style.zIndex||0)});
+    const zKey=el.style.zIndex||0;
+    wins.push({el,r,z:+zKey,zKey});
   });
+  return wins;
+}
+function _winsHash(wins=_windowRects()){
+  let s='';
+  for(const {r,zKey} of wins){
+    // z-order is part of the hash: clicking a window to raise it changes who
+    // owns the overlap even though nothing has moved
+    s+=(r.left|0)+','+(r.top|0)+','+(r.width|0)+','+(r.height|0)+','+zKey+';';
+  }
+  return s+W+'x'+H+'@'+camY;
+}
+function updateWindowMasks(){
+  // Hash and stamp one geometry snapshot; a changed camera used to measure
+  // every instrument surface twice, including all the offscreen rooms.
+  const snapshot=_windowRects(),h=_winsHash(snapshot);
+  if(h===_winMaskHash)return;
+  _winMaskHash=h;
+  /* Retiring the old stamp is a rectangle operation, not a per-cell one.
+     pixDirty+wake3 on every cell costs nine wake() calls and a chunk-rect walk
+     EACH, and a maximized window is ~25k cells - yet the union of all those
+     3x3 stamps is just the window's own bbox grown by one. One pixDirtyRect
+     and one wakeRect per window marks the identical chunk set for a fraction
+     of the work, which is what makes scrolling cheap: the camera moving
+     restamps every viewport-fixed window, once per four animation frames. */
+  for(const i of _winMaskCells){
+    if(grid[i]===MASK){grid[i]=EMPTY;variant[i]=0;}
+    maskOwner[i]=0;
+  }
+  for(const r of _winMaskRects){
+    pixDirtyRect(r[0],r[1],r[2],r[3]);wakeRect(r[0]-1,r[1]-1,r[2]+1,r[3]+1);
+  }
+  _winMaskCells.length=0;_winMaskRects.length=0;
+  const cr=canvas.getBoundingClientRect();
+  const wins=snapshot.filter(w=>w.r.width>0&&w.r.height>0);
   wins.sort((a,b)=>b.z-a.z); // topmost first — it claims the shared cells
   _stack=[];_stampSeq++;
   for(const w of wins){
@@ -5895,6 +7728,10 @@ function updateWindowMasks(){
     const y1=Math.min(H-1,Math.ceil((r.bottom-cr.top)/SCALE)+camY);
     b.zi=_stack.length;b.seq=_stampSeq;
     _stack.push({b,x0,y0,x1,y1});
+    // bbox of the cells this window actually claimed - tighter than its rect
+    // when it is burnt through, and the unit both the invalidation below and
+    // next pass's retirement work in.
+    let bx0=BIG,by0=BIG,bx1=-1,by1=-1;
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
       const i=idx(x,y);
       if(grid[i]!==EMPTY)continue;
@@ -5905,7 +7742,11 @@ function updateWindowMasks(){
       if(b.gone&&b.dmg[lcell(b,x,y)])continue;
       grid[i]=MASK;variant[i]=0;maskOwner[i]=b.id;
       _winMaskCells.push(i);
-      pixDirty(x,y);wake3(x,y);
+      if(x<bx0)bx0=x; if(y<by0)by0=y; if(x>bx1)bx1=x; if(y>by1)by1=y;
+    }
+    if(bx1>=bx0){
+      _winMaskRects.push([bx0,by0,bx1,by1]);
+      pixDirtyRect(bx0,by0,bx1,by1);wakeRect(bx0-1,by0-1,bx1+1,by1+1);
     }
   }
 }
@@ -5947,7 +7788,7 @@ const CLIP_MS=60;                                                   // rebuildin
 const BURN_RATE=22;                                                 // cells a window can lose per sim tick
 
 // One record per live window. Created on the first stamp, re-anchored on
-// every restamp so dx/dy always match where the element is right now.
+// every restamp so dx/dy locate the element in world pixels, matching lcell.
 function burnableFor(el,r,cr){
   let b=el._burn;
   if(!b){
@@ -5959,7 +7800,7 @@ function burnableFor(el,r,cr){
     b.id=burnables.push(b); // push returns the new length → id is index+1
     el._burn=b;
   } else if(b.gone&&(Math.abs(r.width-b.pw)>1||Math.abs(r.height-b.ph)>1)) reshape(b,r);
-  b.dx=r.left-cr.left;b.dy=r.top-cr.top;
+  b.dx=r.left-cr.left;b.dy=r.top-cr.top+camY*SCALE;
   return b;
 }
 // Maximize/restore resizes the element under its own damage map: resample the
@@ -6134,7 +7975,7 @@ function clearAllBurns(){
   }
   burnables.length=0;
   maskOwner.fill(0);
-  _winMaskCells.length=0;_winMaskHash='';_stack.length=0;
+  _winMaskCells.length=0;_winMaskRects.length=0;_winMaskHash='';_stack.length=0;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -6195,7 +8036,7 @@ function simXY(e){
    role (bits 0-1) + per-unit tint (bits 2-4). Unflagged variants keep the
    legacy random-jitter / hand-shaded sprite path. */
 function hash2i(x,y){let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177|0;return ((h^(h>>>16))>>>0);}
-function brickVariant(x,y){
+function brickVariant(x,y,tone){
   // courses 4px tall: 3 rows of face + 1 mortar bed; head joints every 7px,
   // staggered half a brick per course
   const course=Math.floor(y/4), inRow=y-course*4;
@@ -6207,9 +8048,9 @@ function brickVariant(x,y){
   else if(inRow===2||inCol===5) role=1;            // shadowed bottom/right
   else role=0;                                     // brick face
   const bid=hash2i(Math.floor((x+off)/7),course);  // per-BRICK tint, not per-cell
-  return 0x20|role|((bid&7)<<2);
+  return 0x20|role|((bid&7)<<2)|((tone&3)<<6);
 }
-function woodVariant(x,y){
+function woodVariant(x,y,tone){
   // planking: 5x9 segments — vertical seam on the right, butt joint on the
   // bottom row, grain streaks hashed per segment
   const plank=Math.floor(x/5), inP=x-plank*5;
@@ -6220,13 +8061,54 @@ function woodVariant(x,y){
   else if(inP===0||inS===0) role=2;                // lit left/top edge
   else role=0;
   const pid=hash2i(plank,seg*7+7);
-  return 0x20|role|((pid&7)<<2);
+  return 0x20|role|((pid&7)<<2)|((tone&3)<<6);
 }
-function bakeVariant(m,x,y){
-  if(m===BRICK)return brickVariant(x,y);
-  if(m===WOOD)return woodVariant(x,y);
+/* Ashlar: dressed blocks with a fine joint, staggered half a block per course.
+
+   Deliberately a much coarser unit than brick — 11x6 against 7x4 — because at
+   one cell per pixel the SIZE of the unit is most of what separates "cut from
+   the rock" from "built out of bricks", and it does that work before colour
+   is asked to do any. */
+function stoneVariant(x,y,tone){
+  /* 14x9, up from 11x6. At the smaller unit a column shaft picked up a bed
+     joint every six rows and read as a stack of coins, and the Core's tympanum
+     came out looking like brickwork — the unit has to be visibly coarser than
+     BRICK's 7x4 or "cut stone" and "built of bricks" collapse into each other,
+     which is the one distinction the zones are relying on. */
+  const course=Math.floor(y/9), inRow=y-course*9;
+  const off=(course&1)?7:0;
+  const inCol=(x+off)%14;
+  let role;
+  if(inRow===8||inCol===13) role=3;                 // bed joint / head joint
+  else if(inRow===0) role=2;                        // lit top of the block
+  else if(inRow===7||inCol===12) role=1;            // shadowed bottom / right
+  else role=0;                                      // block face
+  const bid=hash2i(Math.floor((x+off)/14),course);  // per-BLOCK tint
+  return 0x20|role|((bid&7)<<2)|((tone&3)<<6);
+}
+function bakeVariant(m,x,y,tone){
+  if(m===BRICK)return brickVariant(x,y,tone|0);
+  if(m===WOOD)return woodVariant(x,y,tone|0);
   return Math.random()*8|0;
 }
+/* What a BUILDER lays, as opposed to what the brush paints.
+
+   The only difference is stone: a room's shell, a colonnade and a stylobate
+   are cut stone and want courses, while a brush-load of STONE is terrain and
+   wants to stay raw rock. Same encoding either way, so a dressed block that
+   later comes loose still crumbles as a dressed block. */
+const STRUCT_MAT=new Uint8Array(64);
+STRUCT_MAT[BRICK]=1; STRUCT_MAT[WOOD]=1; STRUCT_MAT[STONE]=1;
+function builtVariant(m,x,y,tone){
+  if(m===STONE)return stoneVariant(x,y,tone|0);
+  return bakeVariant(m,x,y,tone);
+}
+/* The builders have always passed a SHADE index as `slab`'s variant to mean
+   "this course is a shade darker / lighter than the wall it sits in". That
+   intent survives verbatim — it is now a TONE on top of real masonry instead
+   of a flat fill that replaced it. 7 is the file's long-standing shorthand for
+   pale cut stone, which until now resolved to JITTER[7] and did nothing. */
+const toneOf=v=>(v===undefined?0:(v===7?2:(v&3)));
 
 /* ═══ UNIT-SNAPPED MASONRY PAINTING ═══
    Painting BRICK/WOOD lays complete units — whole bricks (7x4 tiles: 6x3
@@ -6322,6 +8204,14 @@ function grabAt(sx,sy){
       dragBody=bodies[k];dragBody.dragging=true;dragBody.sleeping=false;
       dragOffX=dragBody.x-sx;dragOffY=dragBody.y-sy;return true;
     }
+  }
+  // then the furniture. A dormant prop has to be activated before it can be
+  // dragged: until then its pixels belong to the grid, not to the body.
+  const sb=sbAt(sx,sy);
+  if(sb){
+    sbActivate(sb);
+    dragBody=sb;sb.dragging=true;sb.sleeping=false;sb.sleepT=0;
+    dragOffX=sb.x-sx;dragOffY=sb.y-sy;return true;
   }
   return false;
 }
@@ -6784,7 +8674,7 @@ function catGround(x,fromY){
   // up in the sky doesn't yank the cat upward; default to top for spawn
   const y0=Math.max(0,(fromY===undefined?0:(fromY|0)-3));
   for(let y=y0;y<H;y++){
-    if(isSupportForCat(grid[idx(x,y)]))return y;
+    if(isSupportForCat(grid[idx(x,y)])&&!inWordmark(x,y))return y;
   }
   return H;
 }
@@ -7210,14 +9100,18 @@ function loop(ts){
     if((frameNo&3)===0)updateWindowMasks();
     updateBodies();
     restampBodies();
+    updateSpriteBodies();
     simAcc+=ts-lastSim;
     const stepMs=14/simSpeed;
     // floor the divisor: on an idle world the EMA decays toward zero, and a
     // huge quotient would wrap to 0 through the Int32 conversion — clamping a
     // fast machine down to one step, the exact opposite of the intent
     const maxN=Math.max(1,Math.min(4,Math.floor(SIM_BUDGET_MS/Math.max(0.25,stepCostMs))));
+    const simStart=performance.now();
     let n=0;
-    while(simAcc>=stepMs&&n<maxN){
+    // The estimate lags sudden bursts. Check elapsed work too, while always
+    // allowing one step so a heavy simulation continues to make progress.
+    while(simAcc>=stepMs&&n<maxN&&(n===0||performance.now()-simStart<SIM_BUDGET_MS)){
       const t0=performance.now();
       doRain();doAmbient();simulate();updateChunks();updateBoids();updateGhosts();updateCats();
       stepCostMs+=((performance.now()-t0)-stepCostMs)*0.15; // EMA, ~15 frames to settle
@@ -8453,6 +10347,7 @@ const EVIL_FEET=26;         // sprite row that sits on the ground
 const EVIL_PAD=8;           // headroom above row 0 for the lid to swing into
 const EVIL_BH=EVIL_H+EVIL_PAD;
 const evilCursors=[];
+let evilOpenerC=null;   // the one cursor sent to click the Materials window open
 let evilOpen=false,evilArming=false;
 let evilOpenT=0,evilTick=0,evilDirty=true;
 let evilSX=-999,evilSY=-999;   // sprite origin in sim cells
@@ -8601,7 +10496,7 @@ function evilSoilY(x){
   if(x<0||x>=W)return H;
   for(let y=0;y<H;y++){
     const m=grid[idx(x,y)];
-    if(m===DIRT||m===GRASS||m===SAND||m===STONE||m===MOSS||m===ASH||m===BRICK)return y;
+    if((m===DIRT||m===GRASS||m===SAND||m===STONE||m===MOSS||m===ASH||m===BRICK)&&!inWordmark(x,y))return y;
   }
   return H;
 }
@@ -8740,7 +10635,7 @@ function spawnEvilCursor(hold){
     vx:(Math.random()*2-1)*7, vy:-4-Math.random()*4,
     tx:0, ty:0, phase:'hold', t:0, hold:hold|0,
     mat:1, brush:2+Math.random()*4|0,
-    row:null, strokes:0, want:2+Math.random()*4|0,
+    row:null, opening:null, strokes:0, want:2+Math.random()*4|0,
     life:1200+Math.random()*800|0, lx:-1, ly:-1,
     wob:0.9+Math.random()*1.8, wobT:Math.random()*6.28, speed:5+Math.random()*4
   };
@@ -8763,6 +10658,33 @@ function evilRoam(cr){
 }
 function evilClearRow(c){
   if(c.row){c.row.classList.remove('evil-pick','evil-click');c.row=null;}
+  c.opening=null;
+  if(evilOpenerC===c)evilOpenerC=null;
+}
+/* ── the Materials window might not be open ─────────────
+   It can be rolled up to its title bar (the □ button, and how it boots on a
+   phone) or minimised to the taskbar. Either way there is no list to steal
+   from, so one cursor is elected to go and click it back open exactly where a
+   person would, and the rest loiter by the button until the rows appear. */
+function evilPickerOpen(){
+  const mp=document.getElementById('matPicker');
+  if(!mp||mp.dataset.minimized==='1'||mp.classList.contains('is-min'))return false;
+  const r=mp.getBoundingClientRect();
+  return r.width>2&&r.height>2;
+}
+// the control that would reopen it, or null if it is already open
+function evilPickerOpener(){
+  const mp=document.getElementById('matPicker');
+  if(!mp)return null;
+  if(mp.dataset.minimized==='1'){          // in the taskbar: its button restores it
+    for(const b of document.querySelectorAll('#taskbarTasks .taskbar-btn'))
+      if((b.textContent||'').trim().toLowerCase().startsWith('materials'))return b;
+    return null;
+  }
+  // rolled up: □ unrolls it. Restoring from the taskbar can land here next,
+  // and the opener simply re-aims and clicks again.
+  if(mp.classList.contains('is-min'))return mp.querySelector('.win95-title .tbtns .tbtn:nth-child(2)');
+  return null;
 }
 function evilTakeMaterial(c,row){
   const info=row?evilRowInfo(row):{mat:1,name:'sand',color:'#cda852'};
@@ -8809,9 +10731,29 @@ function updateEvilCursors(){
 
       case 'toMenu':
         if(evilSeek(c,c.speed+2)){
+          if(c.opening){c.phase='openWin';c.t=0;break;}
           c.phase='pick';c.t=0;
           if(c.row)c.row.classList.add('evil-pick');
         }
+        break;
+
+      case 'openWin':                    // no list to steal from: click the window open
+        // if you opened it yourself while this one was in flight, the click
+        // would only roll it shut again — so drop the errand and go pick
+        if(c.opening&&evilPickerOpen()){c.press=0;c.phase='toMenu';evilAimAtMenu(c);break;}
+        c.press=(c.t>=12&&c.t<18)?2:0;
+        if(c.t===14){
+          const ctl=c.opening;c.opening=null;
+          if(ctl&&ctl.isConnected)ctl.click();
+        }
+        if(c.t>=26){c.phase='toMenu';evilAimAtMenu(c);}  // re-aim: a row now, or the next button
+        break;
+
+      case 'waitMenu':                   // drift under the window while it is prised open
+        evilSeek(c,c.speed*0.6);
+        c.wobT+=0.14;c.y+=Math.sin(c.wobT)*0.6;
+        if(c.life<=0){c.phase='flee';c.el.style.opacity='0';c.t=0;evilFleeTarget(c);}
+        else if(evilPickerOpen()||c.t>300){c.phase='toMenu';evilAimAtMenu(c);}
         break;
 
       case 'pick':                       // hover the row, click it, take the material
@@ -8855,6 +10797,24 @@ function updateEvilCursors(){
   if(!evilCursors.length&&evilOpen)closeEvilChest();
 }
 function evilAimAtMenu(c){
+  c.opening=null;
+  if(evilOpenerC===c)evilOpenerC=null;
+  const ctl=evilPickerOpen()?null:evilPickerOpener();
+  if(ctl){
+    const r=ctl.getBoundingClientRect();
+    c.row=null;c.pending=null;c.lx=-1;
+    if(!evilOpenerC){                      // I'll be the one to open it
+      evilOpenerC=c;c.opening=ctl;
+      c.tx=r.left+r.width*0.5;c.ty=r.top+r.height*0.5;
+      c.phase='toMenu';
+    }else{                                 // someone else is on it — hang back
+      const below=r.top<window.innerHeight*0.5;
+      c.tx=Math.max(20,Math.min(window.innerWidth-20,r.left+r.width*0.5+(Math.random()*110-55)));
+      c.ty=below?r.bottom+30+Math.random()*70:r.top-30-Math.random()*70;
+      c.phase='waitMenu';c.t=0;
+    }
+    return;
+  }
   const row=evilPickRow();
   const picker=document.getElementById('matPicker');
   const r=row?row.getBoundingClientRect():null;
