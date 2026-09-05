@@ -27,6 +27,13 @@ vm.runInContext([
   });
  };`
 ].join('\n'),ctx);
+// worldBands hardcodes a per-room work count because it runs before
+// WORLD_PANELS exists. Catch the two drifting apart.
+{
+ const literal=source.match(/for\(const \[id,count\] of (\[.*?\])\)/s)[1];
+ for(const [id,count] of JSON.parse(literal.replace(/'/g,'"')))
+  assert.equal(count,ctx.projects.filter(p=>p.zone===id).length,'worldBands count for '+id);
+}
 const dimensions=[[320,568],[390,844],[768,600],[800,600],[1024,768],[1280,720],[1440,900],[1920,1080],[2560,1440]];
 for(const [width,height] of dimensions){
  const rooms=ctx.layout(width,height);
@@ -55,16 +62,19 @@ for(const p of ctx.projects){
 for(const id of ['imagine-together','translation','agent-center','ai-playground','ai-music-gen','rsg','snaptrap','catiator','intarnet','larp','retrovirus-vr','songbird','nira'])assert(linked.has(id),'Missing project '+id);
 let redraws=0,markup='',selected=[];
 const monitor={scrollTop:24,querySelector(){return {remove(){}}},insertAdjacentHTML(pos,html){markup=html},setAttribute(){}};
-const cap={},steps=[{},{},{}],buttons=ctx.projects.filter(p=>p.zone==='lab').map(p=>({dataset:{project:p.id},setAttribute(k,v){selected.push([this.dataset.project,v])}}));
+const cap={},steps=[{},{},{}],buttons=ctx.projects.filter(p=>p.zone==='arcade').map(p=>({dataset:{project:p.id},setAttribute(k,v){selected.push([this.dataset.project,v])}}));
 const section={dataset:{},_scene:{},querySelector(q){return q==='.room-monitor'?monitor:cap},
  querySelectorAll(q){return q.includes('room-step')?steps:buttons}};
 ctx.drawProjectScene=()=>redraws++;
+let tickSyncs=0;ctx.syncDepthTicks=()=>tickSyncs++;
 vm.runInContext('let _winMaskHash="old",lightScanAll=0;'+fn('selectRoomProject'),ctx);
-for(const p of ctx.projects.filter(p=>p.zone==='lab')){
+for(const p of ctx.projects.filter(p=>p.zone==='arcade')){
  selected=[];ctx.selectRoomProject(section,p);
  assert(markup.includes(p.name));assert(cap.innerHTML.includes(ctx.stories[p.id].caption));
  assert(steps.every(s=>s.innerHTML.includes('<h4>')));
  assert.equal(selected.filter(([,v])=>v==='true').length,1);assert.equal(section.dataset.project,p.id);
 }
-assert.equal(redraws,3);assert.equal(monitor.scrollTop,0);
-console.log('Passed 9 viewport geometries, room/shaft separation, three live project selections, image paths, routes, and all 13 projects.');
+assert.equal(redraws,5);assert.equal(monitor.scrollTop,0);
+// The core sample's lit notch is driven from here, not from the scroll sync.
+assert.equal(tickSyncs,5,'every selection republishes the depth nav notches');
+console.log('Passed 9 viewport geometries, room/shaft separation, every selection in the merged games room, image paths, routes, and all 13 projects.');

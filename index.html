@@ -68,12 +68,15 @@ html,body{
 /* The room is a composition of equipment, not a grid of floating cards.
    Only the readable instrument surfaces receive burn/collision masks; the
    large open diorama remains directly touchable falling-sand terrain. */
-.room-exhibit{position:absolute;pointer-events:none;font-family:'Courier New',monospace;color:#eee8da;
-  --exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
-.room-exhibit[data-zone=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
-.room-exhibit[data-zone=lab]{--exhibit:#c4db86;--exhibit-dark:#586644;--exhibit-bg:#1d281e}
-.room-exhibit[data-zone=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
-.room-exhibit[data-zone=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
+.room-exhibit{position:absolute;pointer-events:none;font-family:'Courier New',monospace;color:#eee8da}
+/* One palette per zone, read both by the room's own surfaces and by that zone's
+   band on the depth core sample, so the nav cannot drift out of the colour of
+   the room it points at. The meadow has no exhibit and so appears here only. */
+.room-exhibit,#depthNav [data-depth=workshop]{--exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
+#depthNav [data-depth=surface]{--exhibit:#bcd493;--exhibit-dark:#4e6042;--exhibit-bg:#1a2118}
+.room-exhibit[data-zone=crypt],#depthNav [data-depth=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
+.room-exhibit[data-zone=arcade],#depthNav [data-depth=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
+.room-exhibit[data-zone=core],#depthNav [data-depth=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
 .world-panel{position:absolute;pointer-events:auto;box-sizing:border-box;color:inherit;font-family:'Courier New',monospace;
   background:var(--exhibit-bg,#211c19);border:2px solid var(--exhibit-dark,#63503a);
   box-shadow:3px 4px 0 #0b1117;padding:0;min-width:0}
@@ -128,11 +131,42 @@ html,body{
 .room-exhibit.is-narrow .room-monitor .project-hook{font-size:15px}
 .room-exhibit.is-narrow .room-monitor p{font-size:12px}
 .room-exhibit.is-narrow .room-monitor img{height:160px}
-#depthNav{position:absolute;left:7px;top:50%;transform:translateY(-50%);z-index:9;display:grid;gap:3px;pointer-events:auto}
-#depthNav button{width:36px;height:34px;background:#141c20;color:#a0afaa;border:1px solid #465654;font:9px 'Courier New',monospace;cursor:pointer;box-shadow:2px 2px #0b1115}
-#depthNav button[aria-current]{color:#192018;background:#d0dc9c;border-color:#edf1cc;font-weight:bold}
-#depthNav button:hover,#depthNav button:focus-visible{color:#fff;border-color:#fff;outline:1px solid #fff;outline-offset:2px}
-@media(max-width:799px){#depthNav{left:3px}#depthNav button{width:30px;height:32px;font-size:8px}}
+/* ── DEPTH CORE SAMPLE ──
+   A section through the world, not a row of buttons. Every zone gets its true
+   share of the column, the notches in a band are its exhibits, and the lens is
+   the camera's window. Band shares, colours and notches are all written by
+   buildDepthNav; nothing here knows the world's proportions. */
+#depthNav{position:absolute;left:9px;top:50%;transform:translateY(-50%);z-index:9;pointer-events:auto;
+  font:9px 'Courier New',monospace;letter-spacing:1px}
+.cs-core{position:relative;display:flex;flex-direction:column;width:30px;height:min(64vh,540px);
+  background:#0b1013;border:2px solid #4a5654;box-shadow:2px 3px 0 #0b1115}
+.cs-band{position:relative;flex:var(--share) 1 0;min-height:0;
+  background:linear-gradient(180deg,var(--rock-top),var(--rock-bot))}
+.cs-band+.cs-band{border-top:1px solid #0009}
+/* The whole stratum is the hit target for its room; notches sit on top of it. */
+.cs-jump{position:absolute;inset:0;width:100%;border:0;padding:0;background:none;cursor:pointer}
+.cs-jump:hover,.cs-jump:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--exhibit)}
+.cs-band.is-here{box-shadow:inset 0 0 0 1px var(--exhibit)}
+.cs-tick{position:absolute;left:50%;top:var(--at);transform:translate(-50%,-50%);z-index:2;
+  width:13px;height:3px;border:0;padding:0;cursor:pointer;background:var(--exhibit);opacity:.38}
+.cs-band.is-here .cs-tick{opacity:.7}
+.cs-tick.is-on,.cs-band.is-here .cs-tick.is-on{opacity:1;width:20px;height:4px}
+.cs-tick:hover,.cs-tick:focus-visible{opacity:1;outline:none;background:#fff}
+/* Labels live outside the 30px rail, and only while pointed at. */
+.cs-jump::after,.cs-tick::after{content:attr(data-label);position:absolute;left:calc(100% + 9px);
+  white-space:nowrap;padding:3px 7px;background:#0e1416e8;border:1px solid var(--exhibit);
+  color:var(--exhibit);opacity:0;pointer-events:none}
+.cs-jump::after{top:5px}
+.cs-tick::after{top:50%;transform:translateY(-50%);letter-spacing:0}
+.cs-jump:hover::after,.cs-jump:focus-visible::after,
+.cs-tick:hover::after,.cs-tick:focus-visible::after{opacity:1}
+/* The camera's window on the column. Straddles the tube so it reads as a
+   cursor over the core rather than another stratum inside it. */
+.cs-lens{position:absolute;left:-4px;right:-4px;top:var(--at);height:var(--span);z-index:3;
+  border:2px solid #f3eed7;box-shadow:0 0 0 1px #0009,inset 0 0 0 1px #0009;pointer-events:none}
+@media(max-width:799px){#depthNav{left:4px}
+  .cs-core{width:22px;height:min(58vh,430px)}
+  .cs-tick{width:10px}.cs-tick.is-on,.cs-band.is-here .cs-tick.is-on{width:15px}}
 #simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 #birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
 #uiLayer{position:absolute;inset:0;pointer-events:none}
@@ -1462,7 +1496,10 @@ function worldBands(vw,vh){
   const width=exhibitBounds(Math.floor(vw/scale),scale).width;
   const bands={surface:{top:0,bot:1.05}};
   let top=1.05;
-  for(const [id,count] of [['workshop',1],['crypt',3],['lab',3],['arcade',2],['core',2]]){
+    // Counts must match WORLD_PANELS. They are written out rather than derived
+  // because worldBands runs from computeDims during boot, before WORLD_PANELS
+  // is initialised; tools/exhibit-check.cjs asserts the two agree.
+  for(const [id,count] of [['workshop',1],['crypt',3],['arcade',5],['core',2]]){
     const minimum=roomMetrics(width,count).height+Math.max(90,vh*.10)+60;
     const height=minimum/vh+.36+(id==='core'?.45:0);
     bands[id]={top,bot:top+height,minRoom:minimum};top+=height;
@@ -1605,10 +1642,13 @@ const ZONES=[
   {id:'crypt',   cat:'snap',   label:'THE VAULTS', top:2.45,bot:4.15,
    bg:0,
    back:[[0.135,0.180,0.210],[0.095,0.130,0.165]]},
-  {id:'lab',     cat:'awards', label:'THE LAB',    top:4.15,bot:5.85,
-   bg:1,
-   back:[[0.115,0.180,0.165],[0.085,0.125,0.120]]},
-  {id:'arcade',  cat:'games',  label:'THE ARCADE', top:5.85,bot:7.45,
+  /* Games and the hackathon/installation work share one room. They were two,
+     and splitting them implied a distinction the work does not have: a jam
+     entry, an award-winning hack and a room-sized flytrap are all the same
+     move — build the strange interaction first and let the project follow.
+     One room also means a visitor sees the whole run of it at once instead of
+     meeting it two rooms apart. */
+  {id:'arcade',  cat:'play',   label:'THE ARCADE', top:4.15,bot:6.30,
    bg:2,
    back:[[0.165,0.120,0.205],[0.110,0.085,0.145]]},
   /* The only zone whose ramp runs from cool to hot rather than bright to dark:
@@ -1618,7 +1658,7 @@ const ZONES=[
      as silhouette rather than as marble. */
   /* A charcoal ceiling gives the pale colonnade a clear silhouette; the
      muted amber at its feet anticipates the magma below. */
-  {id:'core',    cat:'edu',    label:'THE CORE',   top:7.45,bot:10.00,
+  {id:'core',    cat:'edu',    label:'THE CORE',   top:6.30,bot:9.00,
    bg:0,
    back:[[0.175,0.155,0.150],[0.280,0.165,0.105]]},
 ];
@@ -1636,7 +1676,6 @@ const zoneById=id=>ZONES.find(z=>z.id===id);
 const UNDERGROUND_PALETTE={
   workshop:{rock:[77,67,61],earth:[101,73,49],cut:[153,137,111],brick:[151,91,64],wood:[137,91,49],glass:[239,196,113],light:[0.52,0.31,0.10]},
   crypt:   {rock:[65,76,83],earth:[84,78,62],cut:[141,158,157],brick:[111,130,132],wood:[109,85,63],glass:[143,221,226],light:[0.16,0.36,0.42]},
-  lab:     {rock:[62,77,75],earth:[81,81,61],cut:[143,166,156],brick:[108,132,119],wood:[122,95,64],glass:[165,231,188],light:[0.19,0.40,0.25]},
   arcade:  {rock:[76,65,85],earth:[96,69,73],cut:[163,145,169],brick:[130,91,133],wood:[119,78,109],glass:[148,212,244],light:[0.22,0.27,0.46]},
   core:    {rock:[77,66,66],earth:[103,72,54],cut:[180,166,137],brick:[143,99,77],wood:[129,87,52],glass:[245,209,145],light:[0.47,0.29,0.12]},
 };
@@ -5312,22 +5351,21 @@ const WORLD_PANELS=[
    blurb:'Coding agents become little robot companions in your room. Their movements tell you who is working and who needs you.',
    related:[['ai-playground','AI Playground'],['ai-music-gen','AI Music Gen'],['rsg','RemoteServiceGateway']]},
 
-  // ── THE LAB · hackathons & awards ──
-  {id:'catiator', zone:'lab', sprite:'catGladiator', exhibit:'GESTURE EXPERIMENT', action:'Enter the arena',
+  // ── THE ARCADE · games, jams and hackathon builds ──
+  {id:'catiator', zone:'arcade', sprite:'catGladiator', exhibit:'GESTURE EXPERIMENT', action:'Enter the arena',
    name:'Catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021 · VR',
    thumb:'images/projects/catiator-thumb.webp',
    blurb:'Learn the ASL manual alphabet by fingerspelling your way through an arena of chonky cat gladiators.',
    related:[['intarnet','Also: IntARnet · TartanHacks Grand Prize']]},
-  {id:'snaptrap', zone:'lab', sprite:'flytrap', exhibit:'LIVING INTERFACE', action:'Step inside the trap',
+  {id:'snaptrap', zone:'arcade', sprite:'flytrap', exhibit:'LIVING INTERFACE', action:'Step inside the trap',
    name:'Snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'Physical installation · GDC 2026',
    thumb:'images/projects/snaptrap-thumb.webp',
    blurb:'You are the fly. Brush the trigger hairs of a giant Venus flytrap and learn what makes it snap shut around you.'},
-  {id:'larp', zone:'lab', sprite:'larpMushroom', exhibit:'TALKING SPECIMEN', action:'Meet the mushrooms',
+  {id:'larp', zone:'arcade', sprite:'larpMushroom', exhibit:'TALKING SPECIMEN', action:'Meet the mushrooms',
    name:'lARp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021 · AR + GPT-3',
    thumb:'images/projects/larp-thumb.webp',
    blurb:'Fight or befriend procedurally generated mushrooms. GPT-3 gives them a voice; your real-world steps earn the XP.'},
 
-  // ── THE ARCADE · games ──
   {id:'retrovirus-vr', zone:'arcade', sprite:'hactor', exhibit:'PLAYER 01 · TELEKINESIS', action:'Boot RetroVirus VR',
    name:'RetroVirus VR', meta:'VR Jam 2020 · Unity + SteamVR',
    thumb:'images/projects/retrovirus-vr-thumb.webp',
@@ -5355,8 +5393,7 @@ const WORLD_PANELS=[
 const ROOM_SIGNS={
   workshop:{text:'ABOUT ME',               m:SAND},
   crypt: {text:'SPECTACLES VAULT',         m:GLASS},
-  lab:   {text:'THE LIVING LAB',           m:ACID},
-  arcade:{text:'THE ARCADE · GAMES',       m:GLASS},
+  arcade:{text:'GAMES & SIDE PROJECTS',    m:GLASS},
   core:  {text:'THE ORIGIN · MICHIGAN',    m:SAND},
 };
 /* Cut the room's name into the rock just under its ceiling.
@@ -5432,7 +5469,7 @@ function carveChamber(el){
 /* The shell material each room hangs its panels in. Matching the wall is what
    makes a bracket read as part of the room rather than as scaffolding: brick
    in the brick vaults, cut stone everywhere else. */
-const PANEL_FRAME={workshop:WOOD,crypt:BRICK,lab:STONE,arcade:WOOD,core:STONE};
+const PANEL_FRAME={workshop:WOOD,crypt:BRICK,arcade:WOOD,core:STONE};
 // Each room is one working exhibit. Selecting a project changes the scene,
 // its real project footage, and the three explanatory instrument labels.
 const ROOM_STORIES={
@@ -5440,11 +5477,9 @@ const ROOM_STORIES={
     intro:'Mitchell Kuppersmith · Design Engineer at Snap. I build spatial experiences, unusual controllers, and small worlds with a life of their own.'},
   crypt:{kicker:'02 / SNAP · SPATIAL COMPUTING',title:'Computing leaves the screen.',
     intro:'AI-native experiences for Spectacles: ideas you can hold, conversations you can understand, and agents that share your room.'},
-  lab:{kicker:'03 / EXPERIMENTS · NEW WAYS TO PLAY',title:'Your body is the interface.',
-    intro:'A room of unlikely inputs. Hands become commands, steps become progress, and a carnivorous plant becomes a controller.'},
-  arcade:{kicker:'04 / GAMES · MECHANICS FIRST',title:'One strange mechanic. A whole world.',
-    intro:'Telekinesis and musical spellcasting: games built around an interaction you can feel, then pushed into playful chaos.'},
-  core:{kicker:'05 / MICHIGAN · THE FOUNDATIONS',title:'How people think. How worlds work.',
+  arcade:{kicker:'03 / GAMES & SIDE PROJECTS',title:'One strange mechanic. A whole world.',
+    intro:'Jam games, hackathon builds and one room-sized carnivorous plant. Every one starts from an interaction you can feel — hands as commands, steps as progress, a melody as a weapon — and grows the project around it.'},
+  core:{kicker:'04 / MICHIGAN · THE FOUNDATIONS',title:'How people think. How worlds work.',
     intro:'Computer Science meets Cognitive Science, teaching, community-building, and the first collaborative game worlds.'}
 };
 const PROJECT_STORIES={
@@ -5484,7 +5519,7 @@ const PROJECT_STORIES={
     caption:'At the observatory: a miniature of Nira’s world and her magical companion Kane.',
     steps:[['Meet Kane','A magical hoverstaff becomes your companion.'],['Follow the story','Discover what a grandfather left at the observatory.'],['Build together','A team-built adventure for Michigan’s EECS 494.']]}
 };
-const ROOM_SELECTION={lab:'snaptrap'};
+const ROOM_SELECTION={arcade:'snaptrap'};
 function placeRoomSurface(el,x,y,width,height){
   Object.assign(el.style,{left:Math.round(x)+'px',top:Math.round(y)+'px',width:Math.round(width)+'px',height:Math.round(height)+'px'});
 }
@@ -5518,6 +5553,7 @@ function selectRoomProject(section,p,initial=false){
   });
   section.querySelectorAll('.room-selector button').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.project===p.id)));
   drawProjectScene(p,section._scene);
+  syncDepthTicks();
   if(!initial){_winMaskHash='';lightScanAll=1;}
 }
 function buildWorldPanels(){
@@ -5535,7 +5571,7 @@ function buildWorldPanels(){
     placeRoomSurface(section,bounds.x,top,bounds.width,m.height);
     section.innerHTML='<header class="world-panel room-heading"><div class="room-kicker">'+story.kicker+'</div><h2 id="room-title-'+z.id+'">'+story.title+'</h2><p>'+story.intro+'</p></header>'+
       '<div class="world-panel room-selector" role="group" aria-label="Select '+z.label+' exhibit">'+projects.map((p,i)=>
-        '<button type="button" data-project="'+p.id+'" aria-pressed="false" aria-controls="room-monitor-'+z.id+'"><small>'+String(i+1).padStart(2,'0')+' / '+(z.id==='arcade'?'LOAD GAME':z.id==='lab'?'SPECIMEN':'EXPLORE')+'</small>'+p.name+'</button>').join('')+'</div>'+
+        '<button type="button" data-project="'+p.id+'" aria-pressed="false" aria-controls="room-monitor-'+z.id+'"><small>'+String(i+1).padStart(2,'0')+' / '+(z.id==='arcade'?'LOAD':'EXPLORE')+'</small>'+p.name+'</button>').join('')+'</div>'+
       '<div class="room-diorama" aria-hidden="true"></div><div class="world-panel room-caption"><div class="caption-content"></div></div>'+
       '<article class="world-panel room-monitor" id="room-monitor-'+z.id+'" aria-live="polite"></article>'+
       [0,1,2].map(()=>'<div class="world-panel room-step"><div class="step-content"></div></div>').join('');
@@ -5630,8 +5666,10 @@ function drawProjectScene(p,r){
     for(let k=0;k<3;k++)box(5+k*4,8,6+k*4,8,GLASS,k%3);
     line(5,12,5,ground-4,STONE,1);
     line(w-6,12,w-6,ground-4,STONE,1);
-  }else if(p.zone==='lab'){
-    // A full-height specimen chamber, plumbing, gauge, and soil bed.
+  }else if(p.id==='larp'||p.id==='snaptrap'||p.id==='catiator'){
+    // A full-height specimen chamber, plumbing, gauge, and soil bed. Keyed to
+    // the works that are specimens rather than to a room, now that the games
+    // and the experiments share one.
     box(4,7,w-5,9,STONE,2);box(5,10,5,ground-1,GLASS,0);box(w-6,10,w-6,ground-1,GLASS,0);
     box(7,ground-4,w-8,ground-1,DIRT,2);
     for(let k=8;k<w-8;k+=3)box(k,ground-5,k+1,ground-5,MOSS,1);
@@ -5708,34 +5746,128 @@ function drawProjectScene(p,r){
   }
   wakeRect(x-1,y-1,x+w,y+h);pixDirtyRect(x-1,y-1,x+w,y+h);
 }
+/* ═══ DEPTH CORE SAMPLE ═══
+   Navigation for a world whose structure IS its depth. The rail is a section
+   through the whole descent: one band per zone at its true share of the
+   column, filled with the colour of the rock behind that room, a notch for
+   every exhibit in it, and a lens tracking the camera's window.
+
+   That is deliberately one object doing three jobs — table of contents,
+   progress indicator, and the "everything at once" view a visitor wants before
+   committing to a ten-screenful scroll. A list of buttons can only do the
+   first, and it cannot say how much world is left.
+
+   Band colours come from ZONES[].back, the same pair the shader crossfades
+   behind that room, so the rail restates the descent rather than inventing a
+   key for it. They are lifted through a gamma because colours picked to sit
+   BEHIND lit masonry are near-black at 30px wide. The meadow has no `back` —
+   ugK is zero above the horizon — so it takes the sky and turf colours the
+   shader and the palette actually use up there. */
+const NAV_LABELS={surface:'THE MEADOW',workshop:'THE WORKSHOP',crypt:'THE VAULTS',
+  arcade:'GAMES & SIDE PROJECTS',core:'THE CORE'};
+const NAV_SURFACE=['rgb(115,173,230)','rgb(68,138,50)'];   // daytime sky over turf
+const navRock=c=>'rgb('+c.map(v=>Math.round(255*Math.pow(v,0.62))).join(',')+')';
+const navZoneRock=z=>z.id==='surface'?NAV_SURFACE:[navRock(z.back[0]),navRock(z.back[1])];
+
+/* Which stratum the rail calls "here" is decided by the same anchors its
+   buttons scroll to, not by probing a row a quarter-screen down. A room's
+   carved ceiling can sit slightly ABOVE its zone band — buildExhibitShell puts
+   it at 18% of a screenful into the band, while the jump parks the camera 44px
+   above that — so a probe at a fixed depth landed a click on `crypt` inside
+   `workshop`. Reading both off one number makes the highlight true by
+   construction: after you press a band, you are in it. */
+let NAV_ANCHORS=[];
+const navAnchorRow=id=>(NAV_ANCHORS.find(a=>a.id===id)||{row:0}).row;
+function activeZoneId(){
+  let id=ZONES[0].id;
+  // +1 row of tolerance: scrollY comes back fractional on hidpi displays.
+  for(const a of NAV_ANCHORS)if(camY+1>=a.row)id=a.id;
+  return id;
+}
+
 function buildDepthNav(){
   let nav=document.getElementById('depthNav');
   if(!nav){
-    nav=document.createElement('nav');nav.id='depthNav';nav.setAttribute('aria-label','Portfolio depths');
+    nav=document.createElement('nav');nav.id='depthNav';
+    nav.setAttribute('aria-label','Depth');
     document.getElementById('stage').appendChild(nav);
-    nav.addEventListener('click',e=>{
-      const button=e.target.closest('button[data-depth]');
-      if(!button)return;
-      const box=ROOM_BOX[button.dataset.depth];
-      const top=box?Math.max(0,box.ceil*SCALE-44):0;
-      window.scrollTo({top,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
-    });
+    nav.addEventListener('click',onDepthNavClick);
   }
-  const labels={surface:['↑','Back to the meadow'],workshop:['ME','About Mitchell'],crypt:['AR','Spectacles work'],
-    lab:['LAB','Experiments and installations'],arcade:['PLAY','Games'],core:['UNI','Michigan and Nira']};
-  nav.innerHTML=ZONES.map(z=>'<button type="button" data-depth="'+z.id+'" aria-label="'+labels[z.id][1]+'" title="'+labels[z.id][1]+'">'+labels[z.id][0]+'</button>').join('');
-  nav.dataset.active='';
-  syncDepthNav();
+  // Shares are read off DEPTH_LAYOUT rather than the ZONES literals: those are
+  // the pre-resize fractions, and worldBands has since restretched every band
+  // to fit the room inside it at this width.
+  const total=DEPTH_LAYOUT.total;
+  nav.innerHTML='<div class="cs-core">'+ZONES.map(z=>{
+    const rock=navZoneRock(z),projects=WORLD_PANELS.filter(p=>p.zone===z.id);
+    return '<div class="cs-band" data-depth="'+z.id+'" style="--share:'+((z.bot-z.top)/total).toFixed(4)+
+      ';--rock-top:'+rock[0]+';--rock-bot:'+rock[1]+'">'+
+      '<button type="button" class="cs-jump" data-depth="'+z.id+'" data-label="'+NAV_LABELS[z.id]+
+        '" aria-label="'+NAV_LABELS[z.id]+'"></button>'+
+      // Exhibits in a room share one carved bay and swap through the selector,
+      // so a notch marks WHICH of the room's works is loaded, not a separate
+      // depth. Spreading them down the band is a reading of the stratum's
+      // contents, and it is the only place the whole portfolio is visible.
+      projects.map((p,i)=>'<button type="button" class="cs-tick" data-depth="'+z.id+
+        '" data-project="'+p.id+'" style="--at:'+((i+1)/(projects.length+1)*100).toFixed(1)+
+        '%" data-label="'+p.name+'" aria-label="'+p.name+' — '+NAV_LABELS[z.id]+'"></button>').join('')+
+      '</div>';
+  }).join('')+'<div class="cs-lens" aria-hidden="true"></div></div>';
+  // Anchors are cached here, where ROOM_BOX is known to be populated, so the
+  // per-scroll sync never touches it — spawnStrata fills ROOM_BOX long after
+  // the first setCam could fire.
+  NAV_ANCHORS=ZONES.map(z=>{
+    const box=ROOM_BOX[z.id];
+    return {id:z.id,row:box?Math.max(0,box.ceil-Math.round(44/SCALE)):0};
+  });
+  nav.dataset.active='';_navLens='';
+  syncDepthNav();syncDepthTicks();
 }
+/* A notch click selects the work AND travels to it: the rail is an index, and
+   an index that only got you to the right room would make you hunt again. */
+function onDepthNavClick(e){
+  const tick=e.target.closest('.cs-tick'),button=tick||e.target.closest('.cs-jump');
+  if(!button)return;
+  const id=button.dataset.depth;
+  if(tick){
+    const section=document.querySelector('.room-exhibit[data-zone="'+id+'"]');
+    const p=WORLD_PANELS.find(p=>p.id===tick.dataset.project);
+    if(section&&p&&section.dataset.project!==p.id)selectRoomProject(section,p);
+  }
+  window.scrollTo({top:navAnchorRow(id)*SCALE,
+    behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+}
+/* Which notch is lit changes only when a room's selection does, so it is
+   driven from selectRoomProject rather than from the per-scroll sync. */
+function syncDepthTicks(){
+  const nav=document.getElementById('depthNav');
+  if(!nav)return;
+  for(const tick of nav.querySelectorAll('.cs-tick'))
+    tick.classList.toggle('is-on',ROOM_SELECTION[tick.dataset.depth]===tick.dataset.project);
+}
+let _navLens='';
 function syncDepthNav(){
   const nav=document.getElementById('depthNav');
   if(!nav)return;
-  const zone=zoneAt(camY+VH*.25).id;
+  const lens=nav.querySelector('.cs-lens');
+  if(lens){
+    // Percentages of the whole world, so the lens is a true scale reading of
+    // how much of the descent one screenful covers.
+    const at=(camY/H*100).toFixed(2),span=(Math.min(VH,H-camY)/H*100).toFixed(2);
+    if(_navLens!==at+'/'+span){
+      _navLens=at+'/'+span;
+      lens.style.setProperty('--at',at+'%');
+      lens.style.setProperty('--span',span+'%');
+    }
+  }
+  const zone=activeZoneId();
   if(nav.dataset.active===zone)return;
   nav.dataset.active=zone;
-  for(const button of nav.querySelectorAll('button')){
-    if(button.dataset.depth===zone)button.setAttribute('aria-current','location');
-    else button.removeAttribute('aria-current');
+  for(const band of nav.querySelectorAll('.cs-band')){
+    const here=band.dataset.depth===zone;
+    band.classList.toggle('is-here',here);
+    const jump=band.querySelector('.cs-jump');
+    if(here)jump.setAttribute('aria-current','location');
+    else jump.removeAttribute('aria-current');
   }
 }
 
@@ -6108,16 +6240,11 @@ const SUITES={
   crypt:{matrix:STONE,
          beds:[{m:BRICK,every:8,of:1,p:0.30},{m:DIRT,every:7,of:1,p:0.20}],
          veins:[], damp:0.95},
-  /* THE LAB — cut, not found. Even the rock is tidy: regular thin beds, one
-     mineral vein, and nothing damp anywhere. */
-  lab:{matrix:STONE,
-       beds:[{m:DIRT,every:9,of:1,p:0.25}],
-       veins:[{m:DIRT,scale:0.10,cover:0.05,warp:6}], damp:0.02},
   /* THE ARCADE — fill, not bedrock: this is ground that was dumped rather than
      laid, so it gets an earth matrix with rubble through it and beds that
      barely hold together. It is the only zone whose bulk is DIRT below the
      subsoil, and that is what makes the arcade's surroundings read as
-     backfill while the lab's read as something cut. */
+     backfill rather than as bedrock. */
   arcade:{matrix:DIRT,
           beds:[{m:STONE,every:4,of:1,p:0.65},{m:BRICK,every:9,of:1,p:0.25}],
           veins:[{m:STONE,scale:0.08,cover:0.16,warp:11}], damp:0.25},
@@ -6331,12 +6458,12 @@ function buildExhibitShell(zone,y0,y1){
   }else if(zone==='crypt'){
     for(let x=x0+5;x<x1-4;x+=20){slab(x,ceil+2,x+2,ceil+4,BRICK,2);}
     for(let x=x0+4;x<x1-3;x+=9)slab(x,floor-2,x+2,floor-2,MOSS,1);
-  }else if(zone==='lab'){
+  }else if(zone==='arcade'){
+    // A fuse line under the ceiling: the merged room keeps the lab's one real
+    // light source, so the cabinets are not the only thing lighting it.
     for(let x=x0+3;x<x1-2;x++){
       const i=idx(x,ceil+3);grid[i]=FUSE;variant[i]=0;frozen[i]=0;
     }
-    for(let x=x0+3;x<x1-2;x+=6)slab(x,floor-2,x+2,floor-2,THATCH,1);
-  }else if(zone==='arcade'){
     for(let x=x0+3;x<x1-2;x+=8){slab(x,ceil+3,x+4,ceil+3,GLASS,1);}
     for(let y=floor-2;y<=floor;y++)for(let x=x0;x<=x1;x++){
       const m=((Math.floor(x/3)+Math.floor(y/3))&1)?BRICK:STONE;slab(x,y,x,y,m,2);
@@ -6359,10 +6486,6 @@ function buildCrypt(y0,y1){
    lit by the thing it is full of. Overhead runs a fuse conduit, stamped live,
    which means the ceiling is a circuit: put fire to one end and the whole
    room's wiring runs. */
-function buildLab(y0,y1){
-  return buildExhibitShell('lab',y0,y1);
-}
-
 /* ── THE ARCADE (games) ───────────────────────────────────
    Low ceiling, checkerboard floor, a row of cabinets facing out. The screens
    are glass and therefore the light: the room is lit entirely by the things
@@ -6655,7 +6778,7 @@ function spawnContacts(){
    avoid the rooms entirely. */
 const ROOM_BOX={};
 function spawnStrata(surf){
-  const build={workshop:buildWorkshop,crypt:buildCrypt,lab:buildLab,arcade:buildArcade,core:buildCore};
+  const build={workshop:buildWorkshop,crypt:buildCrypt,arcade:buildArcade,core:buildCore};
   const order=[];
   for(const z of ZONES){
     const fn=build[z.id];
@@ -7310,7 +7433,7 @@ function furnishArcade(box){
 }
 
 function furnishRooms(){
-  const fns={workshop:furnishWorkshop,crypt:furnishCrypt,lab:furnishLab,arcade:furnishArcade,core:furnishCore};
+  const fns={workshop:furnishWorkshop,crypt:furnishCrypt,arcade:furnishArcade,core:furnishCore};
   for(const id in fns){
     const box=ROOM_BOX[id];
     if(box&&!box.exhibit)fns[id](box);
