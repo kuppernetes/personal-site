@@ -84,53 +84,71 @@ html,body{
 .room-heading .room-kicker{font-size:10px;letter-spacing:2px;color:var(--exhibit);margin:0 0 8px}
 .room-heading h2{font-size:clamp(24px,3vw,40px);line-height:1.05;margin:0 0 10px;letter-spacing:-1.7px}
 .room-heading p{font-size:12px;line-height:1.5;margin:0;max-width:760px;color:#c1c7bc}
-.room-selector{display:flex;gap:4px;padding:5px;background:#141819;border-width:3px;border-bottom-width:7px}
-.room-selector button{flex:1;min-width:0;text-align:left;padding:8px 12px;cursor:pointer;
-  border:2px solid var(--exhibit-dark);background:#202729;color:#c6cec9;font:12px 'Courier New',monospace;line-height:1.3}
-.room-selector button small{display:block;font-size:9px;letter-spacing:1px;margin-bottom:4px;color:#a0ada4}
-.room-selector button[aria-pressed=true]{background:var(--exhibit);border-color:#f3eed7;color:#172125;box-shadow:inset 0 -4px #0002}
-.room-selector button[aria-pressed=true] small{color:#354539}
-.room-selector button:hover{border-color:var(--exhibit)}
 .room-exhibit a{color:var(--exhibit);text-underline-offset:4px}
 .room-exhibit button:focus-visible,.room-exhibit a:focus-visible{outline:3px solid #fff;outline-offset:3px}
 .room-diorama{position:absolute;pointer-events:none}
 .room-caption{font-size:11px;line-height:1.5;padding:10px 12px;border-left:4px solid var(--exhibit);box-shadow:none}
 .room-caption strong{display:block;font-size:10px;letter-spacing:1px;color:var(--exhibit);margin-bottom:4px}
-.room-monitor{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--exhibit-dark) var(--exhibit-bg);border-width:4px}
-.room-monitor .monitor-content{padding:18px}
-.room-monitor .wp-meta{font-size:10px;line-height:1.5;color:#bac6b8;margin:0 0 10px}
-.room-monitor h3{font-size:clamp(24px,2.5vw,34px);line-height:1.05;letter-spacing:-1px;margin:0 0 10px;color:var(--exhibit)}
-.room-monitor .project-hook{font-size:17px;line-height:1.4;margin:0 0 13px;font-weight:bold}
-.room-monitor p{font-size:13px;line-height:1.6;margin:0 0 12px}
-.room-monitor .wp-shot{display:block;background:#0d1519;border:2px solid var(--exhibit-dark);margin:0 0 16px;position:relative}
-.room-monitor img{display:block;width:100%;height:190px;object-fit:contain;background:#10161c}
-.room-monitor .wp-shot span{display:block;font-size:10px;padding:7px 9px;background:#11191d;color:var(--exhibit)}
-.room-monitor .wp-open{display:flex;justify-content:space-between;gap:10px;border-top:2px solid var(--exhibit-dark);padding-top:12px;font-size:12px;font-weight:bold;text-decoration:none}
-.room-monitor .wp-related{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;line-height:1.5;margin-top:12px}
-.room-monitor .wp-badge{display:block;font-size:10px;letter-spacing:1px;line-height:1.4;color:var(--exhibit);margin-bottom:9px}
-.room-monitor .room-manifesto{font-size:24px;line-height:1.25;color:var(--exhibit);margin:16px 0 22px}
-.room-monitor .room-evidence{border-left:3px solid var(--exhibit);padding-left:12px;color:#cdd5c2}
-.room-step{padding:12px 14px;border-top:4px solid var(--exhibit)}
-.room-step small{font-size:10px;letter-spacing:1px;color:var(--exhibit)}
-.room-step h4{font-size:15px;margin:7px 0 5px;line-height:1.2}
-.room-step p{font-size:11px;line-height:1.5;margin:0;color:#c6cec3}
-.room-exhibit[data-zone=crypt] .room-monitor{border:5px double #8babad;background:#17262b}
-.room-exhibit[data-zone=lab] .room-monitor{border:5px solid #718069;box-shadow:6px 6px #101918}
-.room-exhibit[data-zone=lab] .room-step{border-bottom:6px solid #8e9458}
-.room-exhibit[data-zone=arcade] .room-monitor{border:8px solid #754969;border-top:14px solid #c17eab;box-shadow:8px 8px #11101b}
-.room-exhibit[data-zone=arcade] .room-selector button{text-transform:uppercase}
-.room-exhibit[data-zone=core] .room-monitor{border:5px solid #8f805e;background:#28281f}
-.room-exhibit[data-zone=core] .room-step{border-bottom:5px solid #8f805e}
-.room-exhibit.is-compact .room-monitor img{height:180px}
+
+/* ── THE CARD ──
+   One per work, all of them on screen. A card carries only what you would
+   judge the work by; everything else waits in the record. */
+.room-card{display:block;overflow:hidden;text-align:left;cursor:pointer;color:inherit;font:inherit}
+.room-card .card-content{padding:13px 14px;height:100%;display:flex;flex-direction:column}
+.room-card small{display:block;font-size:9px;letter-spacing:1.5px;color:var(--exhibit)}
+.room-card h3{font-size:19px;line-height:1.15;letter-spacing:-.4px;margin:6px 0 0;color:#f2ede0}
+.room-card .wp-badge{display:block;font-size:9px;letter-spacing:1px;color:var(--exhibit);margin:7px 0 0}
+.room-card .card-meta{font-size:10px;line-height:1.4;color:#9fada6;margin:5px 0 0}
+.room-card .card-blurb{font-size:12px;line-height:1.5;color:#c6cec3;margin:8px 0 0;
+  overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+.room-card .card-open{margin-top:auto;padding-top:9px;font-size:10px;letter-spacing:1px;
+  color:var(--exhibit);font-weight:bold}
+.room-card:hover{border-color:var(--exhibit)}
+.room-card:hover h3{color:var(--exhibit)}
+.room-card[aria-expanded=true]{border-color:var(--exhibit);box-shadow:inset 0 0 0 2px var(--exhibit)}
+
+/* ── THE RECORD ──
+   Sits at the grid's exact footprint and covers it, so opening a work costs
+   the room no height and the world no re-carve. */
+.room-record{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--exhibit-dark) var(--exhibit-bg);
+  border-width:4px;z-index:4}
+.room-record .record-content{padding:18px;position:relative}
+.room-record .record-close{position:absolute;top:12px;right:12px;padding:5px 9px;cursor:pointer;
+  background:#202729;border:2px solid var(--exhibit-dark);color:var(--exhibit);
+  font:10px 'Courier New',monospace;letter-spacing:1px}
+.room-record .record-close:hover{border-color:var(--exhibit);background:var(--exhibit);color:#172125}
+.room-record .wp-meta{font-size:10px;line-height:1.5;color:#bac6b8;margin:0 60px 10px 0}
+.room-record h3{font-size:clamp(24px,2.5vw,34px);line-height:1.05;letter-spacing:-1px;margin:0 0 10px;color:var(--exhibit)}
+.room-record .project-hook{font-size:17px;line-height:1.4;margin:0 0 13px;font-weight:bold}
+.room-record p{font-size:13px;line-height:1.6;margin:0 0 12px}
+.room-record .wp-shot{display:block;background:#0d1519;border:2px solid var(--exhibit-dark);margin:0 0 16px;position:relative}
+.room-record img{display:block;width:100%;height:190px;object-fit:contain;background:#10161c}
+.room-record .wp-shot span{display:block;font-size:10px;padding:7px 9px;background:#11191d;color:var(--exhibit)}
+.room-record .wp-open{display:flex;justify-content:space-between;gap:10px;border-top:2px solid var(--exhibit-dark);padding-top:12px;font-size:12px;font-weight:bold;text-decoration:none}
+.room-record .wp-related{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;line-height:1.5;margin-top:12px}
+.room-record .wp-badge{display:block;font-size:10px;letter-spacing:1px;line-height:1.4;color:var(--exhibit);margin-bottom:9px}
+.room-record .room-manifesto{font-size:24px;line-height:1.25;color:var(--exhibit);margin:16px 0 22px}
+.room-record .room-evidence{border-left:3px solid var(--exhibit);padding-left:12px;color:#cdd5c2}
+/* The three instrument labels, now inside the record they always described. */
+.room-record .record-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 16px}
+.room-record .record-step{border-top:3px solid var(--exhibit);padding-top:9px}
+.room-record .record-step small{font-size:9px;letter-spacing:1px;color:var(--exhibit)}
+.room-record .record-step h4{font-size:14px;margin:6px 0 4px;line-height:1.2}
+.room-record .record-step p{font-size:11px;line-height:1.5;margin:0;color:#c6cec3}
+
+.room-exhibit[data-zone=crypt] .room-record{border:5px double #8babad;background:#17262b}
+.room-exhibit[data-zone=arcade] .room-record{border:8px solid #754969;border-top:14px solid #c17eab;box-shadow:8px 8px #11101b}
+.room-exhibit[data-zone=arcade] .room-card h3{text-transform:uppercase}
+.room-exhibit[data-zone=core] .room-record{border:5px solid #8f805e;background:#28281f}
+.room-exhibit.is-compact .room-record img{height:180px}
 .room-exhibit.is-narrow .room-heading{padding:10px 12px}
 .room-exhibit.is-narrow .room-heading h2{font-size:26px}
-.room-exhibit.is-narrow .room-selector{flex-direction:column}
-.room-exhibit.is-narrow .room-selector button{padding:5px 8px;font-size:11px}
-.room-exhibit.is-narrow .room-selector button small{display:inline;font-size:8px;margin-right:7px;letter-spacing:0}
-.room-exhibit.is-narrow .room-monitor .monitor-content{padding:12px}
-.room-exhibit.is-narrow .room-monitor .project-hook{font-size:15px}
-.room-exhibit.is-narrow .room-monitor p{font-size:12px}
-.room-exhibit.is-narrow .room-monitor img{height:160px}
+.room-exhibit.is-narrow .room-card .card-content{padding:10px 12px}
+.room-exhibit.is-narrow .room-card h3{font-size:17px}
+.room-exhibit.is-narrow .room-record .record-content{padding:12px}
+.room-exhibit.is-narrow .room-record .project-hook{font-size:15px}
+.room-exhibit.is-narrow .room-record p{font-size:12px}
+.room-exhibit.is-narrow .room-record .record-steps{grid-template-columns:1fr}
 /* ── DEPTH CORE SAMPLE ──
    A section through the world, not a row of buttons. Every zone gets its true
    share of the column, the notches in a band are its exhibits, and the lens is
@@ -1476,20 +1494,44 @@ function exhibitBounds(cells,scale){
   const width=Math.min(1260,right-left);
   return {x:Math.round(left+(right-left-width)/2),width};
 }
+/* A room shows all of its work at once.
+
+   It used to be a carousel: a selector, and one project filling a 660px
+   monitor with its own diorama and its own three instrument labels beside it.
+   Four of a room's six surfaces served ONE work, so a five-work room showed
+   four of them as buttons. Now every work in the stratum is a card in a grid,
+   and the long record opens over the grid on demand — which is why the room's
+   height is a function of how many works it holds rather than a constant.
+
+   The expanded record deliberately occupies exactly the grid's footprint. The
+   room's bay is carved once, from the union of its surfaces; an expansion that
+   stays inside a region already carved needs no re-carve, no re-stamped frame
+   and no change to the zone band heights that were derived from this height. */
 function roomMetrics(width,count=3){
   const compact=width<720,narrow=width<430,gap=16;
-  const header=narrow?300:compact?160:112,selector=narrow?Math.max(64,count*43+16):76;
-  const caption=narrow?132:compact?92:92,monitor=narrow?700:compact?620:660;
-  const art=compact?(narrow?244:294):monitor-caption;
-  const stepHeight=narrow?152:156;
-  const stageY=header+selector+gap*2;
+  const header=narrow?300:compact?160:112;
+  const caption=narrow?132:92;
+  const cols=narrow?1:2;
+  const cardHeight=narrow?150:compact?158:168;
+  const rows=Math.ceil(count/cols);
+  const grid=rows*cardHeight+(rows-1)*gap;
   const leftWidth=compact?width:Math.floor((width-gap)*.43);
   const rightWidth=compact?width:width-leftWidth-gap;
-  const stageHeight=compact?art+caption+gap+monitor:Math.max(art+caption,monitor);
-  const stepsY=stageY+stageHeight+gap;
-  return {compact,narrow,header,selector,art,caption,monitor,leftWidth,rightWidth,stageY,
-    monitorX:compact?0:leftWidth+gap,monitorY:compact?stageY+art+caption+gap:stageY,
-    stepsY,stepHeight,height:stepsY+(narrow?stepHeight*3+gap*2:stepHeight)};
+  const cardWidth=Math.floor((rightWidth-(cols-1)*gap)/cols);
+  // The diorama column matches the grid beside it rather than a fixed size, so
+  // a two-work room is not left with a tall empty scene next to two cards.
+  const art=compact?(narrow?244:294):Math.max(280,grid-caption-gap);
+  const stageY=header+gap;
+  const stageHeight=compact?art+caption+gap+grid:Math.max(art+caption,grid);
+  return {compact,narrow,gap,cols,rows,cardWidth,cardHeight,grid,header,art,caption,
+    leftWidth,rightWidth,stageY,
+    gridX:compact?0:leftWidth+gap,gridY:compact?stageY+art+caption+gap:stageY,
+    height:stageY+stageHeight+gap};
+}
+// Where card i sits inside the room, and the footprint its record expands into.
+function cardBox(m,i){
+  return {x:m.gridX+(i%m.cols)*(m.cardWidth+m.gap),y:m.gridY+Math.floor(i/m.cols)*(m.cardHeight+m.gap),
+    width:m.cardWidth,height:m.cardHeight};
 }
 function worldBands(vw,vh){
   const scale=Math.max(4,Math.round(Math.sqrt(vw*vh)/346));
@@ -1499,7 +1541,7 @@ function worldBands(vw,vh){
     // Counts must match WORLD_PANELS. They are written out rather than derived
   // because worldBands runs from computeDims during boot, before WORLD_PANELS
   // is initialised; tools/exhibit-check.cjs asserts the two agree.
-  for(const [id,count] of [['workshop',1],['crypt',3],['arcade',5],['core',2]]){
+  for(const [id,count] of [['workshop',1],['crypt',3],['arcade',6],['core',1]]){
     const minimum=roomMetrics(width,count).height+Math.max(90,vh*.10)+60;
     const height=minimum/vh+.36+(id==='core'?.45:0);
     bands[id]={top,bot:top+height,minRoom:minimum};top+=height;
@@ -5381,7 +5423,7 @@ const WORLD_PANELS=[
   {id:'education', zone:'core', sprite:'bookstack', exhibit:'THE FOUNDATIONS', action:'Open the field notes',
    name:'Minds & machines', meta:'University of Michigan · 2019–2022',
    blurb:'Computer Science and Cognitive Science. Building XR communities, teaching interaction design, and learning how people think.'},
-  {id:'nira', zone:'core', sprite:'hoverstaff', exhibit:'THE FIRST WORLDS', action:'Follow the hoverstaff',
+  {id:'nira', zone:'arcade', sprite:'hoverstaff', exhibit:'THE FIRST WORLDS', action:'Follow the hoverstaff',
    name:'Nira', meta:'EECS 494 · Michigan · Unity',
    thumb:'images/projects/nira-thumb.webp',
    blurb:'A girl, a magical hoverstaff named Kane, and a grandfather who left something at the observatory. A small world built with a team.'},
@@ -5474,13 +5516,17 @@ const PANEL_FRAME={workshop:WOOD,crypt:BRICK,arcade:WOOD,core:STONE};
 // its real project footage, and the three explanatory instrument labels.
 const ROOM_STORIES={
   workshop:{kicker:'01 / THE MAKER’S WORKBENCH',title:'Interfaces worth playing with.',
-    intro:'Mitchell Kuppersmith · Design Engineer at Snap. I build spatial experiences, unusual controllers, and small worlds with a life of their own.'},
+    intro:'Mitchell Kuppersmith · Design Engineer at Snap. I build spatial experiences, unusual controllers, and small worlds with a life of their own.',
+    caption:'The bench under the cottage, where the prototypes get made.'},
   crypt:{kicker:'02 / SNAP · SPATIAL COMPUTING',title:'Computing leaves the screen.',
-    intro:'AI-native experiences for Spectacles: ideas you can hold, conversations you can understand, and agents that share your room.'},
+    intro:'AI-native experiences for Spectacles: ideas you can hold, conversations you can understand, and agents that share your room.',
+    caption:'The vault projector, showing whichever piece of the Spectacles work is open.'},
   arcade:{kicker:'03 / GAMES & SIDE PROJECTS',title:'One strange mechanic. A whole world.',
-    intro:'Jam games, hackathon builds and one room-sized carnivorous plant. Every one starts from an interaction you can feel — hands as commands, steps as progress, a melody as a weapon — and grows the project around it.'},
+    intro:'Jam games, hackathon builds and one room-sized carnivorous plant. Every one starts from an interaction you can feel — hands as commands, steps as progress, a melody as a weapon — and grows the project around it.',
+    caption:'The cabinet on the floor of the arcade, running whichever of these is open.'},
   core:{kicker:'04 / MICHIGAN · THE FOUNDATIONS',title:'How people think. How worlds work.',
-    intro:'Computer Science meets Cognitive Science, teaching, community-building, and the first collaborative game worlds.'}
+    intro:'Computer Science meets Cognitive Science, teaching, community-building, and the first collaborative game worlds.',
+    caption:'The foundations, cut into the rock the rest of it was built on.'}
 };
 const PROJECT_STORIES={
   about:{hook:'I prototype the interaction, then build the world around it.',
@@ -5519,13 +5565,31 @@ const PROJECT_STORIES={
     caption:'At the observatory: a miniature of Nira’s world and her magical companion Kane.',
     steps:[['Meet Kane','A magical hoverstaff becomes your companion.'],['Follow the story','Discover what a grandfather left at the observatory.'],['Build together','A team-built adventure for Michigan’s EECS 494.']]}
 };
-const ROOM_SELECTION={arcade:'snaptrap'};
+/* Empty on purpose. A room opens showing its whole grid; a work seeded open
+   would put a record over those cards at first sight, which is the carousel
+   this replaced. Entries appear here as the visitor opens things. */
+const ROOM_SELECTION={};
 function placeRoomSurface(el,x,y,width,height){
   Object.assign(el.style,{left:Math.round(x)+'px',top:Math.round(y)+'px',width:Math.round(width)+'px',height:Math.round(height)+'px'});
 }
-function roomProjectHTML(p){
+/* The card: enough to judge the work by, and nothing more. */
+function roomCardHTML(p,i){
+  return '<div class="card-content">'+
+    '<small>'+String(i+1).padStart(2,'0')+' / '+p.exhibit+'</small>'+
+    '<h3>'+p.name+'</h3>'+
+    (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
+    '<p class="card-meta">'+p.meta+'</p>'+
+    '<p class="card-blurb">'+p.blurb+'</p>'+
+    '<span class="card-open" aria-hidden="true">'+p.action+' →</span></div>';
+}
+/* The record: everything the old monitor carried, plus the three instrument
+   labels that used to be their own panels in the room. They were always about
+   one project, so they belong to the project's record rather than to the room
+   they were read in. */
+function roomRecordHTML(p){
   const story=PROJECT_STORIES[p.id];
-  return '<div class="monitor-content">'+
+  return '<div class="record-content">'+
+    '<button type="button" class="record-close" aria-label="Close '+p.name+'">✕ close</button>'+
     '<div class="wp-meta">'+p.exhibit+' / '+p.meta+'</div><h3>'+p.name+'</h3>'+
     '<p class="project-hook">'+story.hook+'</p>'+
     (p.thumb?'<a class="wp-shot" href="#/'+p.id+'" aria-label="Open '+p.name+' project and demo"><img loading="lazy" decoding="async" src="'+p.thumb+'" alt="'+p.name+' — actual project preview" width="480" height="190"><span>VIEW THE REAL PROJECT + DEMO ↗</span></a>':
@@ -5533,28 +5597,50 @@ function roomProjectHTML(p){
     (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
     '<p>'+p.blurb+'</p>'+
     (story.evidence?'<p class="room-evidence">'+story.evidence+'</p>':'')+
+    '<div class="record-steps">'+story.steps.map((st,i)=>
+      '<div class="record-step"><small>0'+(i+1)+' / '+['INPUT','INTERACTION','OUTCOME'][i]+'</small>'+
+      '<h4>'+st[0]+'</h4><p>'+st[1]+'</p></div>').join('')+'</div>'+
     '<a class="wp-open" href="#/'+p.id+'"><span>'+p.action+'</span><span aria-hidden="true">↗</span></a>'+
     (p.related?'<div class="wp-related">'+p.related.map(([id,label])=>'<a href="#/'+id+'">'+label+'</a>').join('')+'</div>':'')+'</div>';
 }
-function selectRoomProject(section,p,initial=false){
+/* Open one work's record over the room's grid.
+
+   The record is a panel that already exists at the grid's exact footprint, so
+   opening is a visibility change rather than a layout one: nothing is carved,
+   no frame is re-stamped, and the zone bands derived from this room's height
+   stay valid. The diorama redraws to the opened work, which is the one thing
+   that should change about the room itself — the scene is the world's copy of
+   what you are reading. */
+function openRoomRecord(section,p,initial=false){
   ROOM_SELECTION[p.zone]=p.id;
   section.dataset.project=p.id;
-  const monitor=section.querySelector('.room-monitor'),story=PROJECT_STORIES[p.id];
-  if(!monitor)return; // A destroyed monitor stays destroyed until world reset.
+  const record=section.querySelector('.room-record');
+  if(!record)return; // A destroyed record stays destroyed until world reset.
   // Keep the burn overlay and damage on the equipment when its display changes.
-  monitor.querySelector('.monitor-content')?.remove();
-  monitor.insertAdjacentHTML('afterbegin',roomProjectHTML(p));
-  monitor.scrollTop=0;
-  monitor.setAttribute('aria-label',p.name+' project');
-  const caption=section.querySelector('.room-caption .caption-content');
-  if(caption)caption.innerHTML='<strong>PIXEL DIORAMA / '+p.exhibit+'</strong>'+story.caption;
-  section.querySelectorAll('.room-step .step-content').forEach((el,i)=>{
-    el.innerHTML='<small>0'+(i+1)+' / '+['INPUT','INTERACTION','OUTCOME'][i]+'</small><h4>'+story.steps[i][0]+'</h4><p>'+story.steps[i][1]+'</p>';
+  record.querySelector('.record-content')?.remove();
+  record.insertAdjacentHTML('afterbegin',roomRecordHTML(p));
+  record.scrollTop=0;
+  record.hidden=false;
+  record.setAttribute('aria-label',p.name+' project');
+  section.querySelectorAll('.room-card').forEach(el=>{
+    el.setAttribute('aria-expanded',String(el.dataset.project===p.id));
   });
-  section.querySelectorAll('.room-selector button').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.project===p.id)));
   drawProjectScene(p,section._scene);
   syncDepthTicks();
   if(!initial){_winMaskHash='';lightScanAll=1;}
+}
+function closeRoomRecord(section){
+  const record=section.querySelector('.room-record');
+  if(!record||record.hidden)return;
+  record.hidden=true;
+  delete ROOM_SELECTION[section.dataset.zone];
+  section.dataset.project='';
+  section.querySelectorAll('.room-card').forEach(el=>el.setAttribute('aria-expanded','false'));
+  // The room falls back to its own scene rather than keeping the last work's.
+  const lead=WORLD_PANELS.find(p=>p.zone===section.dataset.zone);
+  if(lead)drawProjectScene(lead,section._scene);
+  syncDepthTicks();
+  _winMaskHash='';lightScanAll=1;
 }
 function buildWorldPanels(){
   const wl=document.getElementById('worldLayer');if(!wl)return;
@@ -5570,27 +5656,29 @@ function buildWorldPanels(){
     section.dataset.zone=z.id;section.setAttribute('aria-labelledby','room-title-'+z.id);
     placeRoomSurface(section,bounds.x,top,bounds.width,m.height);
     section.innerHTML='<header class="world-panel room-heading"><div class="room-kicker">'+story.kicker+'</div><h2 id="room-title-'+z.id+'">'+story.title+'</h2><p>'+story.intro+'</p></header>'+
-      '<div class="world-panel room-selector" role="group" aria-label="Select '+z.label+' exhibit">'+projects.map((p,i)=>
-        '<button type="button" data-project="'+p.id+'" aria-pressed="false" aria-controls="room-monitor-'+z.id+'"><small>'+String(i+1).padStart(2,'0')+' / '+(z.id==='arcade'?'LOAD':'EXPLORE')+'</small>'+p.name+'</button>').join('')+'</div>'+
-      '<div class="room-diorama" aria-hidden="true"></div><div class="world-panel room-caption"><div class="caption-content"></div></div>'+
-      '<article class="world-panel room-monitor" id="room-monitor-'+z.id+'" aria-live="polite"></article>'+
-      [0,1,2].map(()=>'<div class="world-panel room-step"><div class="step-content"></div></div>').join('');
+      '<div class="room-diorama" aria-hidden="true"></div>'+
+      '<div class="world-panel room-caption"><div class="caption-content"><strong>PIXEL DIORAMA</strong>'+story.caption+'</div></div>'+
+      // Every work in the stratum, on screen at once.
+      projects.map((p,i)=>'<button type="button" class="world-panel room-card" data-project="'+p.id+
+        '" aria-expanded="false" aria-controls="room-record-'+z.id+'">'+roomCardHTML(p,i)+'</button>').join('')+
+      // One record panel, sized to the grid it covers, hidden until asked for.
+      '<article class="world-panel room-record" id="room-record-'+z.id+'" hidden aria-live="polite"></article>';
     wl.appendChild(section);
     placeRoomSurface(section.querySelector('.room-heading'),0,0,bounds.width,m.header);
-    placeRoomSurface(section.querySelector('.room-selector'),0,m.header+16,bounds.width,m.selector);
     placeRoomSurface(section.querySelector('.room-diorama'),0,m.stageY,m.leftWidth,m.art);
     placeRoomSurface(section.querySelector('.room-caption'),0,m.stageY+m.art,m.leftWidth,m.caption);
-    placeRoomSurface(section.querySelector('.room-monitor'),m.monitorX,m.monitorY,m.rightWidth,m.monitor);
-    section.querySelectorAll('.room-step').forEach((el,i)=>{
-      const width=m.narrow?bounds.width:(bounds.width-32)/3;
-      placeRoomSurface(el,m.narrow?0:i*(width+16),m.stepsY+(m.narrow?i*(m.stepHeight+16):0),width,m.stepHeight);
+    section.querySelectorAll('.room-card').forEach((el,i)=>{
+      const b=cardBox(m,i);placeRoomSurface(el,b.x,b.y,b.width,b.height);
     });
+    placeRoomSurface(section.querySelector('.room-record'),m.gridX,m.gridY,m.rightWidth,m.grid);
     const rect={x0:Math.floor(bounds.x/SCALE)-3,y0:Math.floor(top/SCALE)-3,
       x1:Math.ceil((bounds.x+bounds.width)/SCALE)+3,y1:Math.ceil((top+m.height)/SCALE)+4};
     PANEL_RECTS.push(rect);
     // Equipment lives in a carved, connected bay, not in rock behind a DOM card.
     slab(rect.x0,rect.y0,rect.x1,rect.y1,EMPTY);
-    for(const el of section.querySelectorAll('.world-panel')){
+    // The record is skipped: it shares the grid's footprint, which the cards
+    // have already had framed, and a second frame there would double-stamp it.
+    for(const el of section.querySelectorAll('.world-panel:not(.room-record)')){
       const x=Math.floor((bounds.x+parseFloat(el.style.left))/SCALE),y=Math.floor((top+parseFloat(el.style.top))/SCALE);
       const right=Math.ceil((bounds.x+parseFloat(el.style.left)+parseFloat(el.style.width))/SCALE);
       const bottom=Math.ceil((top+parseFloat(el.style.top)+parseFloat(el.style.height))/SCALE);
@@ -5601,11 +5689,19 @@ function buildWorldPanels(){
     section._scene={x:Math.floor(bounds.x/SCALE),y:Math.floor((top+m.stageY)/SCALE),
       w:Math.floor(m.leftWidth/SCALE),h:Math.floor(m.art/SCALE)};
     section.addEventListener('click',e=>{
-      const button=e.target.closest('.room-selector button');if(!button)return;
-      const p=projects.find(p=>p.id===button.dataset.project);
-      if(p&&section.dataset.project!==p.id)selectRoomProject(section,p);
+      if(e.target.closest('.record-close')){closeRoomRecord(section);return;}
+      const card=e.target.closest('.room-card');if(!card)return;
+      const p=projects.find(p=>p.id===card.dataset.project);
+      // A second press on the open card closes it, so the card is a toggle.
+      if(!p)return;
+      if(section.dataset.project===p.id)closeRoomRecord(section);
+      else openRoomRecord(section,p);
     });
-    selectRoomProject(section,projects.find(p=>p.id===ROOM_SELECTION[z.id])||projects[0],true);
+    // A room opens closed: the grid is the room's answer, and a record on top
+    // of it at first sight would be the carousel again.
+    const preset=projects.find(p=>p.id===ROOM_SELECTION[z.id]);
+    if(preset)openRoomRecord(section,preset,true);
+    else drawProjectScene(projects[0],section._scene);
   }
   for(const id in ROOM_SIGNS)stampRoomSign(ROOM_BOX[id],ROOM_SIGNS[id]);
   buildDepthNav();
@@ -5831,13 +5927,13 @@ function onDepthNavClick(e){
   if(tick){
     const section=document.querySelector('.room-exhibit[data-zone="'+id+'"]');
     const p=WORLD_PANELS.find(p=>p.id===tick.dataset.project);
-    if(section&&p&&section.dataset.project!==p.id)selectRoomProject(section,p);
+    if(section&&p&&section.dataset.project!==p.id)openRoomRecord(section,p);
   }
   window.scrollTo({top:navAnchorRow(id)*SCALE,
     behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }
 /* Which notch is lit changes only when a room's selection does, so it is
-   driven from selectRoomProject rather than from the per-scroll sync. */
+   driven from openRoomRecord/closeRoomRecord rather than from the scroll. */
 function syncDepthTicks(){
   const nav=document.getElementById('depthNav');
   if(!nav)return;
