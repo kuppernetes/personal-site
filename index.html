@@ -26,6 +26,13 @@
 <meta name="twitter:image" content="https://kuppernetes.github.io/personal-site/images/projects/agent-center-poster.webp">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+:root{
+  /* The docked shelf's open height. It is chrome, so it earns its keep by
+     being dismissable rather than by being small: below about 150px the
+     thumbnails stop reading as pictures of anything. */
+  --top-height:clamp(150px,26dvh,300px);
+  --taskbar-h:30px;                       /* keep in sync with TASKBAR_PX */
+}
 html,body{
   /* dvh, not vh: on mobile 100vh is the LARGE viewport (as if the URL bar were
      hidden), so the bottom ~60-100px — the taskbar — sits under the browser
@@ -69,14 +76,12 @@ html,body{
    Only the readable instrument surfaces receive burn/collision masks; the
    large open diorama remains directly touchable falling-sand terrain. */
 .room-exhibit{position:absolute;pointer-events:none;font-family:'Courier New',monospace;color:#eee8da}
-/* One palette per zone, read both by the room's own surfaces and by that zone's
-   band on the depth core sample, so the nav cannot drift out of the colour of
-   the room it points at. The meadow has no exhibit and so appears here only. */
-.room-exhibit,#depthNav [data-depth=workshop]{--exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
-#depthNav [data-depth=surface]{--exhibit:#bcd493;--exhibit-dark:#4e6042;--exhibit-bg:#1a2118}
-.room-exhibit[data-zone=crypt],#depthNav [data-depth=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
-.room-exhibit[data-zone=arcade],#depthNav [data-depth=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
-.room-exhibit[data-zone=core],#depthNav [data-depth=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
+/* One palette per zone, read by the room's own surfaces. The workshop's is the
+   default; every other zone overrides it. */
+.room-exhibit{--exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
+.room-exhibit[data-zone=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
+.room-exhibit[data-zone=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
+.room-exhibit[data-zone=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
 .world-panel{position:absolute;pointer-events:auto;box-sizing:border-box;color:inherit;font-family:'Courier New',monospace;
   background:var(--exhibit-bg,#211c19);border:2px solid var(--exhibit-dark,#63503a);
   box-shadow:3px 4px 0 #0b1117;padding:0;min-width:0}
@@ -149,42 +154,6 @@ html,body{
 .room-exhibit.is-narrow .room-record .project-hook{font-size:15px}
 .room-exhibit.is-narrow .room-record p{font-size:12px}
 .room-exhibit.is-narrow .room-record .record-steps{grid-template-columns:1fr}
-/* ── DEPTH CORE SAMPLE ──
-   A section through the world, not a row of buttons. Every zone gets its true
-   share of the column, the notches in a band are its exhibits, and the lens is
-   the camera's window. Band shares, colours and notches are all written by
-   buildDepthNav; nothing here knows the world's proportions. */
-#depthNav{position:absolute;left:9px;top:50%;transform:translateY(-50%);z-index:9;pointer-events:auto;
-  font:9px 'Courier New',monospace;letter-spacing:1px}
-.cs-core{position:relative;display:flex;flex-direction:column;width:30px;height:min(64vh,540px);
-  background:#0b1013;border:2px solid #4a5654;box-shadow:2px 3px 0 #0b1115}
-.cs-band{position:relative;flex:var(--share) 1 0;min-height:0;
-  background:linear-gradient(180deg,var(--rock-top),var(--rock-bot))}
-.cs-band+.cs-band{border-top:1px solid #0009}
-/* The whole stratum is the hit target for its room; notches sit on top of it. */
-.cs-jump{position:absolute;inset:0;width:100%;border:0;padding:0;background:none;cursor:pointer}
-.cs-jump:hover,.cs-jump:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--exhibit)}
-.cs-band.is-here{box-shadow:inset 0 0 0 1px var(--exhibit)}
-.cs-tick{position:absolute;left:50%;top:var(--at);transform:translate(-50%,-50%);z-index:2;
-  width:13px;height:3px;border:0;padding:0;cursor:pointer;background:var(--exhibit);opacity:.38}
-.cs-band.is-here .cs-tick{opacity:.7}
-.cs-tick.is-on,.cs-band.is-here .cs-tick.is-on{opacity:1;width:20px;height:4px}
-.cs-tick:hover,.cs-tick:focus-visible{opacity:1;outline:none;background:#fff}
-/* Labels live outside the 30px rail, and only while pointed at. */
-.cs-jump::after,.cs-tick::after{content:attr(data-label);position:absolute;left:calc(100% + 9px);
-  white-space:nowrap;padding:3px 7px;background:#0e1416e8;border:1px solid var(--exhibit);
-  color:var(--exhibit);opacity:0;pointer-events:none}
-.cs-jump::after{top:5px}
-.cs-tick::after{top:50%;transform:translateY(-50%);letter-spacing:0}
-.cs-jump:hover::after,.cs-jump:focus-visible::after,
-.cs-tick:hover::after,.cs-tick:focus-visible::after{opacity:1}
-/* The camera's window on the column. Straddles the tube so it reads as a
-   cursor over the core rather than another stratum inside it. */
-.cs-lens{position:absolute;left:-4px;right:-4px;top:var(--at);height:var(--span);z-index:3;
-  border:2px solid #f3eed7;box-shadow:0 0 0 1px #0009,inset 0 0 0 1px #0009;pointer-events:none}
-@media(max-width:799px){#depthNav{left:4px}
-  .cs-core{width:22px;height:min(58vh,430px)}
-  .cs-tick{width:10px}.cs-tick.is-on,.cs-band.is-here .cs-tick.is-on{width:15px}}
 #simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 #birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
 #uiLayer{position:absolute;inset:0;pointer-events:none}
@@ -269,33 +238,174 @@ html,body{
   cursor:pointer;
 }
 
+/* -- PROJECTS: a docked window, not a navbar --
+   This was a fixed grey band with the materials palette welded onto its right
+   end: one title stripe over two unrelated things, and the only element on the
+   site that was neither the world nor a window on top of it. It is a window
+   now -- same chrome, same taskbar -- docked to the top edge, because a
+   full-width strip has nowhere to be dragged to. `_` rolls it up to its title
+   bar, the X sends it to the taskbar, and it rolls itself up on the way down
+   (see dockAutoSync): below the meadow the rooms are the content. */
+#projectShelf{
+  position:fixed;inset:0 0 auto;z-index:10;height:var(--top-height);
+  display:flex;flex-direction:column;min-width:0;
+  /* Docked, so: no left/right/top edge and no drop shadow. Only the bottom
+     rule is real, and it is the one that separates chrome from world. */
+  border-width:0 0 2px;border-color:#000;
+  box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px 0 0 #808080;
+}
+#projectShelf.is-rolled{height:auto}
+#projectShelf.is-rolled .shelf-track{display:none}
+#projectShelf .win95-title{padding:3px 4px 3px 6px;cursor:default}
+#projectShelf .win95-title>span{font-size:12px}
+#projectShelf .tbtns{margin-left:auto;display:flex;gap:2px}
+.shelf-track{display:flex;gap:12px;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;
+  margin:3px 4px 4px;padding:8px 8px 10px;
+  background-color:#747b87;
+  background-image:radial-gradient(#a0a6af .65px,transparent .65px);background-size:4px 4px;
+  border:2px solid;border-color:#505660 #fff #fff #505660;
+  box-shadow:inset 0 2px 3px #0003;
+  /* Deliberately NOT snapped. The strip is a conveyor: it never comes to rest,
+     so there is no resting position to snap to, and mandatory snap would drag
+     every frame of the drift back to the nearest card edge. */
+  overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#c0c0c0 #626975;scroll-padding-inline:8px}
+#projectShelf .gal-card{display:flex;flex-direction:column;flex:0 0 clamp(190px,20vw,280px);min-width:0;
+  padding:3px;background:#c0c0c0;color:#000;text-decoration:none;cursor:pointer;
+  border:2px solid;border-color:#fff #242833 #242833 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
+#projectShelf .gal-card:hover,#projectShelf .gal-card:focus-visible{background:#d4d0c8;
+  transform:translateY(-2px);box-shadow:inset -1px -1px #808080,inset 1px 1px #fff,3px 5px 0 #30374499}
+#projectShelf .gal-card:hover .gal-name,#projectShelf .gal-card:focus-visible .gal-name{
+  color:#fff;background:linear-gradient(90deg,#000080,#1084d0);text-decoration:none}
+#projectShelf .gal-card:active{transform:translateY(0);box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,1px 1px 0 #30374480}
+#projectShelf .gal-shot{height:auto;min-height:0;aspect-ratio:auto;flex:1;
+  border:1px solid;border-color:#555 #fff #fff #555}
+/* Win95's own rule for "not the active window": grey title bar, navy when it
+   is. The cards used to carry a third, invented gradient of their own, so
+   there were three title-bar treatments inside one 200px band -- and hover
+   changed the colour without the change meaning anything. */
+#projectShelf .gal-name{order:-1;position:relative;font:bold 12px/1.2 Tahoma,sans-serif;
+  color:#e6e6e6;background:#808080;padding:5px 6px 5px 23px;
+  margin:0 0 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
+#projectShelf .gal-name::before{content:'';position:absolute;left:6px;top:50%;transform:translateY(-50%);
+  width:11px;height:10px;border:1px solid #141b30;background:linear-gradient(#000080 0 3px,#e6e8ee 3px);
+  box-shadow:inset 1px 0 #fff,inset -1px -1px #9b9ea7}
+#projectShelf .gal-meta{font:10px/1.2 Tahoma,sans-serif;color:#303744;
+  margin:4px 0 0;padding:4px 5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0;
+  border:1px solid;border-color:#808080 #fff #fff #808080}
+#projectShelf .gal-shot.is-tbd{background-color:#101c42;
+  background-image:linear-gradient(#627db522 1px,transparent 1px),linear-gradient(90deg,#627db522 1px,transparent 1px),
+    radial-gradient(ellipse at 50% 45%,#334c80,transparent 72%);background-size:20px 20px,20px 20px,100% 100%}
+#projectShelf .gal-shot.is-tbd .pxi{width:46px;height:46px;filter:drop-shadow(3px 4px 0 #0005)}
+#projectShelf .gal-shot.is-tbd .gal-tbd{gap:9px}
+#projectShelf .gal-shot.is-tbd .gal-tbd b{font:8px Tahoma,sans-serif;letter-spacing:1px;color:#b9cae8}
+#projectShelf .gal-badge{left:5px;bottom:5px;max-width:calc(100% - 10px);padding:3px 5px;
+  border:1px solid;border-color:#fff2a0 #806200 #806200 #fff2a0;box-shadow:1px 1px 0 #0006}
+#projectShelf .gal-play{top:5px;right:5px;border:1px solid #ffffff70;padding:4px 5px}
+#projectShelf .gal-blurb{display:none}
+#projectShelf :focus-visible{outline:2px dotted #000080;outline-offset:-2px}
+
+/* -- MATERIALS: the paint palette, docked above the taskbar --
+   Three positions in, the honest answer was the obvious one: this site is a
+   painting program wearing Win95, and a painting program puts its palette in
+   the bottom-left corner. So that is where it is -- flush to the left edge,
+   sitting directly on the taskbar as a second row of the same chrome, which is
+   what makes it read as part of the OS rather than as another thing to manage.
+   It is next to the hand that is drawing, it covers only the dirt berm the
+   renderer already draws along the bottom edge, and it needs no title bar, no
+   drag, no minimise and no decisions: 14 swatches and the name of the one that
+   is loaded.
+   The swatches are not hex approximations. Each is a 10x10 tile rendered
+   through the sim's own matColor(), pixel by pixel with the same variant
+   jitter, so sand is grainy, water dithers, bomb reads as a dark charge -- the
+   palette is made of the material it pours. See paintMatSwatches. */
 #matPicker{
-  position:absolute;top:14px;right:14px;
-  z-index:10;width:154px;
+  position:absolute;left:0;bottom:var(--taskbar-h);z-index:10;
+  /* #uiLayer is pointer-events:none so the world stays touchable through it,
+     and every panel in there has to opt back in. The old palette got this for
+     free from .win95; docked, it has no .win95, and without this line a click
+     on a swatch went straight through to the canvas and poured sand behind the
+     palette instead of loading the material. */
+  pointer-events:auto;
+  display:flex;align-items:center;gap:7px;
+  padding:4px 8px 4px 5px;
+  background:#c0c0c0;
+  border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
+  border-left-width:0;border-bottom-width:0;
+  box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px 0 0 #808080;
+  font-family:Tahoma,'MS Sans Serif',sans-serif;
 }
-#matPicker .win95-title{cursor:move}
-#matPicker.is-min .win95-body{display:none}
-#matPicker .win95-body{
-  padding:3px;
-}
-#matPicker .mat-list{
-  display:flex;flex-direction:column;gap:0;
-  background:#fff;
+/* The loaded material, named. Paint shows two overlapping squares here and
+   trusts you to know what they mean; the name costs 60px and answers "what am
+   I about to pour" without a hover. */
+.mat-current{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.mat-cur-dot{width:20px;height:20px;flex-shrink:0;image-rendering:pixelated;
   border:2px solid;border-color:#808080 #ffffff #ffffff #808080;
-  box-shadow:inset 1px 1px 0 #000;
-  padding:2px;
+  box-shadow:inset 1px 1px 0 #000}
+.mat-cur-name{font-size:11px;color:#000;width:56px;white-space:nowrap;overflow:hidden}
+/* One sunken frame with flat cells in it, Paint-fashion -- 14 individually
+   raised buttons in a 30px strip is noise. */
+#matPicker .mat-list{
+  display:grid;grid-template-rows:1fr;grid-auto-flow:column;gap:1px;
+  padding:2px;background:#787878;
+  border:2px solid;border-color:#808080 #ffffff #ffffff #808080;
 }
 .mat-opt{
-  display:flex;align-items:center;gap:6px;cursor:pointer;
-  font-family:'Tahoma','MS Sans Serif',sans-serif;font-size:11px;color:#000;
-  padding:1px 4px;
+  position:relative;width:20px;height:20px;cursor:pointer;
+  display:block;padding:0;
 }
-.mat-opt:hover{background:#000080;color:#fff}
-.mat-opt.active{background:#000080;color:#fff}
-.mat-dot{width:9px;height:9px;flex-shrink:0;border:1px solid #000;image-rendering:pixelated}
+/* The label is for the screen reader, the tooltip and the rogue cursors that
+   read the material's name straight off this row -- not for the eye. */
+.mat-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.mat-dot{position:absolute;inset:0;width:auto;height:auto;image-rendering:pixelated}
+/* The rendered tile goes on a pseudo-element so the row's inline background
+   stays a plain colour: it is the swatch's fallback, and it is what the rogue
+   cursors read to colour the tag they carry. */
+.mat-dot::after{content:'';position:absolute;inset:0;
+  background-image:var(--tex);background-size:100% 100%;image-rendering:pixelated}
+/* The hover and selected rings ride on a third layer, above the tile. On the
+   dot itself an inset shadow is painted underneath ::after, so the texture
+   swallowed it and nothing looked selected. */
+.mat-opt::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none}
+.mat-opt:hover::after{box-shadow:inset 0 0 0 2px #ffffffd0}
+.mat-opt.active::after{box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3px #000}
+.mat-opt:focus-visible{outline:1px dotted #fff;outline-offset:1px}
+/* What is this swatch? A 20px tile of sand and a 20px tile of seed are not
+   far apart, and the answer used to be a `title` — the OS tooltip, which
+   arrives after a second, in the wrong typeface, and never on keyboard focus.
+   This is the same Win95 tooltip the cursor tag and the rogue cursors carry,
+   instantly, on hover or focus. Touch is excluded because touch has no hover:
+   there, tapping a swatch loads it and the well at the left says what it is. */
+@media (hover:hover){
+  .mat-opt::before{
+    content:attr(data-label);position:absolute;left:50%;bottom:calc(100% + 6px);
+    transform:translateX(-50%);z-index:3;pointer-events:none;opacity:0;
+    white-space:nowrap;font:700 9px Tahoma,'MS Sans Serif',sans-serif;color:#000;
+    background:#ffffe1;border:1px solid #000;padding:1px 3px;
+    box-shadow:1px 1px 0 rgba(0,0,0,.45);
+  }
+  .mat-opt:hover::before,.mat-opt:focus-visible::before{opacity:1}
+}
 
-#infoPanel{position:absolute;top:14px;left:14px;pointer-events:none;z-index:10}
-.site-hint{font-size:8px;color:#303030;letter-spacing:0.08em}
+@media(max-width:600px){
+  .shelf-track{gap:9px;padding:6px 6px 8px;scroll-padding-inline:6px}
+  /* The shelf has the whole width to itself now, so a card can be a card
+     rather than the 130px sliver it was squeezed into beside Materials. */
+  #projectShelf .gal-card{flex-basis:clamp(168px,54vw,240px)}
+  #projectShelf .gal-name{font-size:11px;padding-top:4px;padding-bottom:4px}
+  #projectShelf .gal-meta{font-size:9px;padding:3px}
+  #projectShelf .gal-badge{font-size:7px;padding:2px}
+  /* One row of fourteen wants 374px. Two rows of seven want 176px and give
+     the swatches a fatter tap target while they are at it. */
+  #matPicker{gap:5px;padding:3px 6px 3px 4px}
+  #matPicker .mat-list{grid-template-rows:repeat(2,1fr)}
+  .mat-opt{width:22px;height:22px}
+  .mat-current{flex-direction:column;align-items:flex-start;gap:2px}
+  .mat-cur-name{width:46px;font-size:10px}
+  /* Column flow puts the second row in the even children. Their tooltip has
+     to clear the row above it (22px cell + 1px gap) or it lands on top of it. */
+  @media (hover:hover){ .mat-opt:nth-child(even)::before{bottom:calc(100% + 29px)} }
+}
 
 #freezeRing{
   position:absolute;border:1px solid rgba(184,224,0,0.18);border-radius:50%;
@@ -1084,8 +1194,13 @@ html,body{
 }
 /* touch: there is no cursor for it to trail, so it never shows */
 @media (hover:none),(pointer:coarse){ #userTag{display:none} }
-.mat-opt.evil-pick{background:#000080;color:#fff}
-.mat-opt.evil-click{background:#b8e000;color:#000}
+/* A rogue cursor hovering a swatch and then clicking it. These used to be a
+   row background, which the swatch tile now covers completely — so the pack
+   was poking at the palette invisibly. They are rings on the same layer as
+   the hover and selected rings, and they are declared after them so that a
+   cursor on a swatch outranks your own selection while it is there. */
+.mat-opt.evil-pick::after{box-shadow:inset 0 0 0 2px #000080,inset 0 0 0 3px #fff}
+.mat-opt.evil-click::after{box-shadow:inset 0 0 0 2px #b8e000,inset 0 0 0 3px #000}
 
 /* ══ TOUCH + SMALL SCREENS ══
    Two separate axes, deliberately not merged: pointer coarseness decides how
@@ -1143,9 +1258,6 @@ html,body{
   .taskbar-tasks::-webkit-scrollbar{display:none}
   .taskbar-clock{padding:2px 5px}
   .taskbar-sep{margin:0 1px}
-  #matPicker{top:8px;right:8px;width:146px}
-  /* expanded, the 20-row list would run under the taskbar */
-  #matPicker .mat-list{max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain}
   #startMenu{width:min(240px,calc(100vw - 8px))}
   .smenu-sub{width:min(220px,calc(100vw - 12px))}
   /* the hover bridges are dead weight without a hover pointer and only
@@ -1347,28 +1459,37 @@ html,body{
   <canvas id="birdCanvas"></canvas>
   <div id="worldLayer"></div>
   <div id="uiLayer">
-    <div id="matPicker" class="win95">
+    <section id="projectShelf" class="win95 is-dock" aria-label="Projects">
       <div class="win95-title">
-        <span>Materials</span>
-        <div class="tbtns"><div class="tbtn">_</div><div class="tbtn">□</div><div class="tbtn">✕</div></div>
+        <span>Projects</span>
+        <div class="tbtns">
+          <div class="tbtn" data-act="roll" role="button" tabindex="0" title="Roll up" aria-label="Roll up the projects shelf">_</div>
+          <div class="tbtn" data-act="dock-min" role="button" tabindex="0" title="Minimize to taskbar" aria-label="Minimize the projects shelf to the taskbar">✕</div>
+        </div>
       </div>
-      <div class="win95-body">
+      <div id="projectTrack" class="shelf-track" role="group" aria-label="Scroll through projects"></div>
+    </section>
+
+    <div id="matPicker" role="region" aria-label="Materials">
+      <div class="mat-current">
+        <span class="mat-cur-dot" id="matCurDot" aria-hidden="true"></span>
+        <span class="mat-cur-name" id="matCurName">sand [1]</span>
+      </div>
       <div class="mat-list">
-      <div class="mat-opt active" data-mat="1"><span class="mat-dot" style="background:#cda852"></span>sand [1]</div>
-      <div class="mat-opt" data-mat="2"><span class="mat-dot" style="background:#3076ce"></span>water [2]</div>
-      <div class="mat-opt" data-mat="7"><span class="mat-dot" style="background:#463a1e"></span>oil [7]</div>
-      <div class="mat-opt" data-mat="6"><span class="mat-dot" style="background:#aad416"></span>acid [6]</div>
-      <div class="mat-opt" data-mat="3"><span class="mat-dot" style="background:#eb460c"></span>fire [3]</div>
-      <div class="mat-opt" data-mat="30"><span class="mat-dot" style="background:#ec601a"></span>lava [v]</div>
-      <div class="mat-opt" data-mat="27"><span class="mat-dot" style="background:#6a5230"></span>fuse [f]</div>
-      <div class="mat-opt" data-mat="28"><span class="mat-dot" style="background:#2a2228"></span>bomb [x]</div>
-      <div class="mat-opt" data-mat="4"><span class="mat-dot" style="background:#46444a"></span>stone [4]</div>
-      <div class="mat-opt" data-mat="20"><span class="mat-dot" style="background:#684426"></span>wood [w]</div>
-      <div class="mat-opt" data-mat="5"><span class="mat-dot" style="background:#2c962e"></span>plant [5]</div>
-      <div class="mat-opt" data-mat="16"><span class="mat-dot" style="background:#7e5c2c"></span>seed [g]</div>
-      <div class="mat-opt" data-mat="26"><span class="mat-dot" style="background:#1c1a22"></span>birds [i]</div>
-      <div class="mat-opt" data-mat="0"><span class="mat-dot" style="background:#111;outline:1px solid #222"></span>erase [0]</div>
-      </div>
+        <div class="mat-opt active" data-mat="1" role="button" tabindex="0" data-label="sand [1]"><span class="mat-dot" style="background:#cda852"></span><span class="mat-lbl">sand [1]</span></div>
+        <div class="mat-opt" data-mat="2" role="button" tabindex="0" data-label="water [2]"><span class="mat-dot" style="background:#3076ce"></span><span class="mat-lbl">water [2]</span></div>
+        <div class="mat-opt" data-mat="7" role="button" tabindex="0" data-label="oil [7]"><span class="mat-dot" style="background:#463a1e"></span><span class="mat-lbl">oil [7]</span></div>
+        <div class="mat-opt" data-mat="6" role="button" tabindex="0" data-label="acid [6]"><span class="mat-dot" style="background:#aad416"></span><span class="mat-lbl">acid [6]</span></div>
+        <div class="mat-opt" data-mat="3" role="button" tabindex="0" data-label="fire [3]"><span class="mat-dot" style="background:#eb460c"></span><span class="mat-lbl">fire [3]</span></div>
+        <div class="mat-opt" data-mat="30" role="button" tabindex="0" data-label="lava [v]"><span class="mat-dot" style="background:#ec601a"></span><span class="mat-lbl">lava [v]</span></div>
+        <div class="mat-opt" data-mat="27" role="button" tabindex="0" data-label="fuse [f]"><span class="mat-dot" style="background:#6a5230"></span><span class="mat-lbl">fuse [f]</span></div>
+        <div class="mat-opt" data-mat="28" role="button" tabindex="0" data-label="bomb [x]"><span class="mat-dot" style="background:#2a2228"></span><span class="mat-lbl">bomb [x]</span></div>
+        <div class="mat-opt" data-mat="4" role="button" tabindex="0" data-label="stone [4]"><span class="mat-dot" style="background:#46444a"></span><span class="mat-lbl">stone [4]</span></div>
+        <div class="mat-opt" data-mat="20" role="button" tabindex="0" data-label="wood [w]"><span class="mat-dot" style="background:#684426"></span><span class="mat-lbl">wood [w]</span></div>
+        <div class="mat-opt" data-mat="5" role="button" tabindex="0" data-label="plant [5]"><span class="mat-dot" style="background:#2c962e"></span><span class="mat-lbl">plant [5]</span></div>
+        <div class="mat-opt" data-mat="16" role="button" tabindex="0" data-label="seed [g]"><span class="mat-dot" style="background:#7e5c2c"></span><span class="mat-lbl">seed [g]</span></div>
+        <div class="mat-opt" data-mat="26" role="button" tabindex="0" data-label="birds [i]"><span class="mat-dot" style="background:#1c1a22"></span><span class="mat-lbl">birds [i]</span></div>
+        <div class="mat-opt" data-mat="0" role="button" tabindex="0" data-label="erase [0]"><span class="mat-dot" style="background:#111;outline:1px solid #222"></span><span class="mat-lbl">erase [0]</span></div>
       </div>
     </div>
 
@@ -1622,7 +1743,6 @@ function setCam(y){
 function syncWorldLayer(){
   const wl=document.getElementById('worldLayer');
   if(wl)wl.style.transform='translate3d(0,'+(-camY*SCALE)+'px,0)';
-  syncDepthNav();
 }
 function syncCamFromScroll(){ setCam(window.scrollY/SCALE); }
 /* Spike instrumentation. Grouped on one global rather than five so it is
@@ -5626,7 +5746,6 @@ function openRoomRecord(section,p,initial=false){
     el.setAttribute('aria-expanded',String(el.dataset.project===p.id));
   });
   drawProjectScene(p,section._scene);
-  syncDepthTicks();
   if(!initial){_winMaskHash='';lightScanAll=1;}
 }
 function closeRoomRecord(section){
@@ -5639,7 +5758,6 @@ function closeRoomRecord(section){
   // The room falls back to its own scene rather than keeping the last work's.
   const lead=WORLD_PANELS.find(p=>p.zone===section.dataset.zone);
   if(lead)drawProjectScene(lead,section._scene);
-  syncDepthTicks();
   _winMaskHash='';lightScanAll=1;
 }
 function buildWorldPanels(){
@@ -5704,7 +5822,6 @@ function buildWorldPanels(){
     else drawProjectScene(projects[0],section._scene);
   }
   for(const id in ROOM_SIGNS)stampRoomSign(ROOM_BOX[id],ROOM_SIGNS[id]);
-  buildDepthNav();
 }
 // Scene primitives are born in the material grid: no bitmap overlay or extra
 // animation loop. All dimensions snap to the same integer simulation pixels.
@@ -5842,130 +5959,6 @@ function drawProjectScene(p,r){
   }
   wakeRect(x-1,y-1,x+w,y+h);pixDirtyRect(x-1,y-1,x+w,y+h);
 }
-/* ═══ DEPTH CORE SAMPLE ═══
-   Navigation for a world whose structure IS its depth. The rail is a section
-   through the whole descent: one band per zone at its true share of the
-   column, filled with the colour of the rock behind that room, a notch for
-   every exhibit in it, and a lens tracking the camera's window.
-
-   That is deliberately one object doing three jobs — table of contents,
-   progress indicator, and the "everything at once" view a visitor wants before
-   committing to a ten-screenful scroll. A list of buttons can only do the
-   first, and it cannot say how much world is left.
-
-   Band colours come from ZONES[].back, the same pair the shader crossfades
-   behind that room, so the rail restates the descent rather than inventing a
-   key for it. They are lifted through a gamma because colours picked to sit
-   BEHIND lit masonry are near-black at 30px wide. The meadow has no `back` —
-   ugK is zero above the horizon — so it takes the sky and turf colours the
-   shader and the palette actually use up there. */
-const NAV_LABELS={surface:'THE MEADOW',workshop:'THE WORKSHOP',crypt:'THE VAULTS',
-  arcade:'GAMES & SIDE PROJECTS',core:'THE CORE'};
-const NAV_SURFACE=['rgb(115,173,230)','rgb(68,138,50)'];   // daytime sky over turf
-const navRock=c=>'rgb('+c.map(v=>Math.round(255*Math.pow(v,0.62))).join(',')+')';
-const navZoneRock=z=>z.id==='surface'?NAV_SURFACE:[navRock(z.back[0]),navRock(z.back[1])];
-
-/* Which stratum the rail calls "here" is decided by the same anchors its
-   buttons scroll to, not by probing a row a quarter-screen down. A room's
-   carved ceiling can sit slightly ABOVE its zone band — buildExhibitShell puts
-   it at 18% of a screenful into the band, while the jump parks the camera 44px
-   above that — so a probe at a fixed depth landed a click on `crypt` inside
-   `workshop`. Reading both off one number makes the highlight true by
-   construction: after you press a band, you are in it. */
-let NAV_ANCHORS=[];
-const navAnchorRow=id=>(NAV_ANCHORS.find(a=>a.id===id)||{row:0}).row;
-function activeZoneId(){
-  let id=ZONES[0].id;
-  // +1 row of tolerance: scrollY comes back fractional on hidpi displays.
-  for(const a of NAV_ANCHORS)if(camY+1>=a.row)id=a.id;
-  return id;
-}
-
-function buildDepthNav(){
-  let nav=document.getElementById('depthNav');
-  if(!nav){
-    nav=document.createElement('nav');nav.id='depthNav';
-    nav.setAttribute('aria-label','Depth');
-    document.getElementById('stage').appendChild(nav);
-    nav.addEventListener('click',onDepthNavClick);
-  }
-  // Shares are read off DEPTH_LAYOUT rather than the ZONES literals: those are
-  // the pre-resize fractions, and worldBands has since restretched every band
-  // to fit the room inside it at this width.
-  const total=DEPTH_LAYOUT.total;
-  nav.innerHTML='<div class="cs-core">'+ZONES.map(z=>{
-    const rock=navZoneRock(z),projects=WORLD_PANELS.filter(p=>p.zone===z.id);
-    return '<div class="cs-band" data-depth="'+z.id+'" style="--share:'+((z.bot-z.top)/total).toFixed(4)+
-      ';--rock-top:'+rock[0]+';--rock-bot:'+rock[1]+'">'+
-      '<button type="button" class="cs-jump" data-depth="'+z.id+'" data-label="'+NAV_LABELS[z.id]+
-        '" aria-label="'+NAV_LABELS[z.id]+'"></button>'+
-      // Exhibits in a room share one carved bay and swap through the selector,
-      // so a notch marks WHICH of the room's works is loaded, not a separate
-      // depth. Spreading them down the band is a reading of the stratum's
-      // contents, and it is the only place the whole portfolio is visible.
-      projects.map((p,i)=>'<button type="button" class="cs-tick" data-depth="'+z.id+
-        '" data-project="'+p.id+'" style="--at:'+((i+1)/(projects.length+1)*100).toFixed(1)+
-        '%" data-label="'+p.name+'" aria-label="'+p.name+' — '+NAV_LABELS[z.id]+'"></button>').join('')+
-      '</div>';
-  }).join('')+'<div class="cs-lens" aria-hidden="true"></div></div>';
-  // Anchors are cached here, where ROOM_BOX is known to be populated, so the
-  // per-scroll sync never touches it — spawnStrata fills ROOM_BOX long after
-  // the first setCam could fire.
-  NAV_ANCHORS=ZONES.map(z=>{
-    const box=ROOM_BOX[z.id];
-    return {id:z.id,row:box?Math.max(0,box.ceil-Math.round(44/SCALE)):0};
-  });
-  nav.dataset.active='';_navLens='';
-  syncDepthNav();syncDepthTicks();
-}
-/* A notch click selects the work AND travels to it: the rail is an index, and
-   an index that only got you to the right room would make you hunt again. */
-function onDepthNavClick(e){
-  const tick=e.target.closest('.cs-tick'),button=tick||e.target.closest('.cs-jump');
-  if(!button)return;
-  const id=button.dataset.depth;
-  if(tick){
-    const section=document.querySelector('.room-exhibit[data-zone="'+id+'"]');
-    const p=WORLD_PANELS.find(p=>p.id===tick.dataset.project);
-    if(section&&p&&section.dataset.project!==p.id)openRoomRecord(section,p);
-  }
-  window.scrollTo({top:navAnchorRow(id)*SCALE,
-    behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
-}
-/* Which notch is lit changes only when a room's selection does, so it is
-   driven from openRoomRecord/closeRoomRecord rather than from the scroll. */
-function syncDepthTicks(){
-  const nav=document.getElementById('depthNav');
-  if(!nav)return;
-  for(const tick of nav.querySelectorAll('.cs-tick'))
-    tick.classList.toggle('is-on',ROOM_SELECTION[tick.dataset.depth]===tick.dataset.project);
-}
-let _navLens='';
-function syncDepthNav(){
-  const nav=document.getElementById('depthNav');
-  if(!nav)return;
-  const lens=nav.querySelector('.cs-lens');
-  if(lens){
-    // Percentages of the whole world, so the lens is a true scale reading of
-    // how much of the descent one screenful covers.
-    const at=(camY/H*100).toFixed(2),span=(Math.min(VH,H-camY)/H*100).toFixed(2);
-    if(_navLens!==at+'/'+span){
-      _navLens=at+'/'+span;
-      lens.style.setProperty('--at',at+'%');
-      lens.style.setProperty('--span',span+'%');
-    }
-  }
-  const zone=activeZoneId();
-  if(nav.dataset.active===zone)return;
-  nav.dataset.active=zone;
-  for(const band of nav.querySelectorAll('.cs-band')){
-    const here=band.dataset.depth===zone;
-    band.classList.toggle('is-here',here);
-    const jump=band.querySelector('.cs-jump');
-    if(here)jump.setAttribute('aria-current','location');
-    else jump.removeAttribute('aria-current');
-  }
-}
 
 function stampSprite(name,gx,gyBottom){
   const art=SPRITES[name];
@@ -6100,37 +6093,51 @@ function wmBandAt(x,t){
   for(const band of WM_BANDS)if(w>=band.at)b=band;
   return b;
 }
-/* The world row the name has to start below to clear the materials picker.
-
-   The name is centred and runs to very nearly the full width of the world, so
-   its right end passes under the picker in the top-right corner however it is
-   tracked or scaled — vertical is the only axis with any give.
-
-   Measured, not assumed. The picker is ~245px tall on a desktop, shorter at
-   the phone breakpoint where it narrows to 146px, taller again when its list
-   is scrolled open, and it collapses to just its title bar when minimised. A
-   hard-coded row would be wrong for three of those four. */
+/* ── THE DOCKED SHELF, AS THE REST OF THE PAGE SEES IT ──
+   Two answers to "how tall is the top chrome", and both are needed.
+   dockFullHeight is the height it takes when OPEN, remembered while it is
+   rolled up or minimised: the wordmark is stamped into the material grid once
+   per world build, so fitting the name to a rolled-up shelf would bury it the
+   moment the shelf came back. topDockBottom is where the chrome actually ends
+   right now, which is as far up as a window may be dragged. */
+let DOCK_FULL_H=0;
+function dockFullHeight(){
+  const el=document.getElementById('projectShelf');
+  if(!el)return DOCK_FULL_H;
+  if(el.dataset.minimized!=='1'&&!el.classList.contains('is-rolled')){
+    const h=el.getBoundingClientRect().height;
+    if(h>48)DOCK_FULL_H=h;
+  }
+  return DOCK_FULL_H;
+}
+function topDockBottom(){
+  const el=document.getElementById('projectShelf');
+  if(!el||el.dataset.minimized==='1')return 0;
+  return el.getBoundingClientRect().bottom;
+}
+/* Keep a clear gap between the docked project shelf and the name in the world.
+   The Materials palette is deliberately not counted: it is a floating window
+   at the right edge now, and windows are allowed to overlap the world. */
 function wmClearTop(){
   const base=Math.max(0,(VH*0.13)|0);
-  const mp=document.getElementById('matPicker');
-  if(!mp)return base;
-  const r=mp.getBoundingClientRect(), cr=canvas.getBoundingClientRect();
-  if(!r.height||!cr.height)return base;                  // not laid out yet
-  /* The gutter is in cells and is generous on purpose: the lockup's rim grows
-     upward into its own padding, so a clearance measured to the letterforms
-     leaves the bevel all but touching the picker's bottom edge. */
-  return Math.max(base,Math.ceil((r.bottom-cr.top)/SCALE)+11);
+  const cr=canvas.getBoundingClientRect();
+  if(!cr.height)return base;
+  const gap=window.innerWidth<=600?36:Math.max(48,Math.min(72,window.innerHeight*.065));
+  return Math.max(base,Math.ceil((dockFullHeight()+gap)/SCALE));
 }
 function stampWordmark(){
   const [L1,L2]=WM_LINES;
   WORDMARK_BOX=null;
-  if(wmLineW(L2,1)>W-2)return;                  // narrower than the name: leave the sky alone
-  // one integer step per screen size — k=1 on a phone, 2–3 on a desktop
-  const k=Math.max(1,Math.min(3,Math.floor((W*0.78)/wmLineW(L2,1))));
+  if(wmLineW(L2,0)>W-2)return;
+  const clearTop=wmClearTop();
+  // Fit the remaining sky vertically as well as horizontally; a taller top
+  // band must never push the name back up underneath the project previews.
+  const skyScale=Math.floor((VH*.86-clearTop-6)/(WM_ROWS*2+3));
+  const k=Math.max(1,Math.min(3,skyScale,Math.floor((W*0.78)/wmLineW(L2,1))));
   /* At k=1 the rim becomes a one-cell drop shadow rather than a keyline (see
      below), and a shadow cast into a one-cell gap welds neighbouring letters
      together — so the tracking opens to two there when the width allows it. */
-  let T2=1;
+  let T2=wmLineW(L2,1)<=W-2?1:0;
   if(k===1&&wmLineW(L2,2)<=W-2)T2=2;
   const base2=wmLineW(L2,T2);
   /* The given name is three letters shorter than the surname, so set flush it
@@ -6170,12 +6177,7 @@ function stampWordmark(){
 
   const B=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:bm[y*bw+x];
   const gx0=(((W-blockW)>>1))-pad;
-  /* Below the picker, but never so far down that the name lands in the
-     scenery. The clamp matters at the phone breakpoint, where the picker's
-     list can run most of the viewport height: overlapping the picker is bad,
-     and burying the name in the hill is worse, so the sky floor wins. */
-  const skyFloor=Math.max(0,((VH*0.66)|0)-bh);
-  const gy0=Math.min(skyFloor,Math.max(0,wmClearTop()-pad));
+  const gy0=Math.max(0,clearTop-pad);
   for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){
     const wx=gx0+x, wy=gy0+y;
     if(wx<0||wx>=W||wy<0||wy>=H)continue;
@@ -8486,13 +8488,83 @@ canvas.addEventListener('wheel',e=>{
 /* ═══════════════════════════════════════════════════════
    MATERIAL PICKER + KEYS
 ═══════════════════════════════════════════════════════ */
+/* ═══ PALETTE SWATCHES ═══
+   Every swatch is a 10x10 tile of the material itself: matColor() run one
+   pixel at a time with the same variant jitter the renderer uses, scaled to
+   the cell with image-rendering:pixelated. A flat hex cannot show that sand is
+   grainy, that water dithers, or that a bomb is a dark charge rather than a
+   black square — and it would be a second opinion about a colour the renderer
+   already owns, free to drift out of agreement with it.
+   Two of the fourteen are not grid materials and so have no matColor to ask:
+   birds are agents that flock above the meadow, drawn here as the specks they
+   read as against the sky they fly in, and erase is the absence of material,
+   drawn the way every paint program has ever drawn nothing at all. */
+const SWATCH_PX=10;
+function matSwatchURL(m){
+  const c=document.createElement('canvas');c.width=c.height=SWATCH_PX;
+  const x=c.getContext('2d');
+  if(m===EMPTY){                                   // the transparency checker
+    for(let i=0;i<SWATCH_PX;i++)for(let j=0;j<SWATCH_PX;j++){
+      x.fillStyle=((i>>1)+(j>>1))&1?'#ffffff':'#a8a8a8';
+      x.fillRect(i,j,1,1);
+    }
+    return c.toDataURL();
+  }
+  if(m===BIRD){                                    // a flock, not a cell
+    x.fillStyle='#9fc8ea';x.fillRect(0,0,SWATCH_PX,SWATCH_PX);
+    x.fillStyle='#1c1a22';
+    for(const [bx,by] of [[2,3],[5,2],[7,5],[4,6]]){x.fillRect(bx,by,1,1);x.fillRect(bx+1,by,1,1);}
+    return c.toDataURL();
+  }
+  const img=x.createImageData(SWATCH_PX,SWATCH_PX);
+  let painted=false;
+  for(let i=0;i<SWATCH_PX*SWATCH_PX;i++){
+    // Variants stay under 0x80: that bit means "lit" to fuse and bomb, and a
+    // palette shows what you get when you place it, which is unlit.
+    const [r,g,b,a]=matColor(m,(Math.random()*128)|0);
+    if(a)painted=true;
+    img.data[i*4]=r;img.data[i*4+1]=g;img.data[i*4+2]=b;img.data[i*4+3]=a;
+  }
+  if(!painted)return null;        // nothing to draw: the flat colour stands
+  x.putImageData(img,0,0);
+  return c.toDataURL();
+}
+function paintMatSwatches(){
+  document.querySelectorAll('#matPicker .mat-opt').forEach(o=>{
+    const url=matSwatchURL(+o.dataset.mat);
+    if(url)o.querySelector('.mat-dot').style.setProperty('--tex','url('+url+')');
+  });
+}
+/* The loaded material, shown in the well at the left of the palette. The
+   swatch is copied rather than re-rendered so the well and the cell it came
+   from are the same tile, down to the grain. */
+function refreshMatCurrent(){
+  const row=document.querySelector(`#matPicker .mat-opt[data-mat="${curMat}"]`);
+  const name=document.getElementById('matCurName'),well=document.getElementById('matCurDot');
+  if(!row||!name||!well)return;
+  name.textContent=(row.textContent||'').trim();
+  const src=row.querySelector('.mat-dot');
+  well.style.background=src.style.background;
+  const tex=src.style.getPropertyValue('--tex');
+  if(tex){well.style.backgroundImage=tex;well.style.backgroundSize='100% 100%';}
+}
 function selectMat(m){
   curMat=m;
   document.querySelectorAll('.mat-opt').forEach(o=>o.classList.remove('active'));
   const t=document.querySelector(`.mat-opt[data-mat="${m}"]`);if(t)t.classList.add('active');
+  refreshMatCurrent();
   refreshMatTag();   // the tag trailing your cursor names the loaded material
 }
-document.querySelectorAll('.mat-opt').forEach(el=>el.addEventListener('click',()=>selectMat(+el.dataset.mat)));
+document.querySelectorAll('.mat-opt').forEach(el=>{
+  el.addEventListener('click',()=>selectMat(+el.dataset.mat));
+  el.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    // Space is the page's physics toggle; a focused swatch keeps it for itself.
+    e.preventDefault();e.stopPropagation();
+    selectMat(+el.dataset.mat);
+  });
+});
+paintMatSwatches();refreshMatCurrent();
 document.addEventListener('keydown',e=>{
   // Mirrors the Materials window exactly. The sim still knows POLLEN, MOSS,
   // LEAF, BRICK, THATCH, STEAM etc. — they're what sprites are built from and
@@ -9376,9 +9448,11 @@ requestAnimationFrame(loop);
     const w = win.offsetWidth, h = win.offsetHeight;
     const spareX = window.innerWidth - w;
     const spareY = window.innerHeight - TASKBAR_H - h;
+    const minTop=win.classList.contains('win-app')
+      ? topDockBottom()+8 : Math.min(0,spareY);
     return [
       Math.max(Math.min(0, spareX), Math.min(Math.max(0, spareX), x)),
-      Math.max(Math.min(0, spareY), Math.min(Math.max(0, spareY), y)),
+      Math.max(minTop, Math.min(Math.max(minTop, spareY), y)),
     ];
   }
 
@@ -9412,13 +9486,19 @@ requestAnimationFrame(loop);
       tasksEl.appendChild(btn);
       tasks.set(win, btn);
     }
+    if(win.classList.contains('is-dock')) dockChanged();
   }
   function restore(win){
     win.style.display = win.dataset.prevDisplay || '';
     win.dataset.minimized = '';
     const btn = tasks.get(win);
     if(btn){ btn.remove(); tasks.delete(win); }
+    if(win.classList.contains('is-dock')) dockChanged();
   }
+  /* Anything that changes the height of the top chrome. Maximised windows are
+     sized against it, so they have to be re-fitted the same way a resize
+     re-fits them. */
+  function dockChanged(){ window.dispatchEvent(new CustomEvent('dock-resize')); }
 
   function wireMinBtn(win, btnEl){
     btnEl.addEventListener('click', e=>{
@@ -9427,7 +9507,7 @@ requestAnimationFrame(loop);
     });
   }
 
-  // window-chrome panels (matPicker, hud)
+  // Movable window-chrome panels. The fixed top panels do not use .win95.
   function wireWin95Drag(win, handle){
     let dragging=false, ox=0, oy=0;
     function start(cx, cy, e){
@@ -9461,6 +9541,8 @@ requestAnimationFrame(loop);
   document.querySelectorAll('.win95').forEach(win=>{
     win.addEventListener('mousedown', e=>e.stopPropagation());
     const title = win.querySelector('.win95-title');
+    // The dock is docked: it has its own two buttons and no drag at all.
+    if(win.classList.contains('is-dock')) return;
     if(title) wireWin95Drag(win, title);
     const tbtns = win.querySelectorAll('.win95-title .tbtns .tbtn');
     const [minBtn, maxBtn, closeBtn] = tbtns;
@@ -9474,6 +9556,52 @@ requestAnimationFrame(loop);
       minimize(win);
     });
   });
+
+  /* ── THE DOCK ──
+     The projects shelf answers to the same two verbs as every other window
+     here: `_` rolls it up to its own title bar, where it stays one click from
+     coming back, and the X sends it to the taskbar. What it cannot do is move.
+     A full-width strip has nowhere to be dragged to, and the site's whole
+     top-edge layout is measured from it. */
+  const dockEl = document.getElementById('projectShelf');
+  let dockAuto = true;                    // false once the visitor takes over
+  const dockRolled = ()=> !!dockEl && dockEl.classList.contains('is-rolled');
+  function setDockRolled(on){
+    if(!dockEl || dockRolled()===on) return;
+    dockEl.classList.toggle('is-rolled', on);
+    const btn = dockEl.querySelector('[data-act="roll"]');
+    if(btn){
+      btn.textContent = on ? '□' : '_';
+      btn.title = on ? 'Unroll' : 'Roll up';
+      btn.setAttribute('aria-label', on ? 'Unroll the projects shelf' : 'Roll up the projects shelf');
+    }
+    dockChanged();
+  }
+  if(dockEl){
+    const rollBtn = dockEl.querySelector('[data-act="roll"]');
+    const hideBtn = dockEl.querySelector('[data-act="dock-min"]');
+    const act = fn => e => {
+      if(e.type==='keydown' && e.key!=='Enter' && e.key!==' ') return;
+      e.preventDefault(); e.stopPropagation();
+      dockAuto = false;                   // hands off: it stays where it is put
+      fn();
+    };
+    ['click','keydown'].forEach(ev=>{
+      rollBtn.addEventListener(ev, act(()=> setDockRolled(!dockRolled())));
+      hideBtn.addEventListener(ev, act(()=> minimize(dockEl)));
+    });
+    /* The index is for the meadow. Once the descent starts, the rooms are the
+       content and the shelf is in the way — so it rolls itself up, and unrolls
+       when you come back up to the surface. Touching either button ends that
+       for the session, because a control that keeps undoing you is worse than
+       one that never helped. */
+    const dockAutoSync = ()=>{
+      if(!dockAuto || dockEl.dataset.minimized==='1') return;
+      setDockRolled(window.scrollY > window.innerHeight*0.8);
+    };
+    window.addEventListener('scroll', dockAutoSync, {passive:true});
+    dockAutoSync();
+  }
 
   // resume blocks: inject real tbtns into the h3 (replaces the ::after deco)
   document.querySelectorAll('.r-block').forEach(win=>{
@@ -10227,10 +10355,15 @@ requestAnimationFrame(loop);
   }
 
   function fitMaximized(win){
-    win.style.left='4px'; win.style.top='4px';
+    const top=topDockBottom()+8;
+    win.style.left='4px'; win.style.top=top+'px';
     win.style.width=(window.innerWidth-12)+'px';
-    win.style.height=(window.innerHeight-TASKBAR_H-10)+'px';
+    win.style.height=Math.max(60,window.innerHeight-TASKBAR_H-top-6)+'px';
   }
+
+  window.addEventListener('dock-resize', ()=>{
+    openWindows.forEach(info=>{ if(info.el.dataset.maxed==='1') fitMaximized(info.el); });
+  });
 
   /* Rotating a phone (or the URL bar sliding away) changes innerWidth/Height
      under windows that were positioned against the old one, which used to
@@ -10351,6 +10484,89 @@ requestAnimationFrame(loop);
     win.addEventListener('win-hide', stop);
   }
 
+  function initProjectShelf(){
+    const shelf=document.getElementById('projectShelf');
+    const track=document.getElementById('projectTrack');
+    track.innerHTML=PROJECTS.map(galleryTile).join('');
+    const cards=[...track.querySelectorAll('.gal-card')];
+    // A second run makes the last-to-first transition continuous. Only the
+    // originals are keyboard/screen-reader stops; visible copies still open projects.
+    cards.forEach(card=>{
+      const copy=card.cloneNode(true);
+      copy.dataset.loopCopy='';copy.tabIndex=-1;copy.setAttribute('aria-hidden','true');
+      copy.addEventListener('click',e=>{e.preventDefault();copy.blur();launchPanel(copy.dataset.launch);});
+      track.appendChild(copy);
+    });
+    initGallery(shelf);
+    cards.forEach((card,i)=>{
+      card.addEventListener('click', e=>{
+        e.preventDefault();
+        // Opening a panel must not leave the card focused — the conveyor
+        // below reads focus-within-shelf as "someone's interacting, hold
+        // still", and with no button to resume it that hold would be forever.
+        card.blur();
+        launchPanel(card.dataset.launch);
+      });
+      card.addEventListener('keydown', e=>{
+        if(e.key==='Enter'||e.key===' '){
+          e.preventDefault();e.stopPropagation();
+          card.blur();
+          launchPanel(card.dataset.launch);
+          return;
+        }
+        const step=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+        const next=step ? Math.max(0,Math.min(cards.length-1,i+step))
+          : e.key==='Home'?0:e.key==='End'?cards.length-1:null;
+        if(next!==null){
+          e.preventDefault();e.stopPropagation();
+          cards[next].focus({preventScroll:true});
+          cards[next].scrollIntoView({block:'nearest',inline:'nearest'});
+        }
+      });
+    });
+    const reducedMotion=matchMedia('(prefers-reduced-motion:reduce)');
+    let touching=false,pauseUntil=0;
+    let position=track.scrollLeft,lastFrame=0,cycleWidth=0;
+    /* The strip is a conveyor: one constant, unbroken loop, with no pause
+       button and no arrows. The only two things that stop it are the two that
+       have to. A pointer dragging the strip would otherwise be fought for the
+       scroll position every frame, so the drift yields for a moment after any
+       touch; and a visitor who has asked their system for no motion gets none,
+       which — with no button to press — is the only way they could stop it.
+       A wheel over the strip no longer stops it: the wheel scrolls the page
+       now, which is the camera, and the strip is not what is being aimed at. */
+    const pauseForInteraction=()=>{pauseUntil=performance.now()+3500;};
+    shelf.addEventListener('pointerdown',()=>{touching=true;pauseForInteraction();});
+    window.addEventListener('pointerup',()=>{if(touching)pauseForInteraction();touching=false;});
+    window.addEventListener('pointercancel',()=>{touching=false;pauseForInteraction();});
+    shelf.addEventListener('focusout',pauseForInteraction);
+    shelf.addEventListener('keydown',e=>{
+      // The page's Space shortcut controls physics; cards retain their own keys.
+      if(e.key===' ')e.stopPropagation();
+      pauseForInteraction();
+    });
+    new ResizeObserver(()=>{
+      cycleWidth=track.querySelector('[data-loop-copy]').offsetLeft-cards[0].offsetLeft;
+      position=track.scrollLeft;
+    }).observe(track);
+    function advance(now){
+      const elapsed=lastFrame?Math.min(now-lastFrame,80):0;
+      lastFrame=now;
+      const waiting=reducedMotion.matches||touching||document.hidden||now<pauseUntil
+        ||shelf.contains(document.activeElement);
+      if(waiting){position=track.scrollLeft;}
+      else if(cycleWidth>0){
+        // Preserve fractional pixels so slow motion remains smooth at every frame rate.
+        if(Math.abs(track.scrollLeft-position)>1)position=track.scrollLeft;
+        position+=elapsed*.028;
+        if(position>=cycleWidth)position-=cycleWidth;
+        track.scrollLeft=position;
+      }
+      requestAnimationFrame(advance);
+    }
+    requestAnimationFrame(advance);
+  }
+
   /* ═════════════════════════════════════════════════════
      URL ROUTING
      Every write-up used to be unreachable by link: opening one changed nothing
@@ -10392,7 +10608,14 @@ requestAnimationFrame(loop);
     routing = true;
     try{
       if(id) launchPanel(id);
-      else if(openWindows.has('work')) focusWindow(openWindows.get('work').el);
+      else {
+        // Back to the landing page reveals the world and its project strip.
+        openWindows.forEach(rec=>{
+          rec.el.dataset.minimized='1';rec.el.style.display='none';
+          rec.taskBtn.classList.remove('is-active');
+          rec.el.dispatchEvent(new CustomEvent('win-hide'));
+        });
+      }
     } finally { routing = false; }
   });
 
@@ -10428,7 +10651,11 @@ requestAnimationFrame(loop);
     // Cascade as before, but only as far as the viewport allows — measured
     // after append so the clamp sees the real, CSS-capped size.
     const step = openWindows.size % 6;
-    let lx = 60 + step*32, ly = 50 + step*28;
+    const shelfBottom=topDockBottom();
+    let lx = 60 + step*32, ly = shelfBottom + 14 + step*16;
+    // Cascade within the reading area while keeping the title below the fixed panels.
+    ly=Math.min(ly,Math.max(shelfBottom+14,window.innerHeight-280));
+    win.style.maxHeight=`max(60px, calc(100dvh - ${ly+42}px))`;
     // when the window all but fills the width there is no room to cascade
     // sideways — centre it rather than shoving it against the right edge
     const spareX = window.innerWidth - win.offsetWidth;
@@ -10511,29 +10738,16 @@ requestAnimationFrame(loop);
     el.remove();
   };
 
-  // On a phone the Materials palette is ~240px tall in the top-right corner —
-  // it sat on top of every window that launched. Boot it collapsed to its title
-  // bar; the □ button opens it, and it still remembers position if dragged.
-  if(window.matchMedia('(max-width:600px)').matches){
-    const mp = document.getElementById('matPicker');
-    if(mp) mp.classList.add('is-min');
-  }
+  initProjectShelf();
 
-  // Boot straight into the work itself. Overview used to open here, but it was
-  // a directory of names — a visitor had to click twice before seeing anything
-  // that had been built. My Work carries its own identity header so this still
-  // opens on who as well as what.
-  // A link to a specific write-up opens the grid underneath it, so closing the
-  // write-up leaves the visitor somewhere rather than on a bare desktop.
+  // The landing page is the world with its project strip. Only an explicit
+  // deep link opens a window on arrival; closing it reveals the same landing page.
   setTimeout(()=>{
     const deep = routeIdFromHash();
     routing = true;                       // the whole boot is one history entry
-    launchPanel('work');
-    if(deep && deep!=='work') launchPanel(deep);
+    if(deep) launchPanel(deep);
     routing = false;
-    // replace, never push: Back out of the first window the visitor opens
-    // should land on the grid, not bounce them off the site
-    history.replaceState({panel: deep || 'work'}, '', deep ? '#/'+deep : bareURL());
+    history.replaceState({panel: deep}, '', deep ? '#/'+deep : bareURL());
   }, 200);
 })();
 
@@ -10880,29 +11094,18 @@ function evilClearRow(c){
   c.opening=null;
   if(evilOpenerC===c)evilOpenerC=null;
 }
-/* ── the Materials window might not be open ─────────────
-   It can be rolled up to its title bar (the □ button, and how it boots on a
-   phone) or minimised to the taskbar. Either way there is no list to steal
-   from, so one cursor is elected to go and click it back open exactly where a
-   person would, and the rest loiter by the button until the rows appear. */
+/* The palette is docked chrome with no title bar, so it is always open and a
+   cursor can always visit it. The state machine keeps its "go and open it
+   first" branch — it still runs whenever the swatches genuinely cannot be
+   measured, which now only happens before layout — but there is no longer a
+   control to send anyone to. */
 function evilPickerOpen(){
   const mp=document.getElementById('matPicker');
-  if(!mp||mp.dataset.minimized==='1'||mp.classList.contains('is-min'))return false;
+  if(!mp)return false;
   const r=mp.getBoundingClientRect();
   return r.width>2&&r.height>2;
 }
-// the control that would reopen it, or null if it is already open
 function evilPickerOpener(){
-  const mp=document.getElementById('matPicker');
-  if(!mp)return null;
-  if(mp.dataset.minimized==='1'){          // in the taskbar: its button restores it
-    for(const b of document.querySelectorAll('#taskbarTasks .taskbar-btn'))
-      if((b.textContent||'').trim().toLowerCase().startsWith('materials'))return b;
-    return null;
-  }
-  // rolled up: □ unrolls it. Restoring from the taskbar can land here next,
-  // and the opener simply re-aims and clicks again.
-  if(mp.classList.contains('is-min'))return mp.querySelector('.win95-title .tbtns .tbtn:nth-child(2)');
   return null;
 }
 function evilTakeMaterial(c,row){
