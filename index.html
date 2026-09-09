@@ -24,14 +24,58 @@
 <meta name="twitter:title" content="Mitchell Kuppersmith — Design Engineer">
 <meta name="twitter:description" content="AI-native AR for Spectacles at Snap — flagship lens experiences, system UI, and open-source developer tooling.">
 <meta name="twitter:image" content="https://kuppernetes.github.io/personal-site/images/projects/agent-center-poster.webp">
+<!-- The two webfonts, fetched during head parse. Boot blocks on them (see
+     BOOT) because the sim bakes DOM text into collision masks and poster
+     textures, so asking for them here rather than from script is worth the two
+     lines: it overlaps the fetch with parsing the rest of this file. -->
+<link rel="preload" href="fonts/GROUT-Display.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/MEK-Mono.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+/* ── MEK type ──
+   GROUT Display and MEK Mono by Michael Alexander (MEK), mek.gallery/mektype.
+   Credited in the Colophon window; see PANELS.colophon.
+
+   Both files ship one weight. GROUT is declared across 400–900 so a bold
+   request resolves to the same face instead of being synthetically smeared —
+   it is already a display weight, and its letters are built from tiles that a
+   fake bold welds together. MEK Mono stays at 400 so `font-weight:700` still
+   buys the thicker synthetic stroke the mono panels lean on for hierarchy.
+
+   font-display:block rather than swap: DOM text is rasterised into the sim's
+   collision grid by stampGlyphMask, so a face that arrived after that pass
+   would leave sand piling on the shape of the FALLBACK's letters. Boot waits
+   on document.fonts.ready (see BOOT) and block keeps the fallback from ever
+   painting in the meantime. Both files are under 15KB. */
+@font-face{
+  font-family:'GROUT';
+  src:url('fonts/GROUT-Display.woff2') format('woff2'),
+      url('fonts/GROUT-Display.woff') format('woff');
+  font-weight:400 900;font-style:normal;font-display:block;
+}
+@font-face{
+  font-family:'MEK Mono';
+  src:url('fonts/MEK-Mono.woff2') format('woff2'),
+      url('fonts/MEK-Mono.woff') format('woff');
+  font-weight:400;font-style:normal;font-display:block;
+}
 :root{
   /* The docked shelf's open height. It is chrome, so it earns its keep by
      being dismissable rather than by being small: below about 150px the
      thumbnails stop reading as pictures of anything. */
   --top-height:clamp(150px,26dvh,300px);
   --taskbar-h:30px;                       /* keep in sync with TASKBAR_PX */
+  /* GROUT is proportional and display-only — no italic, no true bold, and its
+     lowercase closes up below about 11px, so it is for headings and the
+     nameplate, not for running text. MEK Mono's cell is 0.45em against Courier
+     New's 0.6em, so anything set in it comes out about a quarter narrower;
+     nothing here is column-aligned ASCII, so that is free width.
+     Win95 chrome (Tahoma) is deliberately left alone: the taskbar, title bars
+     and menus are the pastiche, and MEK type in them reads as a bug rather
+     than as a choice. To try it anyway, add
+     'MEK Mono' to the front of those stacks. */
+  --font-display:'GROUT','Arial Black',Impact,sans-serif;
+  --font-mono:'MEK Mono','Courier New',monospace;
 }
 html,body{
   /* dvh, not vh: on mobile 100vh is the LARGE viewport (as if the URL bar were
@@ -39,7 +83,7 @@ html,body{
      chrome and off screen. dvh tracks the visible area. The vh line stays as a
      fallback for browsers without dvh; the later declaration wins where it's
      supported. window.innerHeight (computeDims) already matches dvh. */
-  width:100%;min-height:100vh;min-height:100dvh;font-family:'Courier New',monospace;
+  width:100%;min-height:100vh;min-height:100dvh;font-family:var(--font-mono);
   background:
     /* clouds */
     radial-gradient(ellipse 18vw 3vh at 16% 18%, rgba(255,255,255,0.88), rgba(255,255,255,0) 70%),
@@ -53,88 +97,6 @@ html,body{
     linear-gradient(180deg, #2c6cb8 0%, #5a9ddc 35%, #9ec9ea 60%, #d6e7f1 72%, #d6e7f1 100%);
 }
 #stage{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;z-index:1}
-/* The room is a composition of equipment, not a grid of floating cards.
-   Only the readable instrument surfaces receive burn/collision masks; the
-   large open diorama remains directly touchable falling-sand terrain. */
-.room-exhibit{position:absolute;pointer-events:none;font-family:'Courier New',monospace;color:#eee8da}
-/* One palette per zone, read by the room's own surfaces. The workshop's is the
-   default; every other zone overrides it. */
-.room-exhibit{--exhibit:#dfb775;--exhibit-dark:#63503a;--exhibit-bg:#211c19}
-.room-exhibit[data-zone=crypt]{--exhibit:#a6d8d7;--exhibit-dark:#44646c;--exhibit-bg:#142127}
-.room-exhibit[data-zone=arcade]{--exhibit:#eea4c6;--exhibit-dark:#754969;--exhibit-bg:#221a2b}
-.room-exhibit[data-zone=core]{--exhibit:#ecd38e;--exhibit-dark:#756548;--exhibit-bg:#25231e}
-.world-panel{position:absolute;pointer-events:auto;box-sizing:border-box;color:inherit;font-family:'Courier New',monospace;
-  background:var(--exhibit-bg,#211c19);border:2px solid var(--exhibit-dark,#63503a);
-  box-shadow:3px 4px 0 #0b1117;padding:0;min-width:0}
-.room-heading{border:0;border-left:4px solid var(--exhibit);box-shadow:none;padding:10px 18px;background:#121a1be8}
-.room-heading .room-kicker{font-size:10px;letter-spacing:2px;color:var(--exhibit);margin:0 0 8px}
-.room-heading h2{font-size:clamp(24px,3vw,40px);line-height:1.05;margin:0 0 10px;letter-spacing:-1.7px}
-.room-heading p{font-size:12px;line-height:1.5;margin:0;max-width:760px;color:#c1c7bc}
-.room-exhibit a{color:var(--exhibit);text-underline-offset:4px}
-.room-exhibit button:focus-visible,.room-exhibit a:focus-visible{outline:3px solid #fff;outline-offset:3px}
-.room-diorama{position:absolute;pointer-events:none}
-.room-caption{font-size:11px;line-height:1.5;padding:10px 12px;border-left:4px solid var(--exhibit);box-shadow:none}
-.room-caption strong{display:block;font-size:10px;letter-spacing:1px;color:var(--exhibit);margin-bottom:4px}
-
-/* ── THE CARD ──
-   One per work, all of them on screen. A card carries only what you would
-   judge the work by; everything else waits in the record. */
-.room-card{display:block;overflow:hidden;text-align:left;cursor:pointer;color:inherit;font:inherit}
-.room-card .card-content{padding:13px 14px;height:100%;display:flex;flex-direction:column}
-.room-card small{display:block;font-size:9px;letter-spacing:1.5px;color:var(--exhibit)}
-.room-card h3{font-size:19px;line-height:1.15;letter-spacing:-.4px;margin:6px 0 0;color:#f2ede0}
-.room-card .wp-badge{display:block;font-size:9px;letter-spacing:1px;color:var(--exhibit);margin:7px 0 0}
-.room-card .card-meta{font-size:10px;line-height:1.4;color:#9fada6;margin:5px 0 0}
-.room-card .card-blurb{font-size:12px;line-height:1.5;color:#c6cec3;margin:8px 0 0;
-  overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3}
-.room-card .card-open{margin-top:auto;padding-top:9px;font-size:10px;letter-spacing:1px;
-  color:var(--exhibit);font-weight:bold}
-.room-card:hover{border-color:var(--exhibit)}
-.room-card:hover h3{color:var(--exhibit)}
-.room-card[aria-expanded=true]{border-color:var(--exhibit);box-shadow:inset 0 0 0 2px var(--exhibit)}
-
-/* ── THE RECORD ──
-   Sits at the grid's exact footprint and covers it, so opening a work costs
-   the room no height and the world no re-carve. */
-.room-record{overflow:auto;scrollbar-width:thin;scrollbar-color:var(--exhibit-dark) var(--exhibit-bg);
-  border-width:4px;z-index:4}
-.room-record .record-content{padding:18px;position:relative}
-.room-record .record-close{position:absolute;top:12px;right:12px;padding:5px 9px;cursor:pointer;
-  background:#202729;border:2px solid var(--exhibit-dark);color:var(--exhibit);
-  font:10px 'Courier New',monospace;letter-spacing:1px}
-.room-record .record-close:hover{border-color:var(--exhibit);background:var(--exhibit);color:#172125}
-.room-record .wp-meta{font-size:10px;line-height:1.5;color:#bac6b8;margin:0 60px 10px 0}
-.room-record h3{font-size:clamp(24px,2.5vw,34px);line-height:1.05;letter-spacing:-1px;margin:0 0 10px;color:var(--exhibit)}
-.room-record .project-hook{font-size:17px;line-height:1.4;margin:0 0 13px;font-weight:bold}
-.room-record p{font-size:13px;line-height:1.6;margin:0 0 12px}
-.room-record .wp-shot{display:block;background:#0d1519;border:2px solid var(--exhibit-dark);margin:0 0 16px;position:relative}
-.room-record img{display:block;width:100%;height:190px;object-fit:contain;background:#10161c}
-.room-record .wp-shot span{display:block;font-size:10px;padding:7px 9px;background:#11191d;color:var(--exhibit)}
-.room-record .wp-open{display:flex;justify-content:space-between;gap:10px;border-top:2px solid var(--exhibit-dark);padding-top:12px;font-size:12px;font-weight:bold;text-decoration:none}
-.room-record .wp-related{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;line-height:1.5;margin-top:12px}
-.room-record .wp-badge{display:block;font-size:10px;letter-spacing:1px;line-height:1.4;color:var(--exhibit);margin-bottom:9px}
-.room-record .room-manifesto{font-size:24px;line-height:1.25;color:var(--exhibit);margin:16px 0 22px}
-.room-record .room-evidence{border-left:3px solid var(--exhibit);padding-left:12px;color:#cdd5c2}
-/* The three instrument labels, now inside the record they always described. */
-.room-record .record-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 16px}
-.room-record .record-step{border-top:3px solid var(--exhibit);padding-top:9px}
-.room-record .record-step small{font-size:9px;letter-spacing:1px;color:var(--exhibit)}
-.room-record .record-step h4{font-size:14px;margin:6px 0 4px;line-height:1.2}
-.room-record .record-step p{font-size:11px;line-height:1.5;margin:0;color:#c6cec3}
-
-.room-exhibit[data-zone=crypt] .room-record{border:5px double #8babad;background:#17262b}
-.room-exhibit[data-zone=arcade] .room-record{border:8px solid #754969;border-top:14px solid #c17eab;box-shadow:8px 8px #11101b}
-.room-exhibit[data-zone=arcade] .room-card h3{text-transform:uppercase}
-.room-exhibit[data-zone=core] .room-record{border:5px solid #8f805e;background:#28281f}
-.room-exhibit.is-compact .room-record img{height:180px}
-.room-exhibit.is-narrow .room-heading{padding:10px 12px}
-.room-exhibit.is-narrow .room-heading h2{font-size:26px}
-.room-exhibit.is-narrow .room-card .card-content{padding:10px 12px}
-.room-exhibit.is-narrow .room-card h3{font-size:17px}
-.room-exhibit.is-narrow .room-record .record-content{padding:12px}
-.room-exhibit.is-narrow .room-record .project-hook{font-size:15px}
-.room-exhibit.is-narrow .room-record p{font-size:12px}
-.room-exhibit.is-narrow .room-record .record-steps{grid-template-columns:1fr}
 #simCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;cursor:crosshair}
 #birdCanvas{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:7}
 #uiLayer{position:absolute;inset:0;pointer-events:none}
@@ -402,15 +364,18 @@ html,body{
 /* ── Resume overlay: real DOM content that particles collide with via [data-collide] ── */
 #resume{
   position:absolute;inset:0;pointer-events:none;z-index:6;
-  font-family:'Courier New',monospace;color:#1c1a22;
+  font-family:var(--font-mono);color:#1c1a22;
   padding:3.5vh 3.5vw;display:grid;
   grid-template-columns:1fr 1fr;gap:2vh 3vw;
   align-content:start;
 }
 #resume *{pointer-events:none} /* paint passes through; cards are purely visual + collision */
 .r-name{
-  font-family:'Tahoma','MS Sans Serif',sans-serif;
-  font-size:clamp(28px,4.2vw,62px);font-weight:700;line-height:1.05;letter-spacing:0.01em;
+  /* The nameplate is the one place a display face has room to be one.
+     GROUT carries its own weight, so 700 here would only ask the browser
+     to smear it. */
+  font-family:var(--font-display);
+  font-size:clamp(28px,4.2vw,62px);font-weight:400;line-height:1.05;letter-spacing:0.02em;
   color:#fff;
   background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
   padding:10px 16px 12px;
@@ -645,7 +610,13 @@ html,body{
      (and on iOS, from rubber-banding the whole document) behind it */
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
-.win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080}
+.win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080;
+  /* GROUT sets tighter and reads heavier than Tahoma at the same size, so
+     the heading needs no weight of its own, and a touch of tracking keeps
+     the tiles of adjacent letters from touching. The themes that name their
+     own face for h2 (vapor's Impact, terminal's mono) still win: they are
+     later in the sheet. */
+  font-family:var(--font-display);font-weight:400;letter-spacing:.5px}
 .win-app .win-body h3{font-size:12px;margin:10px 0 4px;color:#000;font-weight:700}
 .win-app .win-body .sub{font-size:11px;color:#404040;margin-bottom:2px}
 .win-app .win-body .meta{font-size:11px;color:#606060;margin-bottom:8px;font-style:italic}
@@ -686,14 +657,14 @@ html,body{
 .marquee{
   overflow:hidden;white-space:nowrap;
   border:2px inset #808080;background:#000;color:#ffe600;
-  font-family:'Courier New',monospace;font-size:11px;
+  font-family:var(--font-mono);font-size:11px;
   padding:3px 0;margin:6px 0;
 }
 .marquee span{display:inline-block;padding-left:100%;animation:marq 18s linear infinite}
 @keyframes marq{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
 .hit-counter{
   display:inline-block;background:#000;color:#0f0;
-  font-family:'Courier New',monospace;font-size:14px;font-weight:700;
+  font-family:var(--font-mono);font-size:14px;font-weight:700;
   padding:2px 6px;border:1px solid #555;letter-spacing:3px;
 }
 .under-const{
@@ -876,7 +847,7 @@ html,body{
 /* ── THEME: vapor (vaporwave — Catiator) ── */
 .win-app.theme-vapor .win-body{
   background:linear-gradient(180deg,#1a0033 0%,#3b0764 35%,#831843 70%,#fb7185 100%);
-  color:#ffe9ff;font-family:'Courier New',monospace;
+  color:#ffe9ff;font-family:var(--font-mono);
 }
 .win-app.theme-vapor .win-title{
   background:linear-gradient(90deg,#ff00aa 0%,#00e5ff 100%) !important;
@@ -920,14 +891,14 @@ html,body{
 /* ── THEME: terminal (AI samples / dev tools) ── */
 .win-app.theme-terminal .win-body{
   background:#000;color:#33ff66;
-  font-family:'Courier New','Consolas',monospace;
+  font-family:var(--font-mono);
   font-size:11px;
 }
 .win-app.theme-terminal .win-title{
   background:linear-gradient(90deg,#003300 0%,#006600 100%) !important;
 }
 .win-app.theme-terminal h2{
-  color:#33ff66;font-family:'Courier New',monospace;
+  color:#33ff66;font-family:var(--font-mono);
   font-size:16px;border-bottom:1px dashed #33ff66;padding-bottom:3px;
 }
 .win-app.theme-terminal h2::before{content:"C:\\> "}
@@ -972,7 +943,7 @@ html,body{
    invisible on a dark one — every dark theme has to restate them */
 .win-app.theme-project .sub{color:#c9c5da;font-size:12px}
 .win-app.theme-project .meta{
-  color:#9a95ad;font-family:'Courier New',monospace;
+  color:#9a95ad;font-family:var(--font-mono);
   font-size:11px;font-style:normal;
 }
 .win-app.theme-project a{color:var(--proj,#9fd0ff)}
@@ -1125,6 +1096,13 @@ html,body{
   background:#c0c0c0;color:#000;
 }
 .win-app.theme-desktop h2{color:#000080}
+/* Colophon specimens. Each line is set in the face the heading above it
+   names, at a size that face is actually used at, so the credit shows its
+   work instead of describing it. */
+.win-app .win-body .spec-grout{font-family:var(--font-display);font-size:22px;
+  line-height:1.15;letter-spacing:.5px;color:#000080;margin:2px 0 6px}
+.win-app .win-body .spec-mono{font-family:var(--font-mono);font-size:12px;
+  line-height:1.4;color:#202020;margin:2px 0 6px}
 .win-app.theme-desktop .icon-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
   gap:10px;margin-top:8px;padding:8px;
@@ -1584,53 +1562,6 @@ const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
    nothing while camY is zero, and it is what the descent would come back to.
    See the pixel-world-scroll branch. */
 let DEPTH_LAYOUT;
-// Preserve the long descent on desktop, but give stacked exhibits a physical
-// minimum height on phones and short windows. Content never shares a footprint.
-function exhibitBounds(cells,scale){
-  const shaftRight=Math.round(cells*.055)+Math.max(3,Math.round(cells*.022))+3;
-  const left=(shaftRight+8)*scale,right=(Math.floor(cells*.955)-5)*scale;
-  const width=Math.min(1260,right-left);
-  return {x:Math.round(left+(right-left-width)/2),width};
-}
-/* A room shows all of its work at once.
-
-   It used to be a carousel: a selector, and one project filling a 660px
-   monitor with its own diorama and its own three instrument labels beside it.
-   Four of a room's six surfaces served ONE work, so a five-work room showed
-   four of them as buttons. Now every work in the stratum is a card in a grid,
-   and the long record opens over the grid on demand — which is why the room's
-   height is a function of how many works it holds rather than a constant.
-
-   The expanded record deliberately occupies exactly the grid's footprint. The
-   room's bay is carved once, from the union of its surfaces; an expansion that
-   stays inside a region already carved needs no re-carve, no re-stamped frame
-   and no change to the zone band heights that were derived from this height. */
-function roomMetrics(width,count=3){
-  const compact=width<720,narrow=width<430,gap=16;
-  const header=narrow?300:compact?160:112;
-  const caption=narrow?132:92;
-  const cols=narrow?1:2;
-  const cardHeight=narrow?150:compact?158:168;
-  const rows=Math.ceil(count/cols);
-  const grid=rows*cardHeight+(rows-1)*gap;
-  const leftWidth=compact?width:Math.floor((width-gap)*.43);
-  const rightWidth=compact?width:width-leftWidth-gap;
-  const cardWidth=Math.floor((rightWidth-(cols-1)*gap)/cols);
-  // The diorama column matches the grid beside it rather than a fixed size, so
-  // a two-work room is not left with a tall empty scene next to two cards.
-  const art=compact?(narrow?244:294):Math.max(280,grid-caption-gap);
-  const stageY=header+gap;
-  const stageHeight=compact?art+caption+gap+grid:Math.max(art+caption,grid);
-  return {compact,narrow,gap,cols,rows,cardWidth,cardHeight,grid,header,art,caption,
-    leftWidth,rightWidth,stageY,
-    gridX:compact?0:leftWidth+gap,gridY:compact?stageY+art+caption+gap:stageY,
-    height:stageY+stageHeight+gap};
-}
-// Where card i sits inside the room, and the footprint its record expands into.
-function cardBox(m,i){
-  return {x:m.gridX+(i%m.cols)*(m.cardWidth+m.gap),y:m.gridY+Math.floor(i/m.cols)*(m.cardHeight+m.gap),
-    width:m.cardWidth,height:m.cardHeight};
-}
 /* One band, one screenful. This returned a stack of them — a share of the
    world's height for each room of the descent, derived from how much content
    that room had to hold — and computeDims still multiplies `total` by VH to
@@ -1641,7 +1572,6 @@ function worldBands(){
 }
 let W,H,VH,SCALE;
 let camY=0;                   // world row at the top of the screen
-let SHAFT=null;               // {x0,x1,topY} in world cells — see carveShaft
 function computeDims(){
   const vw=window.innerWidth,vh=window.innerHeight;
   const CELL_BUDGET=1300000;
@@ -1722,9 +1652,6 @@ const ZONES=[
   {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.00, bg:2,
    back:[[0.300,0.228,0.176],[0.272,0.204,0.158]]},
 ];
-// world-cell row bounds for a zone. Clamped to the grid so the last zone always
-// reaches the floor no matter how the fractions round.
-const zoneRows=z=>({y0:Math.round(z.top*VH),y1:Math.min(H-1,Math.round(z.bot*VH)-1)});
 function zoneAt(y){
   for(let i=ZONES.length-1;i>=0;i--){if(y>=ZONES[i].top*VH)return ZONES[i];}
   return ZONES[0];
@@ -2490,9 +2417,6 @@ function step(x,y){
       // sand sprays as sand, dirt as chunks, wood as splinters.
       // Text/MASK survive so the page stays intact.
       const R_kill=10, R_push=22;
-      // furniture inside the blast stops being furniture first, so the crates
-      // are flung as bodies rather than shredded cell-by-cell into splinters
-      wakeSpriteBodies(x,y,R_push);
       const snap=[];
       for(let by=-R_push;by<=R_push;by++)for(let bx=-R_push;bx<=R_push;bx++){
         const d2=bx*bx+by*by;
@@ -2787,11 +2711,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
    // WORLD height, so uv (screen space) and the particle texture (world space)
    // are no longer the same thing — see tuv below.
    uniform vec2 uCam;
-   // Horizontal span of the shaft, in cells. The near-plane berm is drawn over
-   // everything at the bottom of the frame, which is exactly where the mouth of
-   // the hole sits — without a gap cut in it the shaft is invisible from the
-   // surface and the arrow points at unbroken turf.
-   uniform vec2 uShaft;
    // ── zone backdrop ──
    // The colour of the empty cell BETWEEN particles, which underground is most
    // of what you see — so this, not the rock, is what makes a room feel like a
@@ -3201,9 +3120,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      }
      // the near plane belongs to the surface; leaving it, the berm goes with it
      fg*=1.0-smoothstep(0.10,0.45,depth);
-     // cut the mouth of the shaft out of the near plane
-     float inShaft=step(uShaft.x,fx)*step(fx,uShaft.y);
-     fg*=1.0-inShaft; rim*=1.0-inShaft;
      if(fg>0.5){
        // By night the meadow behind this crushes to black, so a dark silhouette
        // would invert and read as a glowing strip. Instead the body sinks into
@@ -3235,7 +3151,6 @@ const uDayLoc=gl.getUniformLocation(prog,'uDay');
 const uGridLoc=gl.getUniformLocation(prog,'uGrid');
 const uBarLoc=gl.getUniformLocation(prog,'uBar');
 const uCamLoc=gl.getUniformLocation(prog,'uCam');
-const uShaftLoc=gl.getUniformLocation(prog,'uShaft');
 const uZoneColLoc=gl.getUniformLocation(prog,'uZoneCol');
 const uZoneCol2Loc=gl.getUniformLocation(prog,'uZoneCol2');
 const uZoneTopLoc=gl.getUniformLocation(prog,'uZoneTop');
@@ -3819,7 +3734,6 @@ function render(){
   gl.uniform2f(uGridLoc,W,H);
   gl.uniform1f(uBarLoc,TASKBAR_PX/SCALE);
   gl.uniform2f(uCamLoc,camY,VH);
-  gl.uniform2f(uShaftLoc,SHAFT?SHAFT.x0:-1e9,SHAFT?SHAFT.x1:-1e9);
   gl.uniform3fv(uZoneColLoc,zoneColBuf);
   gl.uniform3fv(uZoneCol2Loc,zoneCol2Buf);
   gl.uniform1fv(uZoneTopLoc,zoneTopBuf);
@@ -3924,9 +3838,9 @@ function makePanelTexture(label,sub,scheme){
   // label bar
   c.fillStyle='#0b0b0e';c.fillRect(0,motifH,cw,26);
   c.fillStyle='#b8e000';c.fillRect(0,motifH,3,26);
-  c.fillStyle='#f0ece4';c.font='700 11px "Courier New",monospace';c.textBaseline='middle';
+  c.fillStyle='#f0ece4';c.font='700 11px "MEK Mono","Courier New",monospace';c.textBaseline='middle';
   c.fillText(label.length>16?label.slice(0,16):label,8,motifH+9);
-  c.fillStyle='#555';c.font='400 8px "Courier New",monospace';
+  c.fillStyle='#555';c.font='400 8px "MEK Mono","Courier New",monospace';
   c.fillText(sub,8,motifH+19);
   // frame border
   c.strokeStyle='#3a3a3a';c.lineWidth=2;c.strokeRect(1,1,cw-2,ch-2);
@@ -4155,39 +4069,12 @@ function drawBodies(){
 
 function renderAll(){render();drawBodies();}
 
-/* ═══════════════════════════════════════════════════════
-   TEXT → PARTICLES (threshold raster, crisp at small sizes)
-═══════════════════════════════════════════════════════ */
-function stampText(text,m,gx,gy,gw,gh,fs0,opts){
-  opts=opts||{};
-  const bold=opts.bold?'900':'900';
-  const oc=Object.assign(document.createElement('canvas'),{width:gw,height:gh}).getContext('2d');
-  oc.fillStyle='#fff';oc.fillRect(0,0,gw,gh);
-  oc.fillStyle='#000';
-  let fs=fs0||Math.floor(gh*0.7);
-  oc.font=`${bold} ${fs}px 'Courier New',monospace`;
-  while(oc.measureText(text).width>gw*0.98&&fs>9){fs--;oc.font=`${bold} ${fs}px 'Courier New',monospace`;}
-  oc.fillText(text,2,gh*0.5+fs*0.35);
-  const px=oc.getImageData(0,0,gw,gh).data;
-  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
-    if(px[(y*gw+x)*4]<140){
-      const nx=gx+x,ny=gy+y;
-      if(nx>=0&&nx<W&&ny>=0&&ny<H){grid[idx(nx,ny)]=m;variant[idx(nx,ny)]=Math.random()*8|0;}
-    }
-  }
-}
 function shelf(x0,y0,w){ // a stone ledge with slightly rough texture
   for(let x=x0;x<x0+w;x++) if(x>=0&&x<W&&y0>=0&&y0<H&&Math.random()>0.12){grid[idx(x,y0)]=STONE;variant[idx(x,y0)]=Math.random()*4|0;}
 }
 function box(x0,y0,bw,bh){ // stone rectangle outline
   for(let x=x0;x<x0+bw;x++){if(x>=0&&x<W){if(y0>=0&&y0<H){grid[idx(x,y0)]=STONE;}const yb=y0+bh-1;if(yb>=0&&yb<H){grid[idx(x,yb)]=STONE;}}}
   for(let y=y0;y<y0+bh;y++){if(y>=0&&y<H){if(x0>=0&&x0<W){grid[idx(x0,y)]=STONE;}const xr=x0+bw-1;if(xr>=0&&xr<W){grid[idx(xr,y)]=STONE;}}}
-}
-function fillBlock(m,x0,y0,bw,bh){
-  for(let y=y0;y<y0+bh;y++)for(let x=x0;x<x0+bw;x++) if(x>=0&&x<W&&y>=0&&y<H){grid[idx(x,y)]=m;variant[idx(x,y)]=Math.random()*4|0;}
-}
-function sprinkleSand(x0,y0,bw,density){ // settled decorative sand
-  for(let x=x0;x<x0+bw;x++) if(Math.random()<density){const y=y0;if(x>=0&&x<W&&y>=0&&y<H){grid[idx(x,y)]=SAND;variant[idx(x,y)]=Math.random()*8|0;}}
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -4253,242 +4140,6 @@ const SPRITE_MATS={
 // Designed at ~2× the original size so silhouettes read as deliberate pixel
 // art at the new chunkier SCALE.
 const SPRITES={
-  // Project exhibits. Their silhouettes are drawn from the work itself;
-  // exhibitMount scales and stamps these in the same grid as the terrain.
-  spatialCube:[
-    '.............................',
-    '......................GG.....',
-    '......................G*.....',
-    '.............E...............',
-    '...........EEGEE.............',
-    '.........EEGGGGGEE...........',
-    '.......EEGGGGGGGGGEE.........',
-    '.....EEGGGGGGGGGGGGGEE.......',
-    '.....E*EGGGGGGGGGGGEEgE......',
-    '.....E**EGGGGGGGGEEgggE......',
-    '.....E***EGGGGGEEgggggE......',
-    '.....E****EGGEEgggggggE......',
-    '.....E*****EEgggggggggE......',
-    '.....E*****EEgggggggggE......',
-    '.....E*****EEgggggggggE......',
-    '.....E*****EEgggggggggE......',
-    '......EE***EEgggggggEE.......',
-    '........EE*EEgggggEE.........',
-    '..........EEEgggEE...........',
-    '............EEE.............',
-    '..B..........................',
-    '.BBB.........................',
-    '..B..........E...............',
-    '.........EEEEDDEEEE..........',
-    '........SSSSSSSSSSSS.........',
-  ],
-  speechPair:[
-    '..EEEEEEEEEEEEEEEE...........',
-    '.E***************gS..........',
-    '.E*GGGGGGGGGGGGGGgS..........',
-    '.E*GXXGGXGGXGGXGGgS..........',
-    '.E*GXGXGXGGXGGXGGgS..........',
-    '.E*GXXGGXXXXGGXGGgS..........',
-    '.E*GXGXGXGGXGGGGGgS..........',
-    '.E*GXGXGXGGXGGXGGgS..........',
-    '.E*GGGGGGGGGGGGGGgS..........',
-    '..SSSSSGGSSSSSSSSS...........',
-    '.......GG.......EEEEEEEEEEE..',
-    '......GG.......EGGGGGGGGGGgS.',
-    '...............EGXXGGXXGGGgS.',
-    '...............EGGXGGXGGXGgS.',
-    '...............EGGXXXXXXXGgS.',
-    '...............EGGGGGGGGGGgS.',
-    '................SSSSSSGGSSS..',
-    '......................GG.....',
-    '.......................GG....',
-    '.............E...............',
-    '.........EEEEDDEEEE..........',
-    '........SSSSSSSSSSSS.........',
-  ],
-  agentBot:[
-    '..........B..........',
-    '..........E..........',
-    '.....EEEEEEEEEEE.....',
-    '....E**********DS....',
-    '....E*XXXXXXXXXDS....',
-    '...DE*XGGXXXGGXDSD...',
-    '...DE*XGGXXXGGXDSD...',
-    '...DE*XXXXXXXXXDSD...',
-    '....E*XXXGGGXXXDS....',
-    '....E*XXXXXXXXXDS....',
-    '....EDDDDDDDDDDDS....',
-    '.....SSSSSSSSSSS.....',
-    '........EDDS.........',
-    '....EEEEEEEEEEEDS....',
-    '..EDE*DDDDDDDDDSDES..',
-    '..EDE*DGGGGGDDDSDES..',
-    '..EDE*DGBGGGDDDSDES..',
-    '..EDS*DDDDDDDDDSDES..',
-    '..EDS*DDDDDDDDDSDES..',
-    '...S.EDDDDDDDDDS.S...',
-    '......SSSSSSSSS......',
-    '......EDS.EDS........',
-    '......EDS.EDS........',
-    '....EEEES.EEEES......',
-    '....SSSSS.SSSSS......',
-  ],
-  catGladiator:[
-    '........BBBBB........',
-    '.......BBBBBbb.......',
-    '.....YYYYYYYYYYY.....',
-    '....YYRRRRRRRRRRY....',
-    '...YYRRRRRRRRRRRRY...',
-    '...YRRRRRRRRRRRRRY...',
-    '...YYYYYYYYYYYYYYY...',
-    '....JZZZZZZZZZZz.....',
-    '...JJZXZZZZXZZZzz....',
-    '...JZZZZZZZZZZZZz....',
-    '...JZZZZXZZZZZZZz....',
-    '....JZZZXXZZZZZz.....',
-    '.....JZZZZZZZZz......',
-    '..E.JJJZZZZZZZZz.....',
-    '..EJJZZZZZZZZZZzz....',
-    '..EJZZZZZZZZZZZzzz...',
-    '.YYJZZZZZZZZZZZzRYR..',
-    '..D.JZZZZZZZZZZzRYR..',
-    '....JZZZZZZZZZzzRYR..',
-    '.....zzzzzzzzzz.RYR..',
-    '.....JZZz.JZZz.......',
-    '.....JZZz.JZZz.......',
-    '....JJZZz.JJZZz......',
-    '....zzzzz.zzzzz......',
-  ],
-  flytrap:[
-    '......hhhhh..................',
-    '....hhIIIIIhh................',
-    '...hIIIIIIIIIh...............',
-    '..hIIIIIIIIIIih..............',
-    '.hIIIIIIIIIIIIih.............',
-    '.hIIIIIIIIIIIIIh.............',
-    '..hIYIIYIIYIIYIh.............',
-    '...hY..Y..Y..Yh..............',
-    '....j.........j..............',
-    '.....j.........j.............',
-    '......j..Y..Y..Y..Y..Y.......',
-    '.......jhYhhYhhYhhYhhYh......',
-    '........hIIIIIIIIIIIIIih.....',
-    '.........hIIIIIIIIIIIIih.....',
-    '..........hIIIIIIIIIIih......',
-    '...........hIIIIIIIIih.......',
-    '............hhhhhhhh.........',
-    '..............Iii............',
-    '.....hIIh.....Iii.....hIIh....',
-    '......hIIIh...Iii...hIIIh.....',
-    '.......hIIIIh.Iii.hIIIih......',
-    '.........hIIIIIIIIIIih.......',
-    '...........hhhIiiihh.........',
-    '..............Iii............',
-    '..........EEEEEEEEEEE........',
-    '..........DDDDDDDDDDD........',
-    '...........SSSSSSSSS.........',
-  ],
-  larpMushroom:[
-    '..........YYYY...........',
-    '........YYYRRRYY.........',
-    '......YYYRRRRRRRYY.......',
-    '.....YYRRRYRRRYRRRY......',
-    '....YYRRRRRRRRRRRRRY.....',
-    '...YYRRRRRRRYRRRRRRRY....',
-    '..YYYYYYYYYYYYYYYYYYYY...',
-    '..rrrrrrrrrrrrrrrrrrrr...',
-    '......^TTTTTTTTt.........',
-    '......^TXTTTXTt..........',
-    '......^TTTTTTTTt.........',
-    '.......^TTXXTTt..........',
-    '........^TTTTt...........',
-    '....^^..^TTTTt..^^.......',
-    '...^TT^^TTTTTT^^TTt......',
-    '..^TTT^TTttTTTT^TTTt.....',
-    '..^TTt^TTttTTTTt^TTt.....',
-    '...tt.^TTTTTTTTt.tt......',
-    '......^TTttTTTTt.........',
-    '......^TTttTTTTt.........',
-    '......^TTTTTTTTt.........',
-    '.......^TTt^TTt..........',
-    '......^^TTt^TTtt.........',
-    '.....tttttttttttt........',
-  ],
-  hactor:[
-    '.........................G...',
-    '........................GG...',
-    '...E..E..E.............GG.....',
-    '..DDDDDDDDDD..........GG.....',
-    '.EDDDDDDDDDDSS.......GG......',
-    '.E**********DS......GG.......',
-    '.E*XXXXXXXX*DS.....GG........',
-    '.E*XGXXXXGX*DS....GG.........',
-    '.E*XXGXXGXX*DS...GG..........',
-    '.E*XXXGGXXX*DS.GG............',
-    '.E*XXXXXXXX*DSGG.............',
-    '.E*XXGXXGXX*DS...............',
-    '.E*XGGGGGGX*DS.....EDEDEDE...',
-    '.E**********DS....EDEDEDED...',
-    '.EDDDDDDDDDDDS....EDDDDDDS...',
-    '..SSSSSSSSSSS.....EDDDDDDS...',
-    '......EDDS........EDEDEDS....',
-    '....EEEEDSS.......EDDDDS.....',
-    '..................SSSSSS.....',
-  ],
-  songbirdSax:[
-    '..................GGG..',
-    '..................G.G..',
-    '.................GG.G..',
-    '.................GGGG..',
-    '......DDDDDD...........',
-    '.....DGGGGGgD..........',
-    '.....DGXGGXgD..........',
-    '.....DGGGGGgD..........',
-    '......DYYYYY...........',
-    '......DGYrY............',
-    '....DDGGGYrY...........',
-    '...DGGGGGYrY...........',
-    '..DGGGGGgYrY...........',
-    '..DGgGGGgYrY..YYY......',
-    '..DgggGGgYrY.YRRRY.....',
-    '...DggGGgYrYYRRRRY.....',
-    '...DggGGgYRRRRRRY......',
-    '....DggggYYYYYYY.......',
-    '.....DDDDDD............',
-    '......Y..Y.............',
-    '.....YY..YY............',
-    '....YYY..YYY...........',
-  ],
-  hoverstaff:[
-    '............YYY........',
-    '..........YYRRRYY......',
-    '.........YRRR*RRRY.....',
-    '.........YRR***RRY.....',
-    '.........YRRR*RRRY.....',
-    '..........YYRRRYY......',
-    '...........TYYYt.......',
-    '...........TLLLt.......',
-    '..........TLLLtt.......',
-    '.........TLLLtt........',
-    '........TLLLtt.........',
-    '.......TLLLtt..........',
-    '......TLLLtt...........',
-    '.....TLLLtt............',
-    '....TLLLtt.............',
-    '...TLLLtt..............',
-    '..TLLLtt...............',
-    '.TLLLtt................',
-    '.TLLtt.................',
-    '..Ttt..................',
-    '...........G...........',
-    '..........GGG..........',
-    '.........GGGGG.........',
-    '........EEEEEEE........',
-    '.......DDDDDDDDD.......',
-    '.......SSSSSSSSS.......',
-  ],
-  // a broad asymmetric oak. shadows hang on right/bottom side, berries dot the
-  // canopy, the highlighted ! is a darker knot in the trunk.
   oak:[
     "......HHHLLL.........",
     "....HHHLLLLLLl.......",
@@ -4756,351 +4407,9 @@ const SPRITES={
      SCALE 4 is roughly a third to a full panel height, big enough to read past
      the dither and small enough that a room still looks like a room. */
 
-  // ── THE VAULTS ──
-  // A stone chest on a brick plinth, moss taking the lid. Long and low on
-  // purpose: it fills the floor of a bay without competing with the arches.
-  sarcophagus:[
-    "....EEEEEEEEEEEEEEEE....",
-    "..EEDDDDDDEEEEDDDDDDDE..",
-    ".EEDDDDDDDEEEEDDDDDDDEES",
-    "EEEEEEEEEEEEEEEEEEEEEEDS",
-    "SDDDDDDDDDDDDDDDDDDDDDDS",
-    "SEDSSDDDDDEEDDDDDSSDDEDS",
-    "SEDSSDDDDDEEDDDDDSSDDEDS",
-    "SEDDDDDMDDDDDDDDDDDDDEDS",
-    "SSSSSSSSSSSSSSSSSSSSSSSS",
-    ".EEDDSSSSSSSSSSSSSSDDEE.",
-  ],
-  // A glass globe on an iron stand. Glass is emissive underground (see
-  // glassLit), so this is a light source and not just a silhouette — which is
-  // the whole reason the vaults are lit by lamps rather than by an ambient
-  // nobody can account for.
-  candelabra:[
-    "....Y....",
-    "...YRY...",
-    "..Y***Y..",
-    "..R*GgR..",
-    "..R*GgR..",
-    "..YRRRY..",
-    "...YSY...",
-    "....E....",
-    "....D....",
-    "...EDS...",
-    "..EEDSS..",
-    ".EEDDDSS.",
-  ],
-  // A toppled urn with its contents spilled — the one prop in the vaults that
-  // is broken, so the room does not read as freshly swept.
-  urn:[
-    "..CccC..",
-    ".CCKKkc.",
-    "CCKKKkkc",
-    "CKK.Kkkc",
-    ".C..Kkc.",
-    "..c..c..",
-    ".CK..Kk.",
-  ],
 
-  // ── THE LAB ──
-  // A workstation: CRT on a timber bench. The screen is glass, so every
-  // console adds to the room's light budget the same way the tanks do.
-  console:[
-    "..EEEEEEEEEE.....",
-    "..EGGGGGGGgDS....",
-    "..EGXXGGGGgDS....",
-    "..EGGGXXXGgDS....",
-    "..EGGGGGGGgDS....",
-    "..DDDDDDDBDDS....",
-    ".....EDS........",
-    "..EEEEEEE...YY..",
-    ".^^^^^^^^^^^^^^^.",
-    ".Tttttttttttttt!.",
-    ".T!......T^^^T!!.",
-    ".T!......TtYtT!!.",
-    ".T!......TtttT!!.",
-    ".TT......TTTTTT!.",
-  ],
-  // A pressure cylinder with acid sealed inside it. The acid is stamped frozen
-  // and every neighbour is steel, so it holds and glows; cut the wall open and
-  // the breach rule in step() turns it back into acid.
-  cylinder:[
-    "..BBB..",
-    "...D...",
-    ".EEEDS.",
-    "EEDDSSS",
-    "EDDDSSS",
-    "EDDDSSS",
-    "EDQQQSS",
-    "EDQqQSS",
-    "EDQQqSS",
-    "EDQqQSS",
-    "EDDDSSS",
-    "EDYBYSS",
-    "EDDDSSS",
-    "EDDDSSS",
-    "EEEEEDS",
-    "SSSSSSS",
-  ],
-  // Stacked crates — the cheapest way to break up a long flat floor, and
-  // timber, so the one flammable thing in a room wired with live fuse.
-  crates:[
-    ".^^^^^^^^.....",
-    ".T^ttt^T!.....",
-    ".Tt^t^tT!.....",
-    ".Ttt^ttT!.....",
-    ".Tt^t^tT!.....",
-    ".TTTTTTT!.....",
-    "^^^^^^^^^^^^^.",
-    "T^ttt^T^ttt^T!",
-    "Tt^t^tTt^t^tT!",
-    "Ttt^ttTtt^ttT!",
-    "TTTTTTTTTTTTT!",
-  ],
-
-  // ── THE ARCADE ──
-  // The upright. Marquee and screen are both glass, which is what lights the
-  // room: the only illumination down here comes off the things you would have
-  // been playing.
-  cabinet:[
-    ".EEEEEEEEEEEEE.",
-    ".EBYYYBYYYBBBS.",
-    ".EBBYBBBYYBBBS.",
-    ".DDDDDDDDDDDDS.",
-    "..TXXXXXXXXXS..",
-    "..T*GGGGGGGgS..",
-    "..T*GGXXGGGgS..",
-    "..TGGXXXXGGgS..",
-    "..TGGXGGXGGgS..",
-    "..TGGGGGGGGgS..",
-    "..TGXGGGGXGgS..",
-    "..TGGXXXXGGgS..",
-    "..TgggggggggS..",
-    "..TXXXXXXXXXS..",
-    "..TXXBXXXXXXS..",
-    ".EEEEDDDABDSSS.",
-    "ETTTTTTTTTTTTSS",
-    "TBBBBBBBBBBBbSS",
-    "TBBBBXSXBBBBbSS",
-    "TBBYBXSXBYBBbSS",
-    "TBBYBBBBBYBBbSS",
-    "TBBBBBBBBBBBbSS",
-    "TbbbbbbbbbbbbSS",
-    ".SS.........SS.",
-  ],
-  // A cocktail-table cabinet: same room, different silhouette, so a row of
-  // uprights reads as an arcade rather than as one asset repeated.
-  lowboy:[
-    ".EEEEEEEEEEEEE.",
-    "ED*GGGGGGGGGgDS",
-    "EDGGXGGGGXGGgDS",
-    "EDGGGXGGXGGGgDS",
-    "EDGGGGXXGGGGgDS",
-    "EDgggggggggggDS",
-    ".DDDDDDDDDDDDS.",
-    ".TtBABttBABtTS.",
-    ".T^^^^^^^^^^TS.",
-    ".T!tttttttt!TS.",
-    ".T!ttXSXttt!TS.",
-    ".T!tttttttt!TS.",
-    ".TTTTTTTTTTTTS.",
-    ".SS.........SS.",
-  ],
-  // A drinks machine against the back wall.
-  vending:[
-    ".EEEEEEEEE.",
-    ".EBYYBYBBS.",
-    ".DDDDDDDDS.",
-    ".E*GGGGDDS.",
-    ".EGYBYGDYS.",
-    ".EGYBYGDDS.",
-    ".ESSSSGDYS.",
-    ".EGBYBGDDS.",
-    ".EGBYBGDYS.",
-    ".ESSSSGDDS.",
-    ".EGYBYGDYS.",
-    ".EGYBYGDDS.",
-    ".EgggggDDS.",
-    ".EDDDDDDDS.",
-    ".EDXXXXDDS.",
-    ".EDXSSXDDS.",
-    ".EDDDDDDDS.",
-    ".EDDDDDDDS.",
-    ".EDDDDDDDS.",
-    "EEDDDDDDDSS",
-    "SSSSSSSSSSS",
-  ],
-
-  // ── THE CORE ──
-  // A reading stand, open. The room at the bottom of the shaft is the one
-  // about school, and this is the only prop in the world that is furniture for
-  // sitting still with.
-  lectern:[
-    "..YYYY.YYYY..",
-    ".YRrRRYRRrRY.",
-    ".YRRrRYRrRRY.",
-    "YYYYYYYRRRRRY",
-    ".BbbbbBbbbbB.",
-    "...^TTTTt!...",
-    "....^TTt!....",
-    "....^TTt!....",
-    "....^TTt!....",
-    "....^TTt!....",
-    "....^TTt!....",
-    "...^TTTTt!...",
-    "..^^TTTTTt!..",
-    ".^^TTTTTTTt!.",
-    ".ttttttttttt.",
-  ],
-  // Books, stacked. Berry, so they read as cloth boards rather than as timber
-  // — and so they burn, which given what is directly underneath this room
-  // felt like the honest choice.
-  bookstack:[
-    "..BBBBBBB.",
-    "..BRRrRYb.",
-    "..bbbbbbb.",
-    ".TTTTTTT..",
-    ".TrRYRRT..",
-    ".ttttttt..",
-    "BBBBBBBBBB",
-    "BRRrRrRRYb",
-    "bbbbbbbbbb",
-  ],
 };
 
-/* ═══════════════════════════════════════════════════════
-   SPECTACLES — the one sprite that is drawn to order
-
-   Every other entry in SPRITES is a fixed grid of characters, and that works
-   because a mushroom is a mushroom at any window size. This one is the largest
-   object in the world and it has to stand BETWEEN two pillars of an arcade
-   whose bay width falls out of the viewport: hand-authored at one size it
-   would either overrun the colonnade on a wide window or come out as a pebble
-   on a narrow one. So it is rasterised — hand it a width in cells and it
-   returns exactly the same ASCII the hand-drawn sprites are, at that width,
-   and every downstream pass (stampSprite, sbArt, the rigid-body solver) goes
-   on treating it as an ordinary prop.
-
-   FRONT ELEVATION, because that is the silhouette a pair of glasses has. A
-   three-quarter view is what the product photography wants and it is also a
-   bent wire at one cell per pixel — the two lenses and the brow across them
-   are the whole recognition, and they only survive head-on.
-
-   The frame is hand-shaded STONE: four flat tones running black (X) through a
-   specular top edge (E), which is what glossy acetate does under a light from
-   above. The lenses are GLASS, and GLASS emits underground (see glassLit) — so
-   the room's existing rule makes the displays glow on their own, with no new
-   material and no new line in the light path.
-═══════════════════════════════════════════════════════ */
-const SPECS_MIN=26;              // narrower than this and the shape stops reading
-function specsArt(Wc){
-  Wc=Math.max(20,Math.round(Wc));
-  const Hc=Math.max(9,Math.round(Wc/3.0));    // the proportion the reference wears
-  const m=Math.max(2,Math.round(Wc*0.022));   // just enough for the endpieces to stand proud
-  const fw=Wc-2*m;
-  const t=Math.max(2,Math.round(fw*0.055));   // rim
-  const brow=Math.max(t+1,Math.round(fw*0.085));
-  const bw=Math.max(2,Math.round(fw*0.10));   // the gap the bridge spans
-  const lw=(fw-bw)>>1;
-  const L0=m,L1=m+lw-1,R0=Wc-m-lw,R1=Wc-m-1;
-  const y1=Hc-1;
-  const RAD=Math.max(2,Math.round(Hc*0.30));
-  const rad=Math.max(1,RAD-t);
-  /* The bridge reaches to where each lens box's rounded corner gives way to
-     its flat top. Anything less leaves a one-cell notch in the brow, which at
-     this scale is not a highlight, it is a hole. */
-  const bx0=L1-RAD, bx1=R0+RAD, by1=brow+Math.max(0,(t*0.5)|0);
-
-  // rounded rect: clamp into the inner rect, then a radius test on what is left
-  const rr=(x,y,x0,y0,x1,y1,r)=>{
-    if(x<x0||x>x1||y<y0||y>y1)return false;
-    const cx=Math.min(Math.max(x,x0+r),x1-r), cy=Math.min(Math.max(y,y0+r),y1-r);
-    const dx=x-cx,dy=y-cy;
-    return dx*dx+dy*dy<=r*r+r*0.5;
-  };
-  const box=(x,y,x0,x1)=>rr(x,y,x0,0,x1,y1,RAD);
-  const ap =(x,y,x0,x1)=>rr(x,y,x0+t,brow,x1-t,y1-t,rad);
-  const outer=(x,y)=>box(x,y,L0,L1)||box(x,y,R0,R1)||(x>=bx0&&x<=bx1&&y>=0&&y<=by1);
-  const aper =(x,y)=>ap(x,y,L0,L1)||ap(x,y,R0,R1);
-
-  // distance to a segment, for the temples and the strokes on the glass
-  const seg=(px,py,ax,ay,bx,by,w)=>{
-    const vx=bx-ax,vy=by-ay,wx=px-ax,wy=py-ay;
-    const L=vx*vx+vy*vy;let s=L?(wx*vx+wy*vy)/L:0;s=s<0?0:(s>1?1:s);
-    const dx=wx-vx*s,dy=wy-vy*s;return dx*dx+dy*dy<=w*w;
-  };
-
-  /* ── THE ENDPIECES ──
-     The hinge blocks, a couple of cells proud of the front on each side. Small
-     on purpose: an arm long enough to read as an arm out here costs a quarter
-     of the frame's width, and the frame is the thing that reads. */
-  const hy=brow+(y1-t-brow)*0.26;              // hinge height, up in the top third
-  const eh=Math.max(1.2,t*0.85);
-  const nub=(x,y)=>(x<=L0+t*0.5||x>=R1-t*0.5)&&Math.abs(y-hy)<=eh&&x>=0&&x<Wc;
-  const ah=y1-t-brow, aw=lw-2*t;
-
-  /* ── THE TEMPLES ──
-     Two rings and a bar is also a pair of binoculars, a mask, or a lorgnette.
-     What settles it is the arms — and on a pair worn open and seen head-on the
-     arms are not beside the front, they are BEHIND it, showing through the
-     glass. That is what the reference photograph shows, and it is the version
-     that costs the frame nothing: drawn outside, an arm long enough to read
-     takes a quarter of the width away from the lenses.
-
-     Stamped as stone rather than as a darker glass, for two reasons. Sprite
-     glass shades differ by ~22 and the render posterizes anything under ~32
-     into the same band, so a tinted-glass temple is a temple nobody can see.
-     And glass EMITS down here — an opaque arm is one that keeps its shape
-     against a lens that is lit from the inside, which is exactly how you read
-     it as being behind the lens rather than etched into it.
-
-     It enters at the outer edge, at the hinge, and tapers as it runs back
-     toward the bridge — foreshortening, three segments of it. */
-  const tw=Math.max(1.0,ah*0.115);
-  const ARM=[[0,0],[0.20,0.06],[0.38,0.15],[0.50,0.22]];
-  const temple=(x,y,ax,sx)=>{
-    for(let i=0;i<ARM.length-1;i++){
-      const a=ARM[i],b=ARM[i+1];
-      if(seg(x,y,ax+sx*a[0]*aw,hy+a[1]*ah,ax+sx*b[0]*aw,hy+b[1]*ah,tw*(1-i*0.28)))return true;
-    }
-    return false;
-  };
-  const arm=(x,y)=>temple(x,y,L0+t,1)||temple(x,y,R1-t,-1);
-
-  const gw=Math.max(0.6,aw*0.045);
-  /* The long-stroke-plus-short-stroke glint every piece of pixel-art glass has,
-     kept low and inboard so it falls clear of the temple above it. Both lenses
-     take it in the same screen direction, because it is one light. */
-  const glint=(x,y,ax)=>seg(x,y,ax+aw*0.24,brow+ah*0.46,ax+aw*0.46,brow+ah*0.92,gw)||
-                       seg(x,y,ax+aw*0.42,brow+ah*0.44,ax+aw*0.52,brow+ah*0.66,gw*0.8);
-  // and the round camera on each outer corner
-  const cdr=Math.max(0.9,t*0.42), ccy=brow+ah*0.30;
-  const cam=(x,y)=>Math.min((x-(L0+t*0.5))**2,(x-(R1-t*0.5))**2)+(y-ccy)**2<=cdr*cdr;
-
-  const rows=[];
-  for(let y=0;y<Hc;y++){
-    let row='';
-    for(let x=0;x<Wc;x++){
-      let c='.';
-      if(aper(x,y)){
-        c=arm(x,y)?'S':((glint(x,y,L0+t)||glint(x,y,R0+t))?'*':'G');
-      } else if(outer(x,y)||nub(x,y)){
-        /* Shade off the silhouette rather than off a table: the top-facing
-           cell of every column takes the specular, the one under it the
-           falloff, the bottom-facing cell a weak bounce, and the ring against
-           the glass a bevel. On a rounded frame that puts the highlight where
-           the curve actually turns into the light, which a per-row gradient
-           cannot do. */
-        const up=outer(x,y-1)||nub(x,y-1), up2=outer(x,y-2)||nub(x,y-2);
-        const dn=outer(x,y+1)||nub(x,y+1);
-        const nearAp=aper(x,y-1)||aper(x,y+1)||aper(x-1,y)||aper(x+1,y);
-        c=cam(x,y)?'E':(!up?'E':(!up2?'S':(!dn?'D':(nearAp?'S':'X'))));
-      }
-      row+=c;
-    }
-    rows.push(row);
-  }
-  return rows;
-}
 
 // Stamp a sprite anchored so its bottom-left lands at (gx, gy_bottom).
 // Pixels are written FROZEN (the sprite holds its pixel-art shape) except
@@ -5192,665 +4501,7 @@ function spawnArtifacts(){
   }
 }
 
-/* ═══════════════════════════════════════════════════════
-   THE SHAFT — a hole in the meadow, and a sign saying so
 
-   At the top of the page the surface reads as a finished scene, so nothing
-   tells you the world continues downward. The shaft is the affordance: a real
-   hole carved through the turf into the first cave, with a red arrow parked
-   over it. It is also the thing that makes the descent literal — sand poured
-   into it falls past you while you scroll after it, which is the one move no
-   amount of parallax can fake.
-═══════════════════════════════════════════════════════ */
-// (declared early: render() reads it to cut the berm, and runs before spawn)
-/* Where the descent will be, before it has been dug.
-
-   carveShaft runs AFTER the rooms are built, so a room builder that wants to
-   keep out of the shaft's way cannot ask SHAFT — it is still null at that
-   point, and a builder that asked got a confident "no shaft here" and put its
-   centrepiece in the one column of the world that is a corridor. Both take
-   their geometry from here instead. The ±3 is the wobble the walls are dug
-   with, below. */
-function shaftBand(){
-  // On a phone the descent runs beside the exhibits, leaving one readable bay.
-  const cx=Math.round(W*0.055), halfW=Math.max(3,Math.round(W*0.022));
-  return {cx,halfW,x0:cx-halfW-3,x1:cx+halfW+3};
-}
-function carveShaft(){
-  const {cx,halfW}=shaftBand();
-  // find the turf: first solid cell going down from the sky
-  let topY=0;
-  for(let y=0;y<H;y++){const m=grid[idx(cx,y)];if(m!==EMPTY&&m!==PLANT&&m!==POLLEN&&!inWordmark(cx,y)){topY=y;break;}}
-  /* Down to the floor of the last room. It used to stop at the cave band —
-     right for a world that was one long stratum, wrong for one that is a
-     stack of rooms, because a shaft that ends in rock leaves every room below
-     it sealed and unreachable except by digging.
-
-     It punches through each room's ceiling and floor on the way, which is the
-     point: the hole reads as continuous, and anything spilled in the vaults
-     finds its way down it to the arcade. */
-  /* Ends just inside the last room's CEILING, not at its floor. Run to the
-     floor, the shaft cut a ten-cell slot straight down the middle of the
-     core's pediment and entablature — the facade came out as two halves with a
-     gap where the apex should be. Stopping on the roof also reads better than
-     passing through it: the descent ends by arriving above a buried building
-     rather than by boring through one. */
-  const bottomRoom=ROOM_BOX.core||ROOM_BOX.arcade;
-  const botY=Math.min(H-1,bottomRoom?bottomRoom.ceil+2:VH+((VH*0.75)|0));
-  for(let y=topY;y<=botY;y++){
-    // the walls waver by a cell or two so it reads as dug rather than drilled
-    const wob=Math.round(Math.sin(y*0.17)*1.6+Math.sin(y*0.055)*1.2);
-    const x0=cx-halfW+wob, x1=cx+halfW+wob;
-    for(let x=x0;x<=x1;x++){
-      if(x<1||x>=W-1)continue;
-      const gi=idx(x,y);
-      grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;
-    }
-    /* A rim on each wall so the shaft has an edge to read. Packed dirt near
-       the surface, cut stone once it is into the rock — a dirt lip running
-       down the inside of a brick vault reads as a rendering mistake rather
-       than as the hole someone dug through it. Left as EMPTY where the shaft
-       crosses a room, so it does not draw a wall across an open floor. */
-    const deep=y>VH*1.02;
-    for(const wx of [x0-1,x1+1]){
-      if(wx<1||wx>=W-1)continue;
-      const gi=idx(wx,y);
-      if(grid[gi]===EMPTY)continue;
-      grid[gi]=deep?STONE:DIRT;variant[gi]=Math.random()*5|0;frozen[gi]=deep?1:0;
-    }
-  }
-  SHAFT={x0:cx-halfW,x1:cx+halfW,topY};
-  wakeRect(cx-halfW-2,topY-1,cx+halfW+2,botY+1);
-  pixDirtyRect(cx-halfW-2,topY-1,cx+halfW+2,botY+1);
-}
-/* The marker is built out of the world, not laid over it: a timber post
-   carrying a painted board, both stamped as frozen cells. That matters for
-   more than tone — because ARTIFACT and WOOD are both chunk materials and
-   tryChunkDetach walks across the pair, the board is held up by the post the
-   way a real sign is. Burn the post through and the whole sign detaches and
-   falls as one piece; set fire to the board and it chars away and leaves the
-   post standing. A div could not do either.
-
-   The board face is drawn once to an offscreen canvas at exactly one pixel per
-   cell, then baked into artRGB, which is the only way to get a specific colour
-   into the grid. */
-const ARROW_W=21, ARROW_H=27;               // cells
-const ARROW_RED='#e02020', ARROW_EDGE='#7a0d0d';
-/* Just the arrow — no board, no caption. Drawn on a transparent canvas and
-   stamped by alpha, so what lands in the grid is the silhouette itself and the
-   sky shows through around it.
-
-   The one cell of darker edge is not decoration: the arrow has to read against
-   pale sky at the top and against grass at the tip, and a flat fill loses its
-   outline over one or the other. */
-function makeArrowPixels(){
-  const cv=Object.assign(document.createElement('canvas'),{width:ARROW_W,height:ARROW_H});
-  const c=cv.getContext('2d',{willReadFrequently:true});
-  c.imageSmoothingEnabled=false;
-  const mid=ARROW_W>>1, shaftW=7, shaftH=14, headH=ARROW_H-shaftH;
-  // laid out as rects so every edge falls on a cell boundary
-  const paint=(col,inset)=>{
-    c.fillStyle=col;
-    c.fillRect(mid-(shaftW>>1)+inset,inset,shaftW-inset*2,shaftH);
-    for(let row=0;row<headH-inset;row++){
-      const hw=mid-Math.round(row*mid/(headH-1))-inset;
-      if(hw<=0)break;
-      c.fillRect(mid-hw,shaftH+row,hw*2,1);
-    }
-  };
-  paint(ARROW_EDGE,0);
-  paint(ARROW_RED,1);
-  return c.getImageData(0,0,ARROW_W,ARROW_H).data;
-}
-/* A gallows signpost: upright, a bracing strut, an arm reaching out over the
-   hole, and the arrow hung beneath the arm on two short droppers.
-
-   The earlier version had the post directly beside the arrow, which read as an
-   arrow bolted to a pole. What sells "hanging" is the GAP — daylight between
-   the underside of the arm and the top of the arrow, crossed only by two thin
-   droppers. The post also has to stand well back, so the arm is long enough to
-   be read as an arm.
-
-   Everything here is WOOD except the arrow, and both are chunk materials, so
-   the flood fill in tryChunkDetach treats post + strut + arm + droppers +
-   arrow as one structure: cut the upright and the whole assembly goes. */
-const SIGN_ARM_H=2, SIGN_HANG=3, SIGN_REACH=12;
-function stampSignpost(){
-  if(!SHAFT)return;
-  const cx=Math.round((SHAFT.x0+SHAFT.x1)/2);
-  const ax=cx-(ARROW_W>>1);                   // arrow centred over the hole
-  const postX=Math.max(1,ax-SIGN_REACH);      // stand back, so the arm reads
-  let groundY=H-1;
-  for(let y=0;y<H;y++){
-    const m=grid[idx(postX,y)];
-    // the wordmark's own turf/soil/bedrock bands are sky, not ground
-    if((m===GRASS||m===DIRT||m===STONE)&&!inWordmark(postX,y)){groundY=y;break;}
-  }
-  const ay=Math.max(1+SIGN_HANG+SIGN_ARM_H,groundY-26-ARROW_H); // arrow top
-  const armY=ay-SIGN_HANG-SIGN_ARM_H;                           // arm top
-  const mid=ARROW_W>>1;
-  const wood=(x,y,shade)=>{
-    if(x<0||x>=W||y<0||y>=H)return;
-    const gi=idx(x,y);
-    if(grid[gi]===ARTIFACT)return;            // never overwrite the arrow
-    grid[gi]=WOOD;variant[gi]=shade||0;frozen[gi]=1;
-  };
-
-  // ── the arrow, hung below where the arm will be ──
-  const px=makeArrowPixels();
-  for(let dy=0;dy<ARROW_H;dy++)for(let dx=0;dx<ARROW_W;dx++){
-    const si=(dy*ARROW_W+dx)*4;
-    if(px[si+3]<128)continue;                 // transparent → leave the sky
-    const x=ax+dx,y=ay+dy;
-    if(x<0||x>=W||y<0||y>=H)continue;
-    const gi=idx(x,y);
-    grid[gi]=ARTIFACT;variant[gi]=0;
-    artRGB[gi]=(px[si]<<16)|(px[si+1]<<8)|px[si+2];
-    frozen[gi]=1;
-  }
-
-  // ── upright ──
-  for(let y=armY;y<=groundY+1;y++){wood(postX,y,0);wood(postX+1,y,1);}
-  // ── arm: out from the post to just past the far dropper ──
-  const armX1=ax+mid+4;
-  for(let y=armY;y<armY+SIGN_ARM_H;y++)for(let x=postX;x<=armX1;x++)wood(x,y,y===armY?0:1);
-  // ── corner strut, the diagonal that makes it look built rather than glued ──
-  for(let k=0;k<6;k++)wood(postX+2+k,armY+SIGN_ARM_H+5-k,1);
-  // ── two droppers, at the shoulders of the arrow's shaft ──
-  for(const hx of [ax+mid-3,ax+mid+3])
-    for(let y=armY+SIGN_ARM_H;y<ay;y++)wood(hx,y,1);
-
-  wakeRect(postX-2,armY-2,armX1+2,groundY+2);
-  pixDirtyRect(postX-2,armY-2,armX1+2,groundY+2);
-}
-
-/* ═══════════════════════════════════════════════════════
-   WORLD PANELS — the work, at a depth, in readable type
-═══════════════════════════════════════════════════════ */
-/* A panel now belongs to a ROOM rather than to a depth.
-
-   `at` used to be [fraction of world width, depth in screenfuls] — absolute
-   world coordinates, hand-tuned. That could not survive rooms: the moment a
-   zone's bounds move, every panel underneath it is in the wrong place, and
-   half of them end up inside a pillar. So `at` is now [fx, fy] as fractions
-   of the panel's OWN room, resolved against ROOM_BOX at build time. Move a
-   zone and its panels move with it.
-
-   Three per room, staggered left/centre/right so the descent has a rhythm and
-   no two panels ever share a bay. The full list for each category stays in the
-   Start-menu window the panel links to — the room is the index, the window is
-   the record. */
-const WORLD_PANELS=[
-  // ── THE WORKSHOP · who this is ──
-  // First thing under the turf, and the only panel that is about the person
-  // rather than a project. No thumbnail: a portrait would make it a profile
-  // card, and the room around it is already doing the introducing.
-  {id:'about', zone:'workshop', sprite:'console', exhibit:'FIELD NOTES', action:'Meet the maker',
-   name:'Mitchell Kuppersmith', meta:'Design Engineer · Snap Inc. · Santa Monica',
-   blurb:'I make new ways to interact with computers — from AI-native experiences on AR glasses to games played with your hands, your voice, or a giant carnivorous plant. This is a little world of the things I build.',
-   related:[['snap','My work at Snap'],['education','Background']]},
-
-  // ── THE VAULTS · Snap ──
-  {id:'imagine-together', zone:'crypt', sprite:'spatialCube', exhibit:'SHARED SPACE', action:'Enter the shared world',
-   name:'Imagine Together', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
-   thumb:'https://i.ytimg.com/vi/Od-_nZpmU9Q/hqdefault.jpg',
-   blurb:'Speak an idea into existence. Generate 3D objects, grab them, and share them with people standing beside you.'},
-  {id:'translation', zone:'crypt', sprite:'speechPair', exhibit:'LIVE LANGUAGE', action:'See the conversation',
-   name:'Translation', meta:'Flagship · Spectacles',
-   thumb:'https://i.ytimg.com/vi/hR4W_Qtzij4/hqdefault.jpg',
-   blurb:'A conversation across languages, with live subtitles, spoken translation, and a shared summary on the glasses.'},
-  {id:'agent-center', zone:'crypt', sprite:'agentBot', exhibit:'SPATIAL TOOLS', action:'Meet the agents',
-   name:'Agent Center', badge:'OPEN SOURCE', meta:'Spectacles sample · Snap',
-   thumb:'images/projects/agent-center-thumb.webp',
-   blurb:'Coding agents become little robot companions in your room. Their movements tell you who is working and who needs you.',
-   related:[['ai-playground','AI Playground'],['ai-music-gen','AI Music Gen'],['rsg','RemoteServiceGateway']]},
-
-  // ── THE ARCADE · games, jams and hackathon builds ──
-  {id:'catiator', zone:'arcade', sprite:'catGladiator', exhibit:'GESTURE EXPERIMENT', action:'Enter the arena',
-   name:'Catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021 · VR',
-   thumb:'images/projects/catiator-thumb.webp',
-   blurb:'Learn the ASL manual alphabet by fingerspelling your way through an arena of chonky cat gladiators.',
-   related:[['intarnet','Also: IntARnet · TartanHacks Grand Prize']]},
-  {id:'snaptrap', zone:'arcade', sprite:'flytrap', exhibit:'LIVING INTERFACE', action:'Step inside the trap',
-   name:'Snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'Physical installation · GDC 2026',
-   thumb:'images/projects/snaptrap-thumb.webp',
-   blurb:'You are the fly. Brush the trigger hairs of a giant Venus flytrap and learn what makes it snap shut around you.'},
-  {id:'larp', zone:'arcade', sprite:'larpMushroom', exhibit:'TALKING SPECIMEN', action:'Meet the mushrooms',
-   name:'lARp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021 · AR + GPT-3',
-   thumb:'images/projects/larp-thumb.webp',
-   blurb:'Fight or befriend procedurally generated mushrooms. GPT-3 gives them a voice; your real-world steps earn the XP.'},
-
-  {id:'retrovirus-vr', zone:'arcade', sprite:'hactor', exhibit:'PLAYER 01 · TELEKINESIS', action:'Boot RetroVirus VR',
-   name:'RetroVirus VR', meta:'VR Jam 2020 · Unity + SteamVR',
-   thumb:'images/projects/retrovirus-vr-thumb.webp',
-   blurb:'Break out of an antivirus prison with the H4CTOR B3AM. Snatch weapons and projectiles, then grapple across the level.'},
-  {id:'songbird', zone:'arcade', sprite:'songbirdSax', exhibit:'PLAYER 02 · MELODY', action:'Play a little chaos',
-   name:'Songbird', meta:'GMTK Jam 2020 · Unity',
-   thumb:'images/projects/songbird-thumb.webp',
-   blurb:'Cast spells with a saxophone in a musical bullet hell. Miss the melody under pressure and your instrument takes the damage.'},
-
-  // ── THE CORE · where it started ──
-  // No thumbnail: this one is a plaque rather than a project card, and the room
-  // it hangs in is lit by magma rather than by anything installed in it.
-  {id:'education', zone:'core', sprite:'bookstack', exhibit:'THE FOUNDATIONS', action:'Open the field notes',
-   name:'Minds & machines', meta:'University of Michigan · 2019–2022',
-   blurb:'Computer Science and Cognitive Science. Building XR communities, teaching interaction design, and learning how people think.'},
-  {id:'nira', zone:'arcade', sprite:'hoverstaff', exhibit:'THE FIRST WORLDS', action:'Follow the hoverstaff',
-   name:'Nira', meta:'EECS 494 · Michigan · Unity',
-   thumb:'images/projects/nira-thumb.webp',
-   blurb:'A girl, a magical hoverstaff named Kane, and a grandfather who left something at the observatory. A small world built with a team.'},
-];
-/* The sign over each room's door. Stamped as particles into the lintel rather
-   than set as DOM, because it is the room talking rather than the work — and a
-   label made of the same stone as the wall it is cut into cannot be mistaken
-   for another panel. */
-const ROOM_SIGNS={
-  workshop:{text:'ABOUT ME',               m:SAND},
-  crypt: {text:'SPECTACLES VAULT',         m:GLASS},
-  arcade:{text:'GAMES & SIDE PROJECTS',    m:GLASS},
-  core:  {text:'THE ORIGIN · MICHIGAN',    m:SAND},
-};
-/* Cut the room's name into the rock just under its ceiling.
-
-   The sign material is the same one that lights the room, so each label reads
-   in its room's own colour without a single new palette entry: moss-green in
-   the vaults, acid-green in the lab, glass-white in the arcade, lava-orange at
-   the core. Frozen, so a sign is masonry and not a cloud of loose grains that
-   drifts to the floor on the first physics tick. */
-/* The rows a room's name will be cut into, before it has been cut.
-
-   Room signs are stamped with the panels, long after the room builders have
-   run, and the recess they clear takes whatever is in it. In the vaults that
-   was the crowns of the two arches under the sign — the arcade has always had
-   a hole in the middle of it for exactly this reason. A builder that wants to
-   keep its masonry out of the way can ask here. */
-function roomSignBand(ceilY){
-  const gy=ceilY+Math.max(4,(VH*0.02)|0), gh=Math.max(9,(VH*0.045)|0);
-  return {y0:gy-2,y1:gy+gh+1};
-}
-function stampRoomSign(box,spec){
-  if(!box||!spec)return;
-  const gh=Math.max(9,(VH*0.045)|0);
-  const gw=Math.min(W-4,(W*0.34)|0);
-  const gx=Math.max(2,((box.x0+box.x1)/2-gw/2)|0);
-  const gy=box.ceil+Math.max(4,(VH*0.02)|0);
-  // clear a recess for it first: text stamped straight onto rock is unreadable
-  const band=roomSignBand(box.ceil);
-  slab(gx-2,band.y0,gx+gw+1,band.y1,EMPTY);
-  stampText(spec.text,spec.m,gx,gy,gw,gh,0,{bold:true});
-  for(let y=gy;y<gy+gh;y++)for(let x=gx;x<gx+gw;x++){
-    if(x<0||x>=W||y<0||y>=H)continue;
-    const gi=idx(x,y);
-    if(grid[gi]===spec.m)frozen[gi]=1;
-  }
-  wakeRect(gx-3,gy-3,gx+gw+2,gy+gh+2);
-  pixDirtyRect(gx-3,gy-3,gx+gw+2,gy+gh+2);
-}
-/* Hollow out the rock a panel sits in.
-
-   Without this a panel is embedded in solid stone, and two things go wrong at
-   once: it reads as a sticker laid over the rock rather than something down
-   there, and it cannot burn — updateWindowMasks only stamps MASK into cells
-   that are EMPTY, so a panel with stone behind it never acquires a maskOwner
-   and fire has nothing to take hold of. The chamber gives it both: a void to
-   stand in, and a footprint the burn system can own.
-
-   Reading the element's own rect rather than a guessed size means the chamber
-   always matches the panel, including after a reflow at a different width. */
-function carveChamber(el){
-  const r=el.getBoundingClientRect();
-  if(r.width<=0||r.height<=0)return;
-  const cr=canvas.getBoundingClientRect();
-  const pad=3;
-  const x0=Math.max(1,Math.floor((r.left-cr.left)/SCALE)-pad);
-  const x1=Math.min(W-2,Math.ceil((r.right-cr.left)/SCALE)+pad);
-  const y0=Math.max(1,Math.floor((r.top-cr.top)/SCALE)+camY-pad);
-  const y1=Math.min(H-2,Math.ceil((r.bottom-cr.top)/SCALE)+camY+pad);
-  for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){
-    const gi=idx(x,y);
-    grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;
-  }
-  // a stone lintel and floor, so the chamber reads as cut rather than dissolved
-  for(let x=x0-1;x<=x1+1;x++)for(const y of [y0-1,y1+1]){
-    if(x<0||x>=W||y<0||y>=H)continue;
-    const gi=idx(x,y);
-    if(grid[gi]===EMPTY)continue;
-    grid[gi]=STONE;variant[gi]=Math.random()*4|0;frozen[gi]=1;
-  }
-  wakeRect(x0-2,y0-2,x1+2,y1+2);
-  pixDirtyRect(x0-2,y0-2,x1+2,y1+2);
-}
-/* The shell material each room hangs its panels in. Matching the wall is what
-   makes a bracket read as part of the room rather than as scaffolding: brick
-   in the brick vaults, cut stone everywhere else. */
-const PANEL_FRAME={workshop:WOOD,crypt:BRICK,arcade:WOOD,core:STONE};
-// Each room is one working exhibit. Selecting a project changes the scene,
-// its real project footage, and the three explanatory instrument labels.
-const ROOM_STORIES={
-  workshop:{kicker:'01 / THE MAKER’S WORKBENCH',title:'Interfaces worth playing with.',
-    intro:'Mitchell Kuppersmith · Design Engineer at Snap. I build spatial experiences, unusual controllers, and small worlds with a life of their own.',
-    caption:'The bench under the cottage, where the prototypes get made.'},
-  crypt:{kicker:'02 / SNAP · SPATIAL COMPUTING',title:'Computing leaves the screen.',
-    intro:'AI-native experiences for Spectacles: ideas you can hold, conversations you can understand, and agents that share your room.',
-    caption:'The vault projector, showing whichever piece of the Spectacles work is open.'},
-  arcade:{kicker:'03 / GAMES & SIDE PROJECTS',title:'One strange mechanic. A whole world.',
-    intro:'Jam games, hackathon builds and one room-sized carnivorous plant. Every one starts from an interaction you can feel — hands as commands, steps as progress, a melody as a weapon — and grows the project around it.',
-    caption:'The cabinet on the floor of the arcade, running whichever of these is open.'},
-  core:{kicker:'04 / MICHIGAN · THE FOUNDATIONS',title:'How people think. How worlds work.',
-    intro:'Computer Science meets Cognitive Science, teaching, community-building, and the first collaborative game worlds.',
-    caption:'The foundations, cut into the rock the rest of it was built on.'}
-};
-const PROJECT_STORIES={
-  about:{hook:'I prototype the interaction, then build the world around it.',
-    caption:'From the workbench: spatial objects, living controllers, and playful systems.',
-    evidence:'Design + engineering, from an early interactive prototype to an experience people can actually use.',
-    steps:[['Think spatially','Put the interface in the world, not just on a screen.'],['Make it tangible','Use hands, voices, movement, and physical objects.'],['Build the whole thing','Connect the interaction, the software, and the experience.']]},
-  'imagine-together':{hook:'Say it. Make it. Share the same space.',
-    caption:'The shared-space projector: an idea becomes an object between two people.',
-    steps:[['Speak an idea','Describe something you want to bring into the room.'],['Generate an object','AI turns the prompt into a 3D object on Spectacles.'],['Play together','Grab and share it with people standing beside you.']]},
-  translation:{hook:'Different languages. One conversation.',
-    caption:'Two sides of the same conversation, connected through the glasses.',
-    steps:[['Speak naturally','Start a conversation across languages.'],['See the meaning','Live subtitles and spoken translation make it understandable.'],['Keep the context','A shared summary captures the conversation.']]},
-  'agent-center':{hook:'Your coding agents are now your roommates.',
-    caption:'The agent dock: small robot companions make invisible work visible.',
-    steps:[['Bring agents in','Coding agents appear as spatial robot companions.'],['Read their behavior','Movement communicates who is working or needs attention.'],['Build on the sample','An open-source starting point for spatial agent interfaces.']]},
-  catiator:{hook:'Fingerspell your way past a cat gladiator.',
-    caption:'The gesture arena: a manual-alphabet learning game with very chonky opponents.',
-    steps:[['Form a letter','Practice the ASL manual alphabet with your hands.'],['Face the cats','Use fingerspelling in a VR gladiator arena.'],['Learn through play','Connect letter shapes to an immediate game action.']]},
-  snaptrap:{hook:'A giant Venus flytrap. You are the fly.',
-    caption:'The living controller: a human-scale trap, its trigger hairs, and a very physical response.',
-    steps:[['Enter the trap','Step into a human-scale carnivorous plant.'],['Touch the hairs','Brush its sensors to explore what triggers the plant.'],['Feel it react','The installation turns plant behavior into a physical encounter.']]},
-  larp:{hook:'Take a walk. Meet a mushroom. Start a conversation.',
-    caption:'The specimen garden: characters with a voice, powered by your real-world movement.',
-    steps:[['Move in real life','Your real-world steps become experience points.'],['Meet a character','Discover procedurally generated AR mushrooms.'],['Talk or fight','GPT-3 gives them a voice; choose how to interact.']]},
-  'retrovirus-vr':{hook:'Everything coming at you is something you can grab.',
-    caption:'The H4CTOR B3AM test range: catch projectiles, steal weapons, and pull yourself through space.',
-    steps:[['Catch the threat','Snatch weapons and incoming projectiles.'],['Turn it around','Use telekinesis against the antivirus prison.'],['Grapple away','Pull yourself through the level with the H4CTOR B3AM.']]},
-  songbird:{hook:'Your saxophone is the spellbook.',
-    caption:'The melody stage: notes become attacks in a musical bullet hell.',
-    steps:[['Play a melody','Use the saxophone to cast musical spells.'],['Dodge the chaos','Keep the phrase going under bullet-hell pressure.'],['Mind the instrument','Mistakes damage the saxophone itself.']]},
-  education:{hook:'A foundation in both computers and the people using them.',
-    caption:'The observatory: learning, teaching, and building a community around XR.',
-    evidence:'Michigan, 2019–2022 · CS + Cognitive Science. XR & Society teaching assistant; Alternate Reality Initiative co-president.',
-    steps:[['Study the system','Computer Science alongside Cognitive Science.'],['Teach the interaction','Helped teach 48 students in XR & Society.'],['Build a community','Co-led an 81-member XR club and a 312-attendee conference.']]},
-  nira:{hook:'A girl, a talking hoverstaff, and an unfinished story.',
-    caption:'At the observatory: a miniature of Nira’s world and her magical companion Kane.',
-    steps:[['Meet Kane','A magical hoverstaff becomes your companion.'],['Follow the story','Discover what a grandfather left at the observatory.'],['Build together','A team-built adventure for Michigan’s EECS 494.']]}
-};
-/* Empty on purpose. A room opens showing its whole grid; a work seeded open
-   would put a record over those cards at first sight, which is the carousel
-   this replaced. Entries appear here as the visitor opens things. */
-const ROOM_SELECTION={};
-function placeRoomSurface(el,x,y,width,height){
-  Object.assign(el.style,{left:Math.round(x)+'px',top:Math.round(y)+'px',width:Math.round(width)+'px',height:Math.round(height)+'px'});
-}
-/* The card: enough to judge the work by, and nothing more. */
-function roomCardHTML(p,i){
-  return '<div class="card-content">'+
-    '<small>'+String(i+1).padStart(2,'0')+' / '+p.exhibit+'</small>'+
-    '<h3>'+p.name+'</h3>'+
-    (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
-    '<p class="card-meta">'+p.meta+'</p>'+
-    '<p class="card-blurb">'+p.blurb+'</p>'+
-    '<span class="card-open" aria-hidden="true">'+p.action+' →</span></div>';
-}
-/* The record: everything the old monitor carried, plus the three instrument
-   labels that used to be their own panels in the room. They were always about
-   one project, so they belong to the project's record rather than to the room
-   they were read in. */
-function roomRecordHTML(p){
-  const story=PROJECT_STORIES[p.id];
-  return '<div class="record-content">'+
-    '<button type="button" class="record-close" aria-label="Close '+p.name+'">✕ close</button>'+
-    '<div class="wp-meta">'+p.exhibit+' / '+p.meta+'</div><h3>'+p.name+'</h3>'+
-    '<p class="project-hook">'+story.hook+'</p>'+
-    (p.thumb?'<a class="wp-shot" href="#/'+p.id+'" aria-label="Open '+p.name+' project and demo"><img loading="lazy" decoding="async" src="'+p.thumb+'" alt="'+p.name+' — actual project preview" width="480" height="190"><span>VIEW THE REAL PROJECT + DEMO ↗</span></a>':
-      '<p class="room-manifesto">'+(p.id==='about'?'Ideas you can hold.<br>Worlds you can touch.':'Minds, machines,<br>and imagined worlds.')+'</p>')+
-    (p.badge?'<span class="wp-badge">'+p.badge+'</span>':'')+
-    '<p>'+p.blurb+'</p>'+
-    (story.evidence?'<p class="room-evidence">'+story.evidence+'</p>':'')+
-    '<div class="record-steps">'+story.steps.map((st,i)=>
-      '<div class="record-step"><small>0'+(i+1)+' / '+['INPUT','INTERACTION','OUTCOME'][i]+'</small>'+
-      '<h4>'+st[0]+'</h4><p>'+st[1]+'</p></div>').join('')+'</div>'+
-    '<a class="wp-open" href="#/'+p.id+'"><span>'+p.action+'</span><span aria-hidden="true">↗</span></a>'+
-    (p.related?'<div class="wp-related">'+p.related.map(([id,label])=>'<a href="#/'+id+'">'+label+'</a>').join('')+'</div>':'')+'</div>';
-}
-/* Open one work's record over the room's grid.
-
-   The record is a panel that already exists at the grid's exact footprint, so
-   opening is a visibility change rather than a layout one: nothing is carved,
-   no frame is re-stamped, and the zone bands derived from this room's height
-   stay valid. The diorama redraws to the opened work, which is the one thing
-   that should change about the room itself — the scene is the world's copy of
-   what you are reading. */
-function openRoomRecord(section,p,initial=false){
-  ROOM_SELECTION[p.zone]=p.id;
-  section.dataset.project=p.id;
-  const record=section.querySelector('.room-record');
-  if(!record)return; // A destroyed record stays destroyed until world reset.
-  // Keep the burn overlay and damage on the equipment when its display changes.
-  record.querySelector('.record-content')?.remove();
-  record.insertAdjacentHTML('afterbegin',roomRecordHTML(p));
-  record.scrollTop=0;
-  record.hidden=false;
-  record.setAttribute('aria-label',p.name+' project');
-  section.querySelectorAll('.room-card').forEach(el=>{
-    el.setAttribute('aria-expanded',String(el.dataset.project===p.id));
-  });
-  drawProjectScene(p,section._scene);
-  if(!initial){_winMaskHash='';lightScanAll=1;}
-}
-function closeRoomRecord(section){
-  const record=section.querySelector('.room-record');
-  if(!record||record.hidden)return;
-  record.hidden=true;
-  delete ROOM_SELECTION[section.dataset.zone];
-  section.dataset.project='';
-  section.querySelectorAll('.room-card').forEach(el=>el.setAttribute('aria-expanded','false'));
-  // The room falls back to its own scene rather than keeping the last work's.
-  const lead=WORLD_PANELS.find(p=>p.zone===section.dataset.zone);
-  if(lead)drawProjectScene(lead,section._scene);
-  _winMaskHash='';lightScanAll=1;
-}
-function buildWorldPanels(){
-  const wl=document.getElementById('worldLayer');if(!wl)return;
-  wl.querySelectorAll('.room-exhibit,.world-panel').forEach(n=>n.remove());
-  PANEL_RECTS.length=0;
-  for(const z of ZONES){
-    const box=ROOM_BOX[z.id],projects=WORLD_PANELS.filter(p=>p.zone===z.id);
-    if(!box||!projects.length)continue;
-    const bounds=exhibitBounds(W,SCALE),m=roomMetrics(bounds.width,projects.length);
-    const top=(roomSignBand(box.ceil).y1+6)*SCALE;
-    const section=document.createElement('section'),story=ROOM_STORIES[z.id];
-    section.className='room-exhibit'+(m.compact?' is-compact':'')+(m.narrow?' is-narrow':'');
-    section.dataset.zone=z.id;section.setAttribute('aria-labelledby','room-title-'+z.id);
-    placeRoomSurface(section,bounds.x,top,bounds.width,m.height);
-    section.innerHTML='<header class="world-panel room-heading"><div class="room-kicker">'+story.kicker+'</div><h2 id="room-title-'+z.id+'">'+story.title+'</h2><p>'+story.intro+'</p></header>'+
-      '<div class="room-diorama" aria-hidden="true"></div>'+
-      '<div class="world-panel room-caption"><div class="caption-content"><strong>PIXEL DIORAMA</strong>'+story.caption+'</div></div>'+
-      // Every work in the stratum, on screen at once.
-      projects.map((p,i)=>'<button type="button" class="world-panel room-card" data-project="'+p.id+
-        '" aria-expanded="false" aria-controls="room-record-'+z.id+'">'+roomCardHTML(p,i)+'</button>').join('')+
-      // One record panel, sized to the grid it covers, hidden until asked for.
-      '<article class="world-panel room-record" id="room-record-'+z.id+'" hidden aria-live="polite"></article>';
-    wl.appendChild(section);
-    placeRoomSurface(section.querySelector('.room-heading'),0,0,bounds.width,m.header);
-    placeRoomSurface(section.querySelector('.room-diorama'),0,m.stageY,m.leftWidth,m.art);
-    placeRoomSurface(section.querySelector('.room-caption'),0,m.stageY+m.art,m.leftWidth,m.caption);
-    section.querySelectorAll('.room-card').forEach((el,i)=>{
-      const b=cardBox(m,i);placeRoomSurface(el,b.x,b.y,b.width,b.height);
-    });
-    placeRoomSurface(section.querySelector('.room-record'),m.gridX,m.gridY,m.rightWidth,m.grid);
-    const rect={x0:Math.floor(bounds.x/SCALE)-3,y0:Math.floor(top/SCALE)-3,
-      x1:Math.ceil((bounds.x+bounds.width)/SCALE)+3,y1:Math.ceil((top+m.height)/SCALE)+4};
-    PANEL_RECTS.push(rect);
-    // Equipment lives in a carved, connected bay, not in rock behind a DOM card.
-    slab(rect.x0,rect.y0,rect.x1,rect.y1,EMPTY);
-    // The record is skipped: it shares the grid's footprint, which the cards
-    // have already had framed, and a second frame there would double-stamp it.
-    for(const el of section.querySelectorAll('.world-panel:not(.room-record)')){
-      const x=Math.floor((bounds.x+parseFloat(el.style.left))/SCALE),y=Math.floor((top+parseFloat(el.style.top))/SCALE);
-      const right=Math.ceil((bounds.x+parseFloat(el.style.left)+parseFloat(el.style.width))/SCALE);
-      const bottom=Math.ceil((top+parseFloat(el.style.top)+parseFloat(el.style.height))/SCALE);
-      const material=PANEL_FRAME[z.id];
-      slab(x-1,bottom+1,right+1,bottom+2,material,2);
-      slab(x-1,y-1,x-1,bottom,material,1);slab(right+1,y-1,right+1,bottom,material,1);
-    }
-    section._scene={x:Math.floor(bounds.x/SCALE),y:Math.floor((top+m.stageY)/SCALE),
-      w:Math.floor(m.leftWidth/SCALE),h:Math.floor(m.art/SCALE)};
-    section.addEventListener('click',e=>{
-      if(e.target.closest('.record-close')){closeRoomRecord(section);return;}
-      const card=e.target.closest('.room-card');if(!card)return;
-      const p=projects.find(p=>p.id===card.dataset.project);
-      // A second press on the open card closes it, so the card is a toggle.
-      if(!p)return;
-      if(section.dataset.project===p.id)closeRoomRecord(section);
-      else openRoomRecord(section,p);
-    });
-    // A room opens closed: the grid is the room's answer, and a record on top
-    // of it at first sight would be the carousel again.
-    const preset=projects.find(p=>p.id===ROOM_SELECTION[z.id]);
-    if(preset)openRoomRecord(section,preset,true);
-    else drawProjectScene(projects[0],section._scene);
-  }
-  for(const id in ROOM_SIGNS)stampRoomSign(ROOM_BOX[id],ROOM_SIGNS[id]);
-}
-// Scene primitives are born in the material grid: no bitmap overlay or extra
-// animation loop. All dimensions snap to the same integer simulation pixels.
-function drawProjectScene(p,r){
-  const {x,y,w,h}=r;
-  const box=(a,b,c,d,m,v=1)=>slab(x+Math.round(a),y+Math.round(b),x+Math.round(c),y+Math.round(d),m,v);
-  const line=(a,b,c,d,m,v=1)=>{
-    const n=Math.max(1,Math.ceil(Math.max(Math.abs(c-a),Math.abs(d-b))));
-    for(let i=0;i<=n;i++){const t=i/n;box(a+(c-a)*t,b+(d-b)*t,a+(c-a)*t,b+(d-b)*t,m,v);}
-  };
-  const sprite=(name,cx,bottom,maxW,maxH)=>{
-    const src=SPRITES[name];if(!src)return;
-    const scale=Math.max(1,Math.min(4,Math.floor(Math.min(maxW/spriteW(name),maxH/spriteH(name)))));
-    const key='scene_'+name+'_'+scale;
-    if(!SPRITES[key])SPRITES[key]=src.flatMap(row=>Array(scale).fill([...row].map(ch=>ch.repeat(scale)).join('')));
-    const left=Math.round(cx-spriteW(key)/2),top=Math.round(bottom)-spriteH(key)+1;
-    // Painter's order within this owned scene: the subject can stand in front
-    // of its architecture. Clip to the diorama, never to neighboring text.
-    SPRITES[key].forEach((row,dy)=>[...row].forEach((ch,dx)=>{
-      const spec=SPRITE_MATS[ch],sx=left+dx,sy=top+dy;
-      if(!spec||sx<0||sx>=w||sy<0||sy>=h)return;
-      const i=idx(x+sx,y+sy);grid[i]=spec.m;variant[i]=spec.v;
-      frozen[i]=spec.m!==FIRE&&spec.m!==WATER&&spec.m!==FUSE?1:0;
-    }));
-  };
-  box(0,0,w-1,h-1,EMPTY);
-  const ground=h-9,cx=w/2;
-  // A recessed silhouette and layered plinth give the subject weight.
-  box(2,ground+2,w-3,h-2,PANEL_FRAME[p.zone],1);
-  box(4,ground,w-5,ground+1,STONE,2);
-  if(p.zone==='crypt'){
-    // Monumental glasses: the display is literally a portal into shared space.
-    const specsWidth=Math.min(w-10,Math.floor(h*.98));
-    const key='scene_specs_'+specsWidth;
-    if(!SPRITES[key])SPRITES[key]=specsArt(specsWidth);
-    const bottom=ground-3;
-    stampSprite(key,x+Math.round(cx-specsWidth/2),y+bottom);
-    const top=bottom-spriteH(key);
-    for(const side of [-1,1]){
-      const sx=cx+side*specsWidth*.31;
-      line(sx,top-2,cx,Math.max(10,top-22),GLASS,0);
-      box(sx-2,ground+2,sx+2,ground+5,GLASS,1);
-    }
-    sprite(p.sprite,cx,Math.max(28,top-7),w*.55,Math.max(26,top-12));
-    if(h>95){
-      // Two connected spatial terminals establish a shared room, not an icon
-      // on a pedestal. Fine routing is subordinate to the large glasses.
-      for(const a of [.22,.78]){
-        box(w*a-6,19,w*a+6,29,STONE,1);box(w*a-4,21,w*a+4,27,GLASS,0);
-        box(w*a-2,23,w*a+2,23,STONE,1);box(w*a,30,w*a,33,STONE,2);
-        line(w*a,34,cx,45,GLASS,0);
-      }
-      box(cx-2,43,cx+2,46,GLASS,1);
-    }
-    for(let k=0;k<3;k++)box(5+k*4,8,6+k*4,8,GLASS,k%3);
-    line(5,12,5,ground-4,STONE,1);
-    line(w-6,12,w-6,ground-4,STONE,1);
-  }else if(p.id==='larp'||p.id==='snaptrap'||p.id==='catiator'){
-    // A full-height specimen chamber, plumbing, gauge, and soil bed. Keyed to
-    // the works that are specimens rather than to a room, now that the games
-    // and the experiments share one.
-    box(4,7,w-5,9,STONE,2);box(5,10,5,ground-1,GLASS,0);box(w-6,10,w-6,ground-1,GLASS,0);
-    box(7,ground-4,w-8,ground-1,DIRT,2);
-    for(let k=8;k<w-8;k+=3)box(k,ground-5,k+1,ground-5,MOSS,1);
-    line(w-10,13,w-10,ground-8,STONE,1);
-    box(w-13,15,w-8,22,STONE,2);box(w-12,16,w-9,20,GLASS,0);line(w-11,19,w-9,17,BERRY,2);
-    if(h>95){
-      // Overhead reservoirs and a stepped sensor trace make the chamber a
-      // test apparatus; their scale stays below the living specimen.
-      for(const a of [.24,.57]){
-        const tx=w*a;box(tx-6,16,tx+6,19,STONE,2);box(tx-5,20,tx+5,36,GLASS,0);
-        box(tx-3,23,tx+3,34,LEAF,0x12);box(tx-6,37,tx+6,39,STONE,1);
-        line(tx,40,tx,46,STONE,2);line(tx,46,w-10,46,STONE,1);
-      }
-      for(let k=9;k<w-16;k+=7)line(k,53,k+3,50,LEAF,0x10);
-    }
-    sprite(p.sprite,cx-2,ground-6,w*.76,ground-17);
-    for(let k=8;k<w-9;k+=7)box(k,ground+3,k+3,ground+3,THATCH,1);
-    if(p.id==='snaptrap'){
-      line(cx,ground-3,cx-9,ground+1,LEAF,0x11);
-      line(cx+2,ground-3,cx+13,ground+1,LEAF,0x12);
-    }
-  }else if(p.zone==='arcade'){
-    // A large side-view game vignette inside a physical cabinet, with a deck.
-    box(2,5,w-3,8,BERRY,0x10);box(2,9,4,ground-2,WOOD,1);box(w-5,9,w-3,ground-2,WOOD,1);
-    box(6,11,w-7,12,STONE,2);
-    if(p.id==='retrovirus-vr'){
-      const floor=ground-11;
-      for(let k=10;k<w-12;k+=17){box(k,floor-((k/17|0)%2)*9,k+10,floor+2,BRICK,1);}
-      sprite('hactor',cx,Math.min(ground-18,h*.60),w*.7,h*.52);
-      line(10,ground-15,w-12,23,LEAF,0x10);
-      line(12,ground-15,w-10,23,GLASS,0);
-      for(let k=0;k<3;k++)box(w-15-k*6,25+k*7,w-14-k*6,26+k*7,BERRY,2);
-    }else{
-      for(let k=0;k<5;k++)line(8,18+k*5,w-9,18+k*5,STONE,0);
-      sprite('songbirdSax',cx,ground-10,w*.62,ground-19);
-      for(let k=0;k<5;k++){const nx=9+k*(w-20)/5,ny=18+(k%3)*7;box(nx,ny,nx+2,ny+1,THATCH,1);line(nx+2,ny,nx+2,ny-5,THATCH,1);}
-    }
-    box(0,ground-4,w-1,ground-2,WOOD,2);
-    box(w*.24,ground-9,w*.24+1,ground-5,STONE,0x40);box(w*.24-1,ground-10,w*.24+2,ground-9,BERRY,2);
-    for(let k=0;k<3;k++)box(w*.60+k*5,ground-6,w*.60+k*5+2,ground-5,k===1?GLASS:BERRY,2);
-    box(cx-3,ground+4,cx+3,ground+6,STONE,0x43);
-  }else if(p.zone==='core'){
-    // A miniature observatory rather than a plaque in an empty colonnade.
-    const base=ground-3,roof=Math.max(20,ground*.46);
-    box(w*.18,roof,w*.82,base,STONE,1);
-    for(let k=0;k<5;k++){const inset=k*2;box(w*.18+inset,roof-k*2,w*.82-inset,roof-k*2+1,STONE,2);}
-    box(cx-5,roof+5,cx+5,base,EMPTY);
-    for(const a of [.25,.70]){box(w*a,roof+5,w*a+3,base-5,GLASS,0);}
-    box(6,base+1,w-7,base+2,STONE,2);
-    for(const [a,b] of [[.17,.15],[.43,.09],[.76,.20],[.88,.08]]){box(w*a,h*b,w*a+1,h*b,GLASS,1);}
-    if(p.id==='nira')sprite('hoverstaff',cx,base,w*.5,ground*.72);
-    else{sprite('bookstack',w*.30,base,w*.33,ground*.34);sprite('lectern',w*.69,base,w*.32,ground*.45);}
-  }else{
-    // A connected prototyping bench: machine, spatial object, and living input.
-    const desk=ground-11;
-    box(3,desk,w-4,desk+2,WOOD,2);
-    for(const a of [.12,.86])box(w*a,desk+3,w*a+2,ground-1,WOOD,1);
-    sprite('console',w*.30,desk-1,w*.43,desk-8);
-    sprite('spatialCube',w*.73,desk-15,w*.34,desk-17);
-    line(w*.47,desk-5,w*.68,desk-5,GLASS,0);line(w*.68,desk-5,w*.68,desk-12,GLASS,0);
-    sprite('bookstack',w*.73,desk-1,w*.24,15);
-    box(5,7,w-6,8,WOOD,1);
-    for(let k=10;k<w-10;k+=12){line(k,9,k,13,STONE,1);box(k-1,14,k+1,15,GLASS,1);}
-    if(h>95){
-      // A built-in pegboard of spatial prototypes above the working desk.
-      box(8,25,w-9,64,WOOD,0);box(10,27,w-11,62,EMPTY);
-      line(14,47,w-15,47,GLASS,0);
-      for(const a of [.25,.50,.75]){
-        const tx=w*a;box(tx-4,35,tx+4,43,STONE,1);box(tx-2,37,tx+2,40,GLASS,0);
-        line(tx,44,tx,50,GLASS,0);box(tx-2,51,tx+2,53,THATCH,1);
-      }
-      for(let k=12;k<w-12;k+=5)box(k,58,k,58,WOOD,2);
-    }
-  }
-  wakeRect(x-1,y-1,x+w,y+h);pixDirtyRect(x-1,y-1,x+w,y+h);
-}
 
 function stampSprite(name,gx,gyBottom){
   const art=SPRITES[name];
@@ -6279,27 +4930,7 @@ function strataMat(d,y,x){
   return s.matrix;
 }
 
-/* Cave-wall noise. hillNoise is a 1-D function of x and gives every row the
-   same wobble, which on a cave rim reads as vertical banding; this needs both
-   axes. Three sines at incommensurate frequencies is enough turbulence for a
-   silhouette that never repeats over the world's depth, at no setup cost. */
-function caveNoise(x,y){
-  return Math.sin(x*0.21+y*0.13)*0.50
-        +Math.sin(x*0.07-y*0.31)*0.32
-        +Math.sin(x*0.53+y*0.41)*0.18;
-}
 
-/* ═══════════════════════════════════════════════════════
-   ROOM PRIMITIVES
-   The three things every buried room is made of. Kept
-   separate from the zone builders so a room is a short
-   list of intentions rather than four nested loops.
-═══════════════════════════════════════════════════════ */
-/* How far inside its zone band a room's ceiling and floor sit — i.e. how much
-   solid rock is left above and below it. The gap between two rooms is one
-   room's `bot` plus the next one's `top`, so these two numbers are what set
-   the rhythm of the whole descent. */
-const ROOM_INSET={get top(){return (VH*0.30)|0;},get bot(){return (VH*0.30)|0;}};
 // Fill a rect with one material, frozen so it holds as built.
 function slab(x0,y0,x1,y1,m,v){
   /* Structural material is textured from its BIRTH POSITION, not filled with a
@@ -6318,19 +4949,6 @@ function slab(x0,y0,x1,y1,m,v){
       variant[gi]=st?builtVariant(m,x,y,tone):(v===undefined?(Math.random()*4|0):v);
       frozen[gi]=(m===EMPTY)?0:1;
     }
-}
-/* Hollow a room out of the rock and line it.
-
-   `shell` is what the walls are made of and is the single biggest cue for what
-   kind of place this is — raw STONE reads as a cave, BRICK as something built.
-   The lining is two cells thick because one cell of frozen brick against a
-   void gets eaten by the first thing that falls on it, and a room whose
-   ceiling collapses on load is a bug rather than a feature. */
-function carveRoom(x0,y0,x1,y1,shell){
-  slab(x0-2,y0-2,x1+2,y1+2,shell);          // the lining, solid
-  slab(x0,y0,x1,y1,EMPTY);                  // then the void inside it
-  wakeRect(x0-3,y0-3,x1+3,y1+3);
-  pixDirtyRect(x0-3,y0-3,x1+3,y1+3);
 }
 /* Stand a sprite on a floor, centred on a world column.
 
@@ -6393,29 +5011,6 @@ function arch(cx,springY,halfSpan,m,thick,rise){
     }
   }
 }
-/* A mounting for a world panel: two short posts and a lintel, stamped at the
-   panel's own measured rect.
-
-   carveChamber (below) already clears the rock a panel sits in, and inside a
-   room there is no rock to clear — so a panel in a built room would float. The
-   bracket is what puts it on the wall: the same read as a framed board bolted
-   into a vault, and it costs the panel nothing because the frame sits OUTSIDE
-   its footprint and never overlaps the text. */
-function panelBracket(el,m){
-  const r=el.getBoundingClientRect();
-  if(r.width<=0||r.height<=0)return;
-  const cr=canvas.getBoundingClientRect();
-  const x0=Math.floor((r.left-cr.left)/SCALE)-3;
-  const x1=Math.ceil((r.right-cr.left)/SCALE)+3;
-  const y0=Math.floor((r.top-cr.top)/SCALE)+camY-3;
-  const y1=Math.ceil((r.bottom-cr.top)/SCALE)+camY+3;
-  slab(x0,y0,x1,y0+1,m);            // lintel over the top
-  slab(x0,y1-1,x1,y1,m);            // a shelf under the bottom
-  slab(x0,y0,x0+1,y1,m);            // and a post down each side
-  slab(x1-1,y0,x1,y1,m);
-  wakeRect(x0-1,y0-1,x1+1,y1+1);
-  pixDirtyRect(x0-1,y0-1,x1+1,y1+1);
-}
 
 /* ═══════════════════════════════════════════════════════
    THE ROOMS
@@ -6423,106 +5018,8 @@ function panelBracket(el,m){
    owns everything inside it.
 ═══════════════════════════════════════════════════════ */
 
-/* ── THE VAULTS (Snap) ────────────────────────────────────
-   A brick undercroft: pillars, round arches, moss in the joints, water finding
-   its way in. Lit by glass sconces, which underground now glow (see glassLit)
-   and give the room a cold pale light with no new material and no new code in
-   the light path. The ghost is Snap's, and the room is built to earn it. */
-// Rooms are built around their content envelope. Peripheral architecture stays
-// outside the equipment; it no longer divides the work into arbitrary bays.
-function buildExhibitShell(zone,y0,y1){
-  const bounds=exhibitBounds(W,SCALE);
-  const x0=Math.max(2,Math.floor(bounds.x/SCALE)-7),x1=Math.min(W-3,Math.ceil((bounds.x+bounds.width)/SCALE)+7);
-  const ceil=y0+Math.floor(VH*.18),floor=ceil+Math.ceil(DEPTH_LAYOUT.bands[zone].minRoom/SCALE);
-  const material=PANEL_FRAME[zone];
-  carveRoom(x0,ceil,x1,floor,material);
-  slab(x0,floor-1,x1,floor+1,material,2);
-  slab(x0,ceil,x1,ceil+1,material,2);
-  for(const x of [x0+1,x1-1]){
-    slab(x,ceil+3,x,floor-3,material,1);
-    for(let y=ceil+10;y<floor-5;y+=24){slab(x-1,y,x+1,y+3,STONE,2);slab(x,y+1,x,y+2,GLASS,0);}
-  }
-  if(zone==='workshop'){
-    for(let x=x0+6;x<x1-4;x+=14)slab(x,ceil+2,x+1,ceil+4,WOOD,3);
-    slab(x0,floor+2,x1,floor+3,BRICK,1);
-  }else if(zone==='crypt'){
-    for(let x=x0+5;x<x1-4;x+=20){slab(x,ceil+2,x+2,ceil+4,BRICK,2);}
-    for(let x=x0+4;x<x1-3;x+=9)slab(x,floor-2,x+2,floor-2,MOSS,1);
-  }else if(zone==='arcade'){
-    // A fuse line under the ceiling: the merged room keeps the lab's one real
-    // light source, so the cabinets are not the only thing lighting it.
-    for(let x=x0+3;x<x1-2;x++){
-      const i=idx(x,ceil+3);grid[i]=FUSE;variant[i]=0;frozen[i]=0;
-    }
-    for(let x=x0+3;x<x1-2;x+=8){slab(x,ceil+3,x+4,ceil+3,GLASS,1);}
-    for(let y=floor-2;y<=floor;y++)for(let x=x0;x<=x1;x++){
-      const m=((Math.floor(x/3)+Math.floor(y/3))&1)?BRICK:STONE;slab(x,y,x,y,m,2);
-    }
-  }else{
-    slab(x0+2,floor-2,x1-2,floor-1,STONE,2);
-    const lavaY=Math.min(H-4,floor+Math.floor(VH*.15));
-    slab(x0,lavaY,x1,lavaY+3,LAVA,0);
-    for(let y=lavaY;y<=lavaY+3;y++)for(let x=x0;x<=x1;x++)frozen[idx(x,y)]=0;
-  }
-  return {ceil,floor,x0,x1,exhibit:true};
-}
-function buildCrypt(y0,y1){
-  return buildExhibitShell('crypt',y0,y1);
-}
 
-/* ── THE LAB (hackathons & awards) ────────────────────────
-   Cut, not found: flat floor, tiled bands, no growth anywhere. The light is
-   acid in glass — the only green emitter in the material set — so the room is
-   lit by the thing it is full of. Overhead runs a fuse conduit, stamped live,
-   which means the ceiling is a circuit: put fire to one end and the whole
-   room's wiring runs. */
-/* ── THE ARCADE (games) ───────────────────────────────────
-   Low ceiling, checkerboard floor, a row of cabinets facing out. The screens
-   are glass and therefore the light: the room is lit entirely by the things
-   you would have been playing, which is the whole joke. */
-function buildArcade(y0,y1){
-  return buildExhibitShell('arcade',y0,y1);
-}
 
-/* ── THE WORKSHOP (about me) ──────────────────────────────
-   The first room under the turf, and the only one that is not about work.
-   Timber and lamplight directly below the cottage on the meadow, so it reads
-   as that cottage's cellar — which is what lets it be personal without a
-   label saying so, and what makes the cold brick of the vaults underneath it
-   land as a change of subject rather than as more of the same.
-
-   Every other room is cut out of rock. This one is BUILT: a timber shell with
-   joists overhead and a packed-earth floor, so even the construction says
-   somebody lives here. */
-function buildWorkshop(y0,y1){
-  return buildExhibitShell('workshop',y0,y1);
-}
-/* Lamps, a bench, and the clutter of somebody's workroom. */
-function furnishWorkshop(box){
-  const {ceil,floor,x0,x1,bay,hearthX}=box;
-  // hanging lanterns on alternate joists — glass, so they actually light it
-  for(let x=x0+2+bay,k=0;x<=x1-2;x+=bay*2,k++){
-    const ly=ceil+((VH*0.09)|0);
-    if(blocked(x-3,ceil+3,x+3,ly+3))continue;
-    for(let y=ceil+4;y<ly-2;y++){          // the chain
-      const gi=idx(x,y);
-      grid[gi]=WOOD;variant[gi]=3;frozen[gi]=1;
-    }
-    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
-      if(dx*dx+dy*dy>5)continue;
-      putCell(x+dx,ly+dy,GLASS,dx===0&&dy===0?2:0);
-      frozen[idx(x+dx,ly+dy)]=1;
-    }
-    wakeRect(x-3,ceil+3,x+3,ly+3);
-    pixDirtyRect(x-3,ceil+3,x+3,ly+3);
-  }
-  // the desk, kept off the hearth wall, and the rest of the room's clutter
-  propClear('console',  ((x0+x1)/2)|0,       floor-2,box);
-  propClear('crates',   x0+((x1-x0)*0.72)|0, floor-2,box);
-  propClear('bookstack',x0+((x1-x0)*0.86)|0, floor-2,box);
-  propClear('bookstack',hearthX+14,          floor-2,box);
-  propClear('candelabra',x0+((x1-x0)*0.34)|0,floor-2,box);
-}
 
 /* ═══ CLASSICAL ORDER ═══
    The core is the room about school, so it is built like a school: a fluted
@@ -6565,111 +5062,8 @@ function column(cx,topY,botY){
   wakeRect(cx-HW-3,topY-2,cx+HW+3,botY+3);
   pixDirtyRect(cx-HW-3,topY-2,cx+HW+3,botY+3);
 }
-// Cornice, dentil course, architrave. `y` is the top of the band.
-function entablature(x0,x1,y){
-  slab(x0,y,x1,y+1,STONE,7);
-  for(let x=x0;x<=x1;x+=3)slab(x,y+2,x+1,y+2,STONE,1);   // dentils
-  slab(x0,y+3,x1,y+4,STONE,7);
-}
-/* The gable over it: a pale triangle with a recessed tympanum inside.
 
-   Two things had to change from the obvious version. The raking cornice was
-   three cells thick, which at this dither is below the width where a pale line
-   survives — so all you saw was the dark tympanum, and a dark triangle with a
-   thin apex reads as two wings sloping away from a notch rather than as one
-   roof. And the tympanum ran the full height, which is what put that notch at
-   the apex in the first place. Thicker cornice, and the recess stops well short
-   of the top so the apex stays solid. */
-function pediment(cx,baseY,halfW){
-  const h=Math.max(5,(halfW*0.45)|0);
-  const CORNICE=5;
-  for(let r=0;r<h;r++){
-    const w=Math.round(halfW*(1-r/h));
-    slab(cx-w,baseY-r,cx+w,baseY-r,STONE,7);
-  }
-  for(let r=2;r<h*0.62;r++){
-    const w=Math.round(halfW*(1-r/h))-CORNICE;
-    if(w>0)slab(cx-w,baseY-r,cx+w,baseY-r,STONE,1);
-  }
-  wakeRect(cx-halfW-1,baseY-h-1,cx+halfW+1,baseY+1);
-  pixDirtyRect(cx-halfW-1,baseY-h-1,cx+halfW+1,baseY+1);
-}
 
-/* ── THE CORE (education) ─────────────────────────────────
-   The bottom of the shaft: a lecture hall built over magma. It is the only
-   room lit by the world rather than by anything installed in it, and the only
-   one with a facade — the descent ends at a building rather than at a cavity.
-
-   The lava is a SEAM, not a floor. A solid slab saturates the light buffer and
-   the whole frame blows out to white — the glow has to have rock under it to
-   read as heat rather than as a blank exposure. */
-function buildCore(y0,y1){
-  return buildExhibitShell('core',y0,y1);
-}
-/* The colonnade, plus the furniture of a room for sitting still in.
-
-   Columns are furnished rather than built because the panel takes a bay out of
-   the middle of them, and a facade that simply stops where a doorway is is
-   more convincing than one carved through afterwards. */
-function furnishCore(box){
-  const {floor,x0,x1,colTop,colBot}=box;
-  /* Spanned rather than spaced. Seven columns at seven fixed fractions, each
-     vetoed if anything overlapped it, left two standing — the plaque hangs
-     across the middle of this room and took the other five with it. Dividing
-     the free runs instead gives a colonnade either side of the plaque, which
-     is what a facade with a doorway in it looks like anyway. */
-  const COL_HW=5, PITCH=13;
-  for(const [sx0,sx1] of freeSpans(x0+COL_HW+2,x1-COL_HW-2,colTop-2,colBot+3,COL_HW*2+4)){
-    const n=Math.max(1,Math.round((sx1-sx0)/PITCH));
-    for(let k=0;k<n;k++){
-      const cx=Math.round(sx0+(sx1-sx0)*(n===1?0.5:k/(n-1)));
-      if(blocked(cx-COL_HW,colTop-2,cx+COL_HW,colBot+3))continue;
-      column(cx,colTop,colBot);
-    }
-  }
-  /* A lectern and two stacks of books: the only room in the world furnished
-     for sitting still, directly above the only room lit by magma. Which is the
-     joke, and also why the books are BERRY — berry is flammable sprite debris,
-     so they can in fact burn. */
-  /* Placed into the free floor rather than at fixed fractions, for the same
-     reason the columns are: at 0.18 and 0.82 both stacks landed inside a
-     column plinth, where stampSprite skipped most of their cells and left two
-     red stubs at the base of the order. */
-  const spots=freeSpans(x0+8,x1-8,floor-16,floor-4,14);
-  const kit=['bookstack','lectern','bookstack'];
-  spots.forEach(([sx0,sx1],i)=>propClear(kit[i%kit.length],((sx0+sx1)/2)|0,floor-6,box));
-}
-
-/* Caves in the rock BETWEEN rooms.
-
-   Deliberately kept out of the rooms themselves: a room is a built thing and
-   should have straight walls. The caves are what makes the rock between them
-   read as rock rather than as the gap between two sets, and some of them chain
-   into a route down that is not the shaft. */
-function spawnCaves(y0,y1){
-  const stepY=Math.max(8,(VH*0.30)|0);
-  for(let y=y0;y<y1;y+=stepY){
-    const n=1+(Math.random()*2|0);
-    for(let k=0;k<n;k++){
-      const cx=((Math.random()*0.80+0.10)*W)|0;
-      const cy=y+((Math.random()*2-1)*stepY*0.4)|0;
-      const rx=Math.max(4,(W*(0.06+Math.random()*0.09))|0);
-      const ry=Math.max(3,(VH*(0.030+Math.random()*0.045))|0);
-      for(let py=cy-ry*2;py<=cy+ry*2;py++){
-        if(py<y0||py>=y1||py<0||py>=H)continue;
-        for(let px=cx-rx*2;px<=cx+rx*2;px++){
-          if(px<1||px>=W-1)continue;
-          const dx=(px-cx)/rx,dy=(py-cy)/ry;
-          // the noise pushes the rim in and out by a third of its radius, which
-          // is what turns an oval into something that reads as eaten out of rock
-          if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.38)continue;
-          putCell(px,py,EMPTY,0);
-          frozen[idx(px,py)]=0;
-        }
-      }
-    }
-  }
-}
 
 /* ═══ CONTACTS ═══
    What happens where rock meets air.
@@ -6760,681 +5154,10 @@ function spawnContacts(){
   pixDirtyRect(0,y0,W-1,H-1);
 }
 
-/* Build every room, then the rock between them.
-
-   ROOM_BOX is kept because three later passes need to know where the void
-   actually ended up: the shaft has to stop at a floor rather than run through
-   it, the panels have to be hung inside their own room, and the caves have to
-   avoid the rooms entirely. */
-const ROOM_BOX={};
-function spawnStrata(surf){
-  const build={workshop:buildWorkshop,crypt:buildCrypt,arcade:buildArcade,core:buildCore};
-  const order=[];
-  for(const z of ZONES){
-    const fn=build[z.id];
-    if(!fn)continue;
-    const {y0,y1}=zoneRows(z);
-    ROOM_BOX[z.id]=fn(y0,y1);
-    order.push(z.id);
-  }
-  // caves in the leftover rock — the band between one room's floor and the
-  // next room's ceiling, wherever that band is thick enough to hold one
-  for(let k=0;k<order.length-1;k++){
-    const a=ROOM_BOX[order[k]],b=ROOM_BOX[order[k+1]];
-    if(b.ceil-a.floor>VH*0.18)spawnCaves(a.floor+((VH*0.06)|0),b.ceil-((VH*0.06)|0));
-  }
-  /* A perched water table in the rock above the first room: dig into it from
-     the side and it drains down the shaft, which is the one thing up here that
-     rewards breaking a wall on purpose.
-
-     It has to sit BELOW the meadow surface, which is around 0.95–0.99 of the
-     first screen — at 0.72 it was in open sky over the footpath, and the whole
-     pocket fell as rain and pooled between the cottage and the signpost. Keyed
-     off the first room's ceiling now, so it stays buried however the zone
-     bands are rebalanced. */
-  {
-    const firstRoom=ROOM_BOX[ZONES[1]&&ZONES[1].id];
-    const wy=Math.round(firstRoom?firstRoom.ceil-VH*0.14:VH*1.18);
-    const cx=(W*0.30)|0,rx=(W*0.15)|0,ry=Math.max(3,(VH*0.045)|0);
-    for(let py=wy-ry;py<=wy+ry;py++)for(let px=cx-rx;px<=cx+rx;px++){
-      if(px<1||px>=W-1||py<0||py>=H)continue;
-      const dx=(px-cx)/rx,dy=(py-wy)/ry;
-      if(dx*dx+dy*dy>1.0+caveNoise(px,py)*0.25)continue;
-      putCell(px,py,py>wy-ry*0.3?WATER:EMPTY,0);
-      frozen[idx(px,py)]=0;
-    }
-  }
-  // contacts last: it is the only rule that needs the voids to already exist
-  spawnContacts();
-  wakeRect(0,VH,W-1,H-1);
-}
-
-/* ═══════════════════════════════════════════════════════
-   FURNISHING — what goes in a room once the work is hung
-
-   Split out of the builders, and it has to be: the builders run inside
-   spawnStrata, which happens BEFORE the panels exist, and carveChamber then
-   hollows a panel-sized hole through whatever the builder had just put there.
-
-   That was not cosmetic. Every one of the lab's five acid tanks fell inside a
-   panel's chamber, so on load the chambers cut the tanks open, the breach rule
-   in step() correctly noticed each column now had air beside it, and 483 of
-   514 acid cells unfroze and ran across the floor before anyone had scrolled
-   to them. The room was flooding itself.
-
-   So: architecture first (walls, floors, pillars, conduit), then the panels,
-   then furniture placed around what is now actually there. Furniture is the
-   only layer that has to yield, which is also the right order for a room.
-═══════════════════════════════════════════════════════ */
-
-/* Footprints nothing may be placed into: the hung panels, and the shaft.
-
-   Recorded in world cells with a margin, at the moment each panel is measured,
-   because a DOM rect is the only thing that knows how tall a panel came out at
-   this window width. */
-const PANEL_RECTS=[];
-function blocked(bx0,by0,bx1,by1){
-  for(const r of PANEL_RECTS){
-    if(bx1>=r.x0&&bx0<=r.x1&&by1>=r.y0&&by0<=r.y1)return true;
-  }
-  // and the shaft, which is a route rather than a shelf
-  if(SHAFT&&bx1>=SHAFT.x0-2&&bx0<=SHAFT.x1+2)return true;
-  return false;
-}
-/* The horizontal runs of a room left over once the panels are hung, within a
-   given band of rows.
-
-   Placing furniture at fixed fractions of the room and rejecting whatever
-   collides does not work when the panels are 39% of the room's width each:
-   the lab asked for five tanks at five fixed columns and got none, because
-   every one of them was under a panel somewhere. Asking what space is actually
-   free and then dividing THAT is the difference between a room that adapts to
-   its contents and a room that comes out empty at some window widths. */
-function freeSpans(x0,x1,y0,y1,minW){
-  const busy=new Uint8Array(Math.max(0,x1-x0+1));
-  const mark=(a,b)=>{for(let x=Math.max(x0,a);x<=Math.min(x1,b);x++)busy[x-x0]=1;};
-  for(const r of PANEL_RECTS)if(y1>=r.y0&&y0<=r.y1)mark(r.x0,r.x1);
-  if(SHAFT)mark(SHAFT.x0-2,SHAFT.x1+2);
-  const spans=[];
-  let run=-1;
-  for(let i=0;i<busy.length;i++){
-    if(!busy[i]){if(run<0)run=i;}
-    else{if(run>=0&&i-run>=minW)spans.push([x0+run,x0+i-1]);run=-1;}
-  }
-  if(run>=0&&busy.length-run>=minW)spans.push([x0+run,x0+busy.length-1]);
-  return spans;
-}
-
-/* prop(), but it declines rather than overwrites. Returns whether it landed,
-   so a caller can fall through to its next candidate position. */
-function propClear(name,cx,bottomY,box){
-  const w=spriteW(name),h=spriteH(name);
-  if(!w||!h)return false;
-  const gx=Math.round(cx-w/2);
-  if(blocked(gx-1,bottomY-h-1,gx+w+1,bottomY+1))return false;
-  if(!prop(name,cx,bottomY,box))return false;
-  // A room's furniture is furniture: register it as a body so it can be knocked
-  // over, rather than leaving it as masonry that happens to be chair-shaped.
-  // Dormant on arrival — see makeSpriteBody.
-  if(SB_KINDS.has(name))makeSpriteBody(name,gx,bottomY);
-  return true;
-}
-
-/* ═══════════════════════════════════════════════════════
-   SPRITE BODIES — the props, as rigid bodies whose PIXELS are the shape
-═══════════════════════════════════════════════════════ */
-/* There were already two halves of this in the file and they had never been
-   introduced to each other.
-
-   The oriented-box solver above (makeBody / contact / resolveWorld) has real
-   rotation, impulse dynamics with restitution and friction, sleeping, and —
-   the part that matters — restampBodies, which writes a body's footprint into
-   the CA grid so sand piles on a body that is turning. That is the whole trick
-   a falling-sand world needs from its rigid bodies. It has been dead code
-   since the project panels moved to the DOM, and it was box-only: hw/hh, four
-   corners, and a decorative texture on a quad. The pixels were not the shape.
-
-   tryChunkDetach has the other half: a connected-component flood fill that
-   drops a region of masonry as one coherent piece, carrying each cell's baked
-   variant along so the coursing survives the fall. Pixel-accurate shape and
-   material identity — but it can only translate.
-
-   This is the union. The sprite's own cells are the body: they decide its
-   silhouette, they carry their own material and shade into the grid, and when
-   one of them is burnt or dissolved the body loses that pixel and carries on
-   with a hole in it.
-
-   Two decisions are load-bearing:
-
-   ROTATION IS QUANTISED to SB_ANGLES steps. These sprites are 7-24 cells tall.
-   Rotating that by an arbitrary angle and resampling into a one-cell-per-pixel
-   grid shimmers badly and eats the silhouette, which is the only thing a prop
-   this size has. Sixteen pre-rasterised angles cost a few KB, never shimmer,
-   and read as deliberate. Each angle is built by INVERSE mapping — for every
-   target cell, rotate backwards and sample the source — because forward
-   mapping leaves holes wherever two source cells round to the same target.
-
-   A BODY STAMPS ITS OWN MATERIALS, not a placeholder. RIGID renders as nothing
-   and is drawn over the top as a textured quad, which opts a body out of the
-   entire palette: no coursing, no relief, no light. Writing real WOOD/GLASS/
-   STONE means a toppled cabinet is lit, shaded and posterized by exactly the
-   same code as the wall behind it — and burns and dissolves by the same rules
-   too. */
-const SB_ANGLES=16;
-const spriteBodies=[];
-/* Which props are furniture rather than architecture. The sarcophagus is
-   deliberately absent: a stone chest on a brick plinth should read as part of
-   the room, and a tomb that skids across the floor is a different joke. */
-const SB_KINDS=new Set(['crates','console','cylinder','cabinet','lowboy',
-                        'vending','lectern','bookstack','candelabra','urn',
-                        'specs']);
-
-/* Per-sprite geometry, built once and shared by every instance of it. */
-const SB_ART={};
-function sbArt(name){
-  if(SB_ART[name]!==undefined)return SB_ART[name];
-  const art=SPRITES[name];
-  if(!art){SB_ART[name]=null;return null;}
-  const h=art.length, w=spriteW(name);
-  const ox=w>>1, oy=h>>1;
-  // source cells in local coords, plus a lookup so the inverse map is O(1)
-  const src=[], srcAt=new Int16Array(w*h).fill(-1);
-  for(let ry=0;ry<h;ry++){
-    const row=art[ry];
-    for(let rx=0;rx<row.length;rx++){
-      const spec=SPRITE_MATS[row[rx]];
-      if(!spec)continue;
-      srcAt[ry*w+rx]=src.length;
-      src.push({lx:rx-ox,ly:ry-oy,m:spec.m,v:spec.v});
-    }
-  }
-  if(!src.length){SB_ART[name]=null;return null;}
-  const R=Math.ceil(Math.sqrt(ox*ox+oy*oy))+2;
-  const ang=[];
-  for(let k=0;k<SB_ANGLES;k++){
-    const th=k*2*Math.PI/SB_ANGLES, c=Math.cos(th), sn=Math.sin(th);
-    const cells=[];
-    const low=new Map();                       // lowest cell per column
-    for(let ty=-R;ty<=R;ty++)for(let tx=-R;tx<=R;tx++){
-      // a world offset maps back into sprite space by the INVERSE rotation
-      const sx=Math.round(tx*c+ty*sn), sy=Math.round(-tx*sn+ty*c);
-      const ax=sx+ox, ay=sy+oy;
-      if(ax<0||ax>=w||ay<0||ay>=h)continue;
-      const si=srcAt[ay*w+ax];
-      if(si<0)continue;
-      cells.push(tx,ty,si);
-      const cur=low.get(tx);
-      if(cur===undefined||ty>cur)low.set(tx,ty);
-    }
-    /* Contact probes. A body rests correctly on uneven ground only if it is
-       tested at the LOWEST cell of several columns; probing a bounding box's
-       corners instead is what makes a physics prop hover over a step or sink
-       into one. Nine columns spread across the width, plus the extremes of the
-       silhouette so a body wedged into a wall gets pushed back out of it. */
-    const cols=[...low.keys()].sort((a,b)=>a-b);
-    const probes=[];
-    const NP=Math.min(9,cols.length);
-    for(let i=0;i<NP;i++){
-      const tx=cols[NP===1?0:Math.round(i*(cols.length-1)/(NP-1))];
-      probes.push(tx,low.get(tx));
-    }
-    let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
-    for(let i=0;i<cells.length;i+=3){
-      if(cells[i]<x0)x0=cells[i]; if(cells[i]>x1)x1=cells[i];
-      if(cells[i+1]<y0)y0=cells[i+1]; if(cells[i+1]>y1)y1=cells[i+1];
-    }
-    const my=((y0+y1)/2)|0;
-    probes.push(x0,my, x1,my, ((x0+x1)/2)|0,y0);
-    ang.push({cells:new Int16Array(cells),probes:new Int16Array(probes),
-              hw:Math.max(-x0,x1),hh:Math.max(-y0,y1)});
-  }
-  const A={src,ang,w,h,ox,oy,rad:R};
-  SB_ART[name]=A;
-  return A;
-}
-
-/* A prop, registered where prop() has just stamped it.
-
-   Born DORMANT: its cells are ordinary frozen sprite pixels in the grid, it
-   owns no dynamics, and it costs exactly what the prop cost before. It becomes
-   a live body only when something disturbs it — its support goes, a blast
-   reaches it, or the visitor picks it up. That is both the cheap way to carry
-   thirty of these and the honest one: a cabinet standing on a floor is not
-   doing any physics. */
-function makeSpriteBody(name,gx,bottomY){
-  const A=sbArt(name);
-  if(!A)return null;
-  const n=A.src.length;
-  const mass=Math.max(1,n*0.010);
-  let r2=0; for(const c of A.src)r2+=c.lx*c.lx+c.ly*c.ly;
-  const b={
-    name, art:A,
-    // world position of the sprite's local origin. prop() put its bottom row
-    // on bottomY and its left column on gx, so this backs that out.
-    x:gx+A.ox, y:bottomY-(A.h-1)+A.oy,
-    a:0, ang:0, vx:0, vy:0, va:0,
-    invM:1/mass, invI:1/Math.max(1,mass*(r2/n)*0.5),
-    e:0.05, fric:0.66,
-    live:false, sleeping:true, sleepT:0, dragging:false,
-    alive:new Uint8Array(n).fill(1),
-    owned:[],
-  };
-  spriteBodies.push(b);
-  return b;
-}
-
-/* What a body lands ON. Deliberately wider than solidT, which only knows
-   STONE/DIRT/GRASS: every floor underground is brick, dressed stone or timber,
-   and a body that collided only with terrain fell through all five rooms. */
-function sbSolid(x,y){
-  if(x<0||x>=W||y<0||y>=H)return false;
-  const i=idx(x,y), m=grid[i];
-  if(m===STONE||m===DIRT||m===GRASS||m===MASK)return true;
-  return (m===BRICK||m===WOOD||m===GLASS||m===THATCH)&&frozen[i]===1&&inChunk[i]===0;
-}
-
-/* Lift a live body's cells back out of the grid, noticing on the way which of
-   them did not survive. Anything that is no longer OUR material was burnt,
-   dissolved or blasted while it sat there — that pixel is struck off the body
-   for good, which is how a body damaged in flight keeps the damage. */
-function sbUnstamp(b){
-  const src=b.art.src;
-  for(let k=0;k<b.owned.length;k+=2){
-    const gi=b.owned[k], si=b.owned[k+1];
-    if(grid[gi]===src[si].m){
-      grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;inChunk[gi]=0;
-      pixDirty(gi%W,(gi/W)|0);
-    } else {
-      b.alive[si]=0;
-    }
-  }
-  b.owned.length=0;
-}
-
-function sbStamp(b){
-  const A=b.art;
-  const k=((Math.round(b.a/(2*Math.PI)*SB_ANGLES)%SB_ANGLES)+SB_ANGLES)%SB_ANGLES;
-  b.ang=k;
-  const cells=A.ang[k].cells, src=A.src;
-  const bx=Math.round(b.x), by=Math.round(b.y);
-  let x0=1e9,y0=1e9,x1=-1,y1=-1;
-  for(let i=0;i<cells.length;i+=3){
-    const si=cells[i+2];
-    if(!b.alive[si])continue;
-    const gx=bx+cells[i], gy=by+cells[i+1];
-    if(gx<1||gx>=W-1||gy<0||gy>=H)continue;
-    const gi=idx(gx,gy), g=grid[gi];
-    if(isStatic(g))continue;            // terrain and page text are not ours to move
-    if(g!==EMPTY)displace(gx,gy);       // shove loose grains out of the way
-    const s=src[si];
-    grid[gi]=s.m;variant[gi]=s.v;frozen[gi]=1;
-    /* inChunk is what keeps step() off these cells: a frozen cell that a
-       falling chunk owns returns immediately. Without it the sim spends every
-       frame trying to decompose a body that is mid-air, and a tumbling crate
-       sheds itself into splinters before it ever lands. */
-    inChunk[gi]=1;
-    b.owned.push(gi,si);
-    if(gx<x0)x0=gx; if(gy<y0)y0=gy; if(gx>x1)x1=gx; if(gy>y1)y1=gy;
-  }
-  if(x1>=x0){wakeRect(x0-1,y0-1,x1+1,y1+1);pixDirtyRect(x0-1,y0-1,x1+1,y1+1);}
-}
-
-/* Wake a dormant prop into a body.
-
-   Its pixels are read out of the grid rather than assumed, so a prop that has
-   already had half of it burnt away wakes up as the half that is left. */
-function sbActivate(b){
-  if(b.live)return;
-  const A=b.art, cells=A.ang[b.ang].cells, src=A.src;
-  const bx=Math.round(b.x), by=Math.round(b.y);
-  for(let i=0;i<cells.length;i+=3){
-    const si=cells[i+2];
-    if(!b.alive[si])continue;
-    const gx=bx+cells[i], gy=by+cells[i+1];
-    if(gx<0||gx>=W||gy<0||gy>=H){b.alive[si]=0;continue;}
-    const gi=idx(gx,gy);
-    if(grid[gi]!==src[si].m||frozen[gi]!==1){b.alive[si]=0;continue;}
-    grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;inChunk[gi]=0;
-    wake3(gx,gy);pixDirty(gx,gy);
-  }
-  b.live=true;b.sleeping=false;b.sleepT=0;b.owned.length=0;
-}
-
-/* Come to rest: hand the cells back to the world as ordinary frozen sprite
-   pixels, so a settled body burns, dissolves and takes weight exactly as the
-   prop it was before anybody pushed it over. */
-function sbSettle(b){
-  for(let k=0;k<b.owned.length;k+=2)inChunk[b.owned[k]]=0;
-  b.live=false;b.sleeping=true;b.vx=b.vy=b.va=0;b.sleepT=0;
-}
-
-/* Which way is OUT of the material this probe is buried in, and how far.
-
-   The first version answered "up, always", copying the box solver above — and
-   the box solver got away with it because a box only ever probed the ground
-   under itself. A sprite body probes its own silhouette, so its side and top
-   probes sit inside the wall beside it and the ceiling over it all the time,
-   and every one of them was shoving the body upward by up to five cells a
-   frame. An arcade cabinet climbed 330 cells out of its room.
-
-   Four short walks, shortest wins. Capped at 8: a probe buried deeper than
-   that is a tunnelling event, and easing it out over a few frames reads far
-   better than teleporting it clear in one. */
-const SB_ESC=[[0,-1],[0,1],[-1,0],[1,0]];
-function sbEscape(x,y){
-  let best=99,bnx=0,bny=-1;
-  for(let k=0;k<4;k++){
-    const dx=SB_ESC[k][0],dy=SB_ESC[k][1];
-    let n=0,cx=x,cy=y;
-    while(n<8&&sbSolid(cx,cy)){cx+=dx;cy+=dy;n++;}
-    if(n<best){best=n;bnx=dx;bny=dy;}
-  }
-  return [bnx,bny,Math.min(5,best)];
-}
-function sbResolveWorld(b){
-  const P=b.art.ang[b.ang].probes;
-  const floorY=H-5;
-  /* Gather the contacts BEFORE resolving any of them, and split the positional
-     correction between them.
-
-     contact() pushes the body out by 40% of the penetration it is handed. That
-     is fine for one contact and catastrophic for twelve: a cabinet resting flat
-     on a floor reports every one of its bottom probes as penetrating by about a
-     cell, and resolving them in sequence moved it twelve times as far as any of
-     them asked for. Three solver iterations on top of that launched the first
-     version of this 440 cells up through two rooms and into the lab.
-
-     Sharing the correction is the standard fix and it is the whole difference
-     between a body that settles and a body that explodes. The velocity impulse
-     is deliberately NOT shared — resolving the same contact set repeatedly is
-     what a sequential-impulse solver is supposed to do, and it just converges. */
-  const hits=[];
-  for(let i=0;i<P.length;i+=2){
-    const px=b.x+P[i], py=b.y+P[i+1];
-    if(px<1)hits.push(px,py,1,0,1-px);
-    else if(px>W-2)hits.push(px,py,-1,0,px-(W-2));
-    if(py>floorY)hits.push(px,py,0,-1,py-floorY);
-    else if(sbSolid(px|0,py|0)){
-      const e=sbEscape(px|0,py|0);
-      hits.push(px,py,e[0],e[1],e[2]);
-    }
-  }
-  const n=hits.length/5;
-  if(!n)return;
-  const share=1/n;
-  for(let i=0;i<hits.length;i+=5)
-    contact(b,hits[i],hits[i+1],hits[i+2],hits[i+3],hits[i+4],share);
-}
-
-/* Body-against-body, as axis-aligned overlap on the current angle's extent.
-   A real SAT pass would be more correct and, for a row of arcade cabinets
-   toppling into each other, entirely unnoticeable. */
-function sbResolvePairs(){
-  const live=spriteBodies.filter(b=>b.live&&!b.sleeping);
-  for(let i=0;i<live.length;i++)for(let j=0;j<spriteBodies.length;j++){
-    const a=live[i], b=spriteBodies[j];
-    if(a===b||!b.live)continue;
-    const ea=a.art.ang[a.ang], eb=b.art.ang[b.ang];
-    const ox=(ea.hw+eb.hw)-Math.abs(a.x-b.x);
-    const oy=(ea.hh+eb.hh)-Math.abs(a.y-b.y);
-    if(ox<=0||oy<=0)continue;
-    let nx=0,ny=0,pen;
-    if(ox<oy){pen=ox;nx=(a.x<b.x)?-1:1;}else{pen=oy;ny=(a.y<b.y)?-1:1;}
-    const rvx=b.vx-a.vx, rvy=b.vy-a.vy, vn=rvx*-nx+rvy*-ny;
-    const impact=vn<-0.4;
-    if(impact&&b.sleeping){b.sleeping=false;b.sleepT=0;}
-    const ia=a.dragging?0:a.invM;
-    const ib=(b.sleeping&&!impact)||b.dragging?0:b.invM;
-    const tot=ia+ib; if(tot===0)continue;
-    a.x+=nx*pen*(ia/tot); a.y+=ny*pen*(ia/tot);
-    b.x-=nx*pen*(ib/tot); b.y-=ny*pen*(ib/tot);
-    if(vn<0){
-      const jj=-1.02*vn/tot, jx=jj*-nx, jy=jj*-ny;
-      a.vx-=jx*ia;a.vy-=jy*ia; b.vx+=jx*ib;b.vy+=jy*ib;
-    }
-  }
-}
-
-/* Has a dormant prop lost the ground under it?
-
-   Cheap because it only asks the bottom-profile probes, and only on a cadence:
-   a room full of standing furniture should cost nothing to leave standing. */
-function sbCheckSupport(b){
-  const P=b.art.ang[b.ang].probes;
-  const bx=Math.round(b.x), by=Math.round(b.y);
-  for(let i=0;i<P.length;i+=2){
-    const gx=bx+P[i], gy=by+P[i+1]+1;
-    if(gy>=H)return true;
-    if(sbSolid(gx,gy))return true;
-  }
-  return false;
-}
-
-/* Everything within R of (x,y) stops being furniture and starts being debris.
-   Called from the bomb blast, which is the one event in the world violent
-   enough that leaving the crates standing would be conspicuous. */
-function wakeSpriteBodies(x,y,R){
-  for(const b of spriteBodies){
-    if(b.dragging)continue;
-    const dx=b.x-x, dy=b.y-y, rr=R+b.art.rad;
-    if(dx*dx+dy*dy>rr*rr)continue;
-    sbActivate(b);
-    b.sleeping=false;b.sleepT=0;
-    const d=Math.sqrt(dx*dx+dy*dy)||1;
-    b.vx+=(dx/d)*4.5; b.vy+=(dy/d)*4.5-1.5; b.va+=(Math.random()-0.5)*0.22;
-    clampVel(b);
-  }
-}
-
-let sbFrame=0;
-function updateSpriteBodies(){
-  if(!spriteBodies.length)return;
-  sbFrame++;
-  // dormant props: has the floor gone? asked on a cadence, and only for props
-  // near enough to the camera band for the answer to be visible
-  if((sbFrame&7)===0){
-    for(const b of spriteBodies){
-      if(b.live)continue;
-      if(b.y<camY-VH||b.y>camY+VH*2)continue;
-      if(!sbCheckSupport(b))sbActivate(b);
-    }
-  }
-  const live=[];
-  for(const b of spriteBodies)if(b.live&&(!b.sleeping||b.dragging))live.push(b);
-  if(!live.length)return;
-  // unstamp → integrate → resolve → restamp. Lifting every live body out of
-  // the grid first is what stops a body colliding with its own footprint.
-  for(const b of live)sbUnstamp(b);
-  for(const b of live){
-    if(b.dragging)continue;
-    b.vy+=GRAV; b.x+=b.vx; b.y+=b.vy; b.a+=b.va;
-    b.vx*=0.985; b.va*=0.94;
-    clampVel(b);
-  }
-  for(let it=0;it<3;it++){
-    for(const b of live){if(b.dragging)continue;sbResolveWorld(b);}
-    sbResolvePairs();
-  }
-  for(const b of live){
-    if(b.dragging){b.sleepT=0;continue;}
-    const calm=Math.abs(b.vx)<0.22&&Math.abs(b.vy)<0.5&&Math.abs(b.va)<0.02;
-    if(calm){ if(++b.sleepT>22){ sbStamp(b); sbSettle(b); continue; } }
-    else b.sleepT=0;
-    sbStamp(b);
-  }
-}
-
-/* Point test for the mouse: the body's extent at its current angle, then a
-   confirming lookup in the rasterised mask so you cannot grab a cabinet by the
-   empty corner of its bounding box. */
-function sbAt(sx,sy){
-  for(let k=spriteBodies.length-1;k>=0;k--){
-    const b=spriteBodies[k], E=b.art.ang[b.ang];
-    const dx=sx-Math.round(b.x), dy=sy-Math.round(b.y);
-    if(Math.abs(dx)>E.hw||Math.abs(dy)>E.hh)continue;
-    const cells=E.cells;
-    for(let i=0;i<cells.length;i+=3){
-      if(cells[i]===dx&&cells[i+1]===dy&&b.alive[cells[i+2]])return b;
-    }
-  }
-  return null;
-}
-
-
-/* ── THE VAULTS ──
-   Sconces on alternating pillars, then one prop per bay on a three-beat cycle
-   so a wide window does not become a row of identical tombs. Furnished per BAY
-   rather than by fraction of the room: the bays are the room's real grid, and a
-   prop centred between two pillars reads as placed where the same prop two
-   cells off centre reads as dropped. */
-function furnishCrypt(box){
-  const {ceil,floor,x0,x1,bays,pxs,springY,step}=box;
-  for(let k=1;k<pxs.length-1;k+=2){
-    const px=pxs[k], sy=springY+((VH*0.10)|0);
-    if(blocked(px-4,sy-5,px+4,sy+3))continue;
-    slab(px-1,sy-4,px+1,sy-4,STONE,1);                    // the bracket
-    for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){   // and the globe
-      if(dx*dx+dy*dy>5)continue;
-      putCell(px+dx,sy+dy,GLASS,dx===0&&dy===0?2:0);
-      frozen[idx(px+dx,sy+dy)]=1;
-    }
-    wakeRect(px-4,sy-5,px+4,sy+3);
-    pixDirtyRect(px-4,sy-5,px+4,sy+3);
-  }
-  /* ── WHAT IS ACTUALLY DOWN HERE ──
-     A pair of Spectacles, standing on the flagstones at the full clear width
-     of a bay. Everything else in this room is furniture and set dressing; this
-     is the thing the vault was dug for, and it is sized to say so — twice the
-     height of the tallest prop in the world and wider than the arch above it.
-
-     Built to the bay rather than to a number, because the arcade's bay width
-     is a function of the viewport (see specsArt). It is a real sprite body:
-     dormant while it stands, so it costs nothing until the visitor picks it
-     up, blows it over, or digs the floor out from under it — at which point
-     several hundred cells of glossy black and glowing glass tumble through the
-     arcade under the same solver as everything else, and settle wherever they
-     land, keeping whatever damage they took on the way down.
-
-     The bay it takes is the bay it takes: the prop that would have stood there
-     is skipped rather than stacked inside it. */
-  let specsBay=-1;
-  delete SB_ART.specs;                        // the art is about to change shape
-  /* Widest bay first — which is the crossing, unless a panel is hanging in it,
-     in which case the arcade's next-widest opening gets a smaller pair rather
-     than the room getting none. The art is rebuilt per candidate because it is
-     rasterised to the opening it stands in; only the one that lands pays for a
-     set of rotations. */
-  const order=[];
-  for(let k=0;k<bays;k++)order.push(k);
-  order.sort((a,b)=>(pxs[b+1]-pxs[b])-(pxs[a+1]-pxs[a]));
-  for(const k of order){
-    const clearW=(pxs[k+1]-pxs[k])-9;         // the pillar bases eat ~4 cells either side
-    if(clearW<SPECS_MIN)break;                // sorted widest-first: nothing after this fits either
-    SPRITES.specs=specsArt(Math.min(clearW,120));
-    const cx=((pxs[k]+pxs[k+1])/2)|0;
-    if(propClear('specs',cx,floor-2,box)){specsBay=k;break;}
-  }
-  for(let k=0;k<bays;k++){
-    if(k===specsBay)continue;
-    const cx=((pxs[k]+pxs[k+1])/2)|0;
-    const pick=k%3===0?'sarcophagus':(k%3===1?'candelabra':'urn');
-    // a bay with a panel in it gets nothing; try the far side of the bay first,
-    // since a panel rarely fills one edge to edge
-    if(!propClear(pick,cx,floor-2,box))
-      propClear(pick,cx+((step*0.28)|0),floor-2,box);
-  }
-}
-
-/* ── THE LAB ──
-   Sealed acid columns, then apparatus in whatever the tanks and panels left.
-   The tanks are the room's light, so where a panel takes a tank's place the
-   room simply gets darker there — which is the correct trade, because the
-   panel is the thing you came down to read. */
-function furnishLab(box){
-  const {ceil,floor,x0,x1,conduitY}=box;
-  const tw=5, th=Math.max(10,(VH*0.11)|0);
-  const ty1=floor-2, ty0=ty1-th;
-  /* Tested against the tank's OWN rows, not the full height of the room. The
-     first version tested ceiling-to-floor because of the dropper that feeds
-     each tank from the conduit, which meant a panel anywhere above a column
-     vetoed the tank standing under it — and since the panels between them span
-     more than the room's width, that vetoed all five. The dropper is allowed
-     to be the thing that gets left out instead. */
-  const tankCols=[];
-  for(const [sx0,sx1] of freeSpans(x0+tw+2,x1-tw-2,ty0-2,ty1+2,(tw+2)*2)){
-    const n=Math.max(1,Math.round((sx1-sx0)/(tw*5)));
-    for(let k=0;k<n;k++)tankCols.push(Math.round(sx0+(sx1-sx0)*((k+0.5)/n)));
-  }
-  for(const tx of tankCols){
-    slab(tx-tw-1,ty0-2,tx+tw+1,ty0-1,STONE,1);            // cap
-    slab(tx-tw-1,ty1+1,tx+tw+1,ty1+2,STONE,1);            // base plinth
-    for(let y=ty0;y<=ty1;y++){
-      putCell(tx-tw,y,GLASS,1);frozen[idx(tx-tw,y)]=1;    // the glass shell
-      putCell(tx+tw,y,GLASS,1);frozen[idx(tx+tw,y)]=1;
-      for(let x=tx-tw+1;x<tx+tw;x++){
-        const gi=idx(x,y);
-        grid[gi]=ACID;variant[gi]=ACID_VESSEL|(Math.random()<0.2?1:0);frozen[gi]=1;
-      }
-    }
-    // A dropper from the ceiling conduit down to the tank cap — but only where
-    // its whole run is clear, so it never draws a wire across a panel.
-    if(!blocked(tx-1,conduitY,tx+1,ty0-2)){
-      for(let y=conduitY+1;y<ty0-2;y++){
-        const gi=idx(tx,y);
-        grid[gi]=FUSE;variant[gi]=0;frozen[gi]=0;
-      }
-    }
-    wakeRect(tx-tw-2,ty0-3,tx+tw+2,ty1+3);
-    pixDirtyRect(tx-tw-2,ty0-3,tx+tw+2,ty1+3);
-  }
-  /* Apparatus goes in the half-steps between tank centres — the space the
-     tanks are not using. Cylinders are the same chemistry at a different
-     scale, so the room stores what it is lit by; the crates are the only
-     timber down here, which makes them the one thing the ceiling's live fuse
-     can actually set alight. */
-  const kit=['console','crates','cylinder','console','crates'];
-  let n=0;
-  for(const [sx0,sx1] of freeSpans(x0+6,x1-6,floor-18,floor,18)){
-    // one piece per free run, offset off the run's centre so it does not line
-    // up with the tank that is already standing there
-    propClear(kit[n%kit.length],Math.round(sx0+(sx1-sx0)*0.22),floor-2,box);
-    propClear(kit[(n+2)%kit.length],Math.round(sx0+(sx1-sx0)*0.78),floor-2,box);
-    n++;
-  }
-}
-
-/* ── THE ARCADE ──
-   Two cabinet designs alternating, plus a machine at each end. The previous
-   version stacked rectangles: the right silhouette and nothing else — no
-   bezel, no coin door, no kickplate, and all six identical, so a row of them
-   read as a fence rather than as an arcade.
-
-   Everything here is timber with glass in it, and that is deliberate: the
-   screens ARE the lighting, so a cabinet that burns takes the light with it. */
-function furnishArcade(box){
-  const {floor,x0,x1}=box;
-  const cabs=6;
-  for(let k=0;k<cabs;k++){
-    const cx=Math.round(x0+(x1-x0)*((k+0.5)/cabs));
-    propClear(k%3===1?'lowboy':'cabinet',cx,floor-3,box);
-  }
-  propClear('vending',x0+9,floor-3,box);
-  propClear('vending',x1-9,floor-3,box);
-}
-
-function furnishRooms(){
-  const fns={workshop:furnishWorkshop,crypt:furnishCrypt,arcade:furnishArcade,core:furnishCore};
-  for(const id in fns){
-    const box=ROOM_BOX[id];
-    if(box&&!box.exhibit)fns[id](box);
-  }
-}
-
 function spawnNaturalLandscape(){
-  // The meadow is anchored to the FIRST SCREEN (VH), not to the world floor.
-  // Everything from there down to H is strata — see spawnStrata below. This is
-  // the one substantive change to the landscape: every proportion that used to
-  // be a fraction of the world is now a fraction of the opening view, which is
+  // The meadow is anchored to the SCREEN (VH). H and VH are the same number
+  // now, but every proportion here is written against VH rather than the world
+  // floor, which is what let the descent grow underneath it without moving a
   // what those numbers were always really tuned against.
   const soilDepth=Math.max(4,Math.floor(VH*0.02));
   // gentler rolling hills — sprites now carry the visual rhythm,
@@ -7641,9 +5364,7 @@ function spawnNaturalLandscape(){
 ═══════════════════════════════════════════════════════ */
 function spawnContent(){
   grid.fill(0);variant.fill(0);frozen.fill(0);inChunk.fill(0);
-  spriteBodies.length=0;
   birds.length=0;
-  ghosts.length=0;
   cats.length=0;
 
   // ─── meadow & pond landscape ───
@@ -8311,14 +6032,6 @@ function grabAt(sx,sy){
       dragOffX=dragBody.x-sx;dragOffY=dragBody.y-sy;return true;
     }
   }
-  // then the furniture. A dormant prop has to be activated before it can be
-  // dragged: until then its pixels belong to the grid, not to the body.
-  const sb=sbAt(sx,sy);
-  if(sb){
-    sbActivate(sb);
-    dragBody=sb;sb.dragging=true;sb.sleeping=false;sb.sleepT=0;
-    dragOffX=sb.x-sx;dragOffY=sb.y-sy;return true;
-  }
   return false;
 }
 function dragTo(sx,sy){
@@ -8684,147 +6397,6 @@ function drawBirds(){
 
 
 /* ═══════════════════════════════════════════════════════
-   GHOSTS — the vaults' residents
-
-   Snap's ghost, haunting the room that holds the Snap work. Agents on the same
-   overlay canvas the birds and cats use, so they cost the cellular automaton
-   nothing and are not subject to it.
-
-   Deliberately NOT boids. Flocking is a description of birds — separation,
-   alignment, cohesion, a shared heading — and a crypt full of ghosts moving in
-   formation reads as a flock of sheets. These drift independently on a slow
-   bob, mind only two things (the walls of their room and the cursor), and are
-   otherwise unaware of each other.
-
-   They are also drawn rather than stamped. A ghost in the grid would be a
-   material, and every material here is something you can burn, dissolve or
-   pile sand on; the one thing a ghost should be is untouchable.
-═══════════════════════════════════════════════════════ */
-const ghosts=[];
-const GHOST_HW=6;              // half-width of the body, in cells
-const GHOST_H=17;              // total height, in cells
-const GHOST_HEM=4;             // how many bottom rows ripple
-
-function spawnGhost(x,y){
-  ghosts.push({
-    x,y,
-    vx:(Math.random()<0.5?-1:1)*(0.10+Math.random()*0.13),
-    vy:(Math.random()-0.5)*0.06,
-    // Per-ghost phase AND rate. A shared rate makes every hem in the room
-    // ripple on the same beat, which reads as one animation playing six times
-    // rather than as six things.
-    phase:Math.random()*Math.PI*2,
-    rate:0.020+Math.random()*0.018,
-  });
-}
-/* Populate the vaults. Spread across the room's width at staggered heights so
-   they are not a row; the count scales with how wide the window actually is,
-   because six ghosts in a narrow room is a crowd and in a wide one is a
-   scattering. */
-function spawnGhosts(){
-  ghosts.length=0;
-  const box=ROOM_BOX.crypt;
-  if(!box)return;
-  const n=Math.max(3,Math.min(8,Math.round((box.x1-box.x0)/46)));
-  for(let k=0;k<n;k++){
-    const fx=(k+0.5)/n;
-    spawnGhost(box.x0+(box.x1-box.x0)*fx,
-               box.ceil+(box.floor-box.ceil)*(0.22+0.5*Math.random()));
-  }
-}
-
-function updateGhosts(){
-  const box=ROOM_BOX.crypt;
-  if(!box||!ghosts.length)return;
-  const bx0=box.x0+GHOST_HW+2, bx1=box.x1-GHOST_HW-2;
-  const by0=box.ceil+GHOST_H+1, by1=box.floor-3;
-  for(const g of ghosts){
-    g.phase+=g.rate;
-    g.x+=g.vx;
-    g.y+=g.vy+Math.sin(g.phase*0.8)*0.075;
-
-    /* ── what a ghost will not pass through ──
-       Brick, yes: drifting through a pillar is the entire point, and it is the
-       one thing in this world that can. The work, no. The panels are stamped
-       into the grid as MASK, and a translucent sprite crossing body copy is a
-       legibility bug wearing a costume — so MASK is the one material a ghost
-       turns around at. Sampled a body-width ahead so the turn happens before
-       any part of it is over the text. */
-    const ax=(g.x+(g.vx>=0?1:-1)*(GHOST_HW+3))|0, ay=g.y|0;
-    if(ax>0&&ax<W&&ay>0&&ay<H&&grid[idx(ax,ay)]===MASK)g.vx=-g.vx;
-    const ny=(g.y+(g.vy>=0?1:-1)*(GHOST_H*0.6))|0, nx=g.x|0;
-    if(nx>0&&nx<W&&ny>0&&ny<H&&grid[idx(nx,ny)]===MASK)g.vy=-g.vy;
-
-    // ── spooked ──
-    // Shy away from the cursor, so sweeping through the room scatters them and
-    // they settle again a moment later. The only handle the visitor gets on
-    // something they otherwise cannot touch.
-    const dx=g.x-mouseSimX, dy=g.y-mouseSimY, d2=dx*dx+dy*dy;
-    if(d2<1200&&d2>1){
-      const d=Math.sqrt(d2), push=0.055*(1-d/34.6);
-      g.vx+=dx/d*push; g.vy+=dy/d*push;
-    }
-
-    // Bleed the scare off and hold a slow drift. Without the floor on |vx| a
-    // ghost that gets pushed to a standstill just hangs there.
-    g.vx*=0.985; g.vy*=0.965;
-    g.vx=Math.max(-0.55,Math.min(0.55,g.vx));
-    g.vy=Math.max(-0.40,Math.min(0.40,g.vy));
-    if(Math.abs(g.vx)<0.07)g.vx=g.vx>=0?0.07:-0.07;
-
-    if(g.x<bx0){g.x=bx0;g.vx=Math.abs(g.vx);}
-    if(g.x>bx1){g.x=bx1;g.vx=-Math.abs(g.vx);}
-    if(g.y<by0){g.y=by0;g.vy=Math.abs(g.vy);}
-    if(g.y>by1){g.y=by1;g.vy=-Math.abs(g.vy);}
-  }
-}
-
-/* Draw one ghost as rows rather than as a bitmap.
-
-   The silhouette is Snap's: a dome that widens over the first few rows, then
-   straight sides, then a hem that ripples. Rows are one fillRect each — a
-   per-pixel loop would be ~220 rects per ghost, and the hem is the only part
-   that actually needs per-column work.
-
-   The hem is a sine in x offset by the ghost's own phase, so the bottom edge
-   travels sideways as it ripples instead of pulsing in place. */
-function drawGhost(g){
-  const x=g.x|0, y=g.y|0;                 // y is the ghost's BOTTOM row
-  const top=y-GHOST_H+1;
-  const hemTop=y-GHOST_HEM+1;
-  for(let r=top;r<hemTop;r++){
-    const t=(r-top)/5;
-    // dome: quarter-sine to full width over the first five rows
-    const hw=t<1 ? Math.max(1,Math.round(GHOST_HW*Math.sin(t*Math.PI*0.5))) : GHOST_HW;
-    bctx.fillRect(x-hw,r,hw*2+1,1);
-  }
-  for(let dx=-GHOST_HW;dx<=GHOST_HW;dx++){
-    const wave=Math.sin(dx*0.85+g.phase*2.1);
-    const edge=y-Math.round(1.7*(1+wave));
-    if(edge>=hemTop)bctx.fillRect(x+dx,hemTop,1,edge-hemTop+1);
-  }
-  // eyes, punched back out of the body
-  bctx.save();
-  bctx.globalCompositeOperation='destination-out';
-  bctx.fillRect(x-4,top+5,2,3);
-  bctx.fillRect(x+3,top+5,2,3);
-  bctx.restore();
-}
-function drawGhosts(){
-  if(birdCanvas.width!==W||!ghosts.length)return;
-  bctx.save();
-  for(const g of ghosts){
-    // cheap cull: the overlay is one screenful and most ghosts are not on it
-    if(g.y<camY-GHOST_H||g.y>camY+VH+GHOST_H)continue;
-    // Breathe the opacity, out of phase with the hem so a ghost is never at
-    // once at its faintest and at its stillest.
-    bctx.globalAlpha=0.34+0.20*Math.sin(g.phase*0.55+1.1);
-    bctx.fillStyle='#cfe4ff';
-    drawGhost(g);
-  }
-  bctx.restore();
-}
-
 /* ═══════════════════════════════════════════════════════
    CATS — small ground-roaming critters. They walk on top of
    whatever terrain is currently there (sand/grass/dirt/sprite
@@ -9242,12 +6814,32 @@ window.addEventListener('resize',()=>{
 /* ═══════════════════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════════════════ */
-// wait one frame so the DOM resume has been laid out before we measure & stamp
-requestAnimationFrame(()=>{
-  spawnContent();
-  buildBodies();
-  physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
-});
+/* Wait for the webfonts, THEN one frame, before we measure and stamp.
+   stampGlyphMask rasterises the live computed style into the collision grid,
+   and spawnArtifacts bakes poster labels into GL textures — both read whatever
+   face is resolved at the instant they run. Boot on the first frame instead
+   and GROUT/MEK Mono arrive afterwards: the sand keeps colliding with the
+   shape of Courier's letters while the screen shows MEK Mono's, and every
+   poster label is baked in the fallback for the life of the page.
+   fonts.ready also resolves after layout, so the clamp()ed nameplate has
+   already settled at its real measure. It never rejects; the catch is for
+   browsers old enough to lack document.fonts, where the fallback stack is what
+   renders anyway and one frame is the old correct answer. */
+/* fonts.ready alone is not enough: it waits only for faces the document
+   already USES, and on the surface nothing does — #resume is empty and every
+   window is closed, so it resolves instantly with both files still unfetched
+   and the first poster bake lands in Courier. Asking for each face by name
+   starts the load; fonts.ready then also covers the layout settling. */
+Promise.resolve(document.fonts && Promise.all([
+    document.fonts.load('400 16px GROUT'),
+    document.fonts.load('400 16px "MEK Mono"'),
+  ]).then(()=>document.fonts.ready))
+  .catch(()=>{})
+  .then(()=>requestAnimationFrame(()=>{
+    spawnContent();
+    buildBodies();
+    physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
+  }));
 
 let lastSim=0,simAcc=0,frameNo=0;
 // Rolling estimate of what one sim step costs, in ms. A busy world (a big acid
@@ -9272,7 +6864,6 @@ function loop(ts){
     if((frameNo&3)===0)updateWindowMasks();
     updateBodies();
     restampBodies();
-    updateSpriteBodies();
     simAcc+=ts-lastSim;
     const stepMs=14/simSpeed;
     // floor the divisor: on an idle world the EMA decays toward zero, and a
@@ -9285,7 +6876,7 @@ function loop(ts){
     // allowing one step so a heavy simulation continues to make progress.
     while(simAcc>=stepMs&&n<maxN&&(n===0||performance.now()-simStart<SIM_BUDGET_MS)){
       const t0=performance.now();
-      doRain();doAmbient();simulate();updateChunks();updateBoids();updateGhosts();updateCats();
+      doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();
       stepCostMs+=((performance.now()-t0)-stepCostMs)*0.15; // EMA, ~15 frames to settle
       simAcc-=stepMs;n++;
     }
@@ -9298,7 +6889,6 @@ function loop(ts){
   updateBurns(ts); // push fresh burn holes into the DOM even while paused
   renderAll();
   drawBirds();
-  drawGhosts();
   drawCats();
   updateEvil();
   requestAnimationFrame(loop);
@@ -10038,6 +7628,43 @@ requestAnimationFrame(loop);
       <p class="rainbow">THANKS FOR VISITING ~ COME BACK SOON!</p>
       <p style="margin-top:8px"><span class="under-const">⚠ UNDER CONSTRUCTION ⚠</span></p>
     `},
+    /* The type credit. A colophon is the one window that has to be set in the
+       faces it is crediting, so each specimen line names its own face and the
+       CSS variables do the rest — reword the copy and the specimens follow. */
+    colophon: { title:'Colophon — Type & Credits', icon:'floppy', theme:'desktop', html:`
+      <h2>Colophon</h2>
+      <div class="sub">What this page is set in</div>
+      <div class="meta">And who to thank for it</div>
+
+      <h3>GROUT Display</h3>
+      <p class="spec-grout">Headings &amp; the nameplate</p>
+      <p>Letters built out of tiles with the grout left in — which is why it
+      belongs on a page made of square particles. It has one weight, no italic,
+      and a fourteen-row grid it wants to sit on, so it is used large.</p>
+
+      <h3>MEK Mono</h3>
+      <p class="spec-mono">Monospace: terminals, counters, captions &amp; the marquee</p>
+      <p>A narrow geometric mono — a 0.45em cell against Courier New's 0.6em.
+      Broad coverage: Latin Extended, Greek, arrows and maths.</p>
+
+      <h3>Credits</h3>
+      <p>Both faces are by <b>Michael Alexander</b>, released as
+      <b>MEK Type</b>.</p>
+      <p><a href="https://www.mek.gallery/mektype" target="_blank" rel="noopener">mek.gallery/mektype</a></p>
+      <blockquote>Used here with the type credited on this screen. If you want
+      them on your own work, get them from MEK rather than from this
+      page.</blockquote>
+
+      <h3>Everything else</h3>
+      <ul>
+        <li><b>Tahoma / MS Sans Serif</b> — the taskbar, title bars and menus.
+        Left as they were on purpose: the chrome is a Windows 95 impression,
+        and it stops being one in a different typeface.</li>
+        <li><b>The name in the sky</b> is not type at all — it is a hand-drawn
+        nine-row bitmap stamped straight into the sand (<i>WM_GLYPHS</i>).</li>
+      </ul>
+      <div class="tags"><span class="tag">GROUT Display</span><span class="tag">MEK Mono</span><span class="tag">MEK Type</span></div>
+    `},
   };
 
   const DIRECTORY = [
@@ -10067,6 +7694,7 @@ requestAnimationFrame(loop);
     { type:'item', id:'education', label:'Education', icon:'book' },
     { type:'sep' },
     { type:'item', id:'about', label:'About Me', icon:'user' },
+    { type:'item', id:'colophon', label:'Colophon — type & credits', icon:'floppy' },
     { type:'item', id:'contact', label:'Contact', icon:'mail', href:'https://www.linkedin.com/in/mitchell-kuppersmith' },
   ];
 
