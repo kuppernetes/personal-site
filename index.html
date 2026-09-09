@@ -39,8 +39,6 @@ html,body{
      chrome and off screen. dvh tracks the visible area. The vh line stays as a
      fallback for browsers without dvh; the later declaration wins where it's
      supported. window.innerHeight (computeDims) already matches dvh. */
-  /* SPIKE: the page scrolls now. #scrollSpacer supplies the height and #stage
-     is fixed over it, so the world is a camera window rather than a document. */
   width:100%;min-height:100vh;min-height:100dvh;font-family:'Courier New',monospace;
   background:
     /* clouds */
@@ -55,23 +53,6 @@ html,body{
     linear-gradient(180deg, #2c6cb8 0%, #5a9ddc 35%, #9ec9ea 60%, #d6e7f1 72%, #d6e7f1 100%);
 }
 #stage{position:fixed;inset:0;width:100%;height:100vh;height:100dvh;z-index:1}
-/* height set from JS (WORLD_SCREENS x viewport) — this is the whole scrollbar */
-#scrollSpacer{position:relative;width:100%;pointer-events:none}
-
-/* ── WORLD LAYER ──
-   Content that lives at a DEPTH rather than on the screen. It sits above the
-   sim canvas and below #uiLayer, and the whole layer is translated by the
-   camera, so a panel positioned at top:4000px stays parked at that world row
-   while the frame slides past it.
-
-   Why DOM and not a texture baked into the grid: the sim canvas backing store
-   is exactly one pixel per sim cell — that is what makes the world read as
-   pixel art — so anything drawn INTO the world is capped at cell resolution
-   and body copy stamped there is illegible. Keeping the panel as DOM keeps the
-   text crisp, selectable, crawlable and reachable by a screen reader, and
-   costs nothing, because burning was never about the pixels: it runs off the
-   MASK footprint in the grid and punches the real element with clip-path. */
-#worldLayer{position:absolute;inset:0;pointer-events:none;z-index:6;will-change:transform}
 /* The room is a composition of equipment, not a grid of floating cards.
    Only the readable instrument surfaces receive burn/collision masks; the
    large open diorama remains directly touchable falling-sand terrain. */
@@ -1452,12 +1433,9 @@ html,body{
 
 </defs></svg>
 
-<div id="scrollSpacer"></div>
-
 <div id="stage">
   <canvas id="simCanvas"></canvas>
   <canvas id="birdCanvas"></canvas>
-  <div id="worldLayer"></div>
   <div id="uiLayer">
     <section id="projectShelf" class="win95 is-dock" aria-label="Projects">
       <div class="win95-title">
@@ -1594,19 +1572,18 @@ const isFlamSprite=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY||m===ARTIFACT;
 // a raft instead of vanishing into the pond it fell in.
 const isBuoyant=m=>m===WOOD||m===LEAF||m===THATCH||m===BERRY;
 
-/* ═══ SCROLL CAMERA (spike) ═══
-   W,H are the WORLD grid. VH is how much of it one screenful shows, and camY is
-   the world row currently at the top of the screen. The canvas backing store is
-   W x VH — the world is taller than the frame, and scrolling slides the frame
-   down through it. camY is driven straight off window.scrollY, so the page's
-   own scrollbar is the camera control: no scrolljacking, no wheel handler,
-   keyboard paging and touch momentum come free.
+/* ═══ THE FRAME ═══
+   The world is exactly one screenful: H === VH, and camY is pinned at 0.
 
-   Everything downstream splits into two coordinate spaces:
+   It was not always. A scroll-driven camera let the frame slide down through a
+   ten-screen world of rooms cut into the rock, and every coordinate downstream
+   still carries the two spaces that spike introduced:
      world cells   — grid[], sim rules, sprites, landscape       (y = 0..H-1)
      screen cells  — the texture window, light buffers, pointers (y = 0..VH-1)
-   and the only conversion between them is camY. */
-let WORLD_SCREENS=10,DEPTH_LAYOUT;
+   with camY as the only conversion between them. Keeping that split costs
+   nothing while camY is zero, and it is what the descent would come back to.
+   See the pixel-world-scroll branch. */
+let DEPTH_LAYOUT;
 // Preserve the long descent on desktop, but give stacked exhibits a physical
 // minimum height on phones and short windows. Content never shares a footprint.
 function exhibitBounds(cells,scale){
@@ -1654,20 +1631,13 @@ function cardBox(m,i){
   return {x:m.gridX+(i%m.cols)*(m.cardWidth+m.gap),y:m.gridY+Math.floor(i/m.cols)*(m.cardHeight+m.gap),
     width:m.cardWidth,height:m.cardHeight};
 }
-function worldBands(vw,vh){
-  const scale=Math.max(4,Math.round(Math.sqrt(vw*vh)/346));
-  const width=exhibitBounds(Math.floor(vw/scale),scale).width;
-  const bands={surface:{top:0,bot:1.05}};
-  let top=1.05;
-    // Counts must match WORLD_PANELS. They are written out rather than derived
-  // because worldBands runs from computeDims during boot, before WORLD_PANELS
-  // is initialised; tools/exhibit-check.cjs asserts the two agree.
-  for(const [id,count] of [['workshop',1],['crypt',3],['arcade',6],['core',1]]){
-    const minimum=roomMetrics(width,count).height+Math.max(90,vh*.10)+60;
-    const height=minimum/vh+.36+(id==='core'?.45:0);
-    bands[id]={top,bot:top+height,minRoom:minimum};top+=height;
-  }
-  return {bands,total:top,columns:width<720?1:2};
+/* One band, one screenful. This returned a stack of them — a share of the
+   world's height for each room of the descent, derived from how much content
+   that room had to hold — and computeDims still multiplies `total` by VH to
+   get H, so putting the descent back is a matter of handing this function its
+   bands again. */
+function worldBands(){
+  return {bands:{surface:{top:0,bot:1}},total:1};
 }
 let W,H,VH,SCALE;
 let camY=0;                   // world row at the top of the screen
@@ -1701,7 +1671,7 @@ function computeDims(){
   // reallocate and re-roll the whole scene for a few pixels of drag.
   if(s===SCALE&&nW===W&&nH===H)return false;
   SCALE=s;W=nW;VH=nVH;H=nH;
-  DEPTH_LAYOUT=layout;WORLD_SCREENS=H/VH;
+  DEPTH_LAYOUT=layout;
   // Backing store is one screenful, not the whole world: the frame is what we
   // draw, the world is what we sample from.
   canvas.width=W;canvas.height=VH;
@@ -1717,38 +1687,11 @@ function computeDims(){
 }
 computeDims();
 
-/* The scroll surface. #scrollSpacer is an empty div whose only job is to give
-   the document a scrollable height of WORLD_SCREENS viewports; #stage is fixed
-   on top of it, so nothing in the existing UI moves. Reading scrollY in the
-   scroll handler (rather than accumulating deltas) keeps the camera exact
-   through momentum, anchor jumps and browser scroll restoration alike. */
-const scrollSpacer=document.getElementById('scrollSpacer');
-function syncScrollHeight(){
-  if(scrollSpacer)scrollSpacer.style.height=(WORLD_SCREENS*100)+'dvh';
-}
-syncScrollHeight();
-let camDirty=true;            // camera moved: light buffers must be rebuilt
-function setCam(y){
-  const maxY=Math.max(0,H-VH);
-  const ny=Math.max(0,Math.min(maxY,Math.round(y)));
-  if(ny===camY)return;
-  camY=ny;camDirty=true;
-  syncWorldLayer();
-}
-/* One transform for every panel at once. Panels are positioned at world pixel
-   coordinates inside #worldLayer and never move; the layer slides. That keeps
-   this to a single compositor-friendly write per scroll rather than a style
-   write per panel, and it means a panel's world position is a constant the
-   rest of the code can trust. */
-function syncWorldLayer(){
-  const wl=document.getElementById('worldLayer');
-  if(wl)wl.style.transform='translate3d(0,'+(-camY*SCALE)+'px,0)';
-}
-function syncCamFromScroll(){ setCam(window.scrollY/SCALE); }
-/* Spike instrumentation. Grouped on one global rather than five so it is
-   obvious what to delete when the spike either lands or is abandoned. */
+let camDirty=true;            // the light buffers must be rebuilt
+/* Offline instrumentation, grouped on one global so it is obvious what the
+   node checks in tools/ are allowed to reach for. */
 window.__spike=Object.assign(
-  ()=>({camY,W,H,VH,SCALE,scrollY:window.scrollY,physicsOn,stepCostMs}),
+  ()=>({camY,W,H,VH,SCALE,physicsOn,stepCostMs}),
   {
     // material histogram over a band of world rows
     hist:(y0,y1)=>{const h={};for(let y=y0;y<y1;y++)for(let x=0;x<W;x++){const m=grid[y*W+x];h[m]=(h[m]||0)+1;}return h;},
@@ -1758,71 +1701,26 @@ window.__spike=Object.assign(
     bbox:m=>{let x0=1e9,y0=1e9,x1=-1,y1=-1;for(let y=0;y<H;y++)for(let x=0;x<W;x++){if(grid[y*W+x]!==m)continue;if(x<x0)x0=x;if(y<y0)y0=y;if(x>x1)x1=x;if(y>y1)y1=y;}return{x0,y0,x1,y1};},
     at:(x,y)=>({m:grid[y*W+x],frozen:frozen[y*W+x],rgb:artRGB[y*W+x].toString(16)}),
   });
-window.addEventListener('scroll',syncCamFromScroll,{passive:true});
-syncCamFromScroll();
 
 /* ═══ ZONES ═══
-   The descent is not one continuous stratum any more. Below the meadow the
-   world is a stack of ROOMS, one per category of the work, and going down goes
-   BACKWARD IN TIME: the current job is the first thing you reach, school is at
-   the bottom of the shaft.
+   One zone, the meadow, spanning the whole world.
 
-   A zone owns four things, and they map one-to-one onto machinery that already
-   existed for the undifferentiated version:
-
-     wall   → strataMat   : what the bulk rock between rooms is made of
-     build  → spawnStrata : carves the room itself and stamps its set dressing
-     back   → the shader's `ug` backdrop colour, crossfaded on world row
-     cat    → which WORLD_PANELS live here
+   A zone owns what the rock between the rooms of the descent was made of, what
+   built the room, the backdrop colour the shader crossfades on world row, and
+   which panels lived at that depth. With only the surface left, the first
+   three are unused and the fourth has nothing to point at — but the machinery
+   downstream (zoneAt, the packed zone uniforms, strataMat's suites) is
+   general over the list and needs no special case for a list of one.
 
    Bounds are in SCREENFULS, not cells, because VH is not known until
-   computeDims has run and changes on every resize. zoneRows() converts.
-
-   `light` is the colour the zone is lit BY, and it is a real constraint rather
-   than a palette note: the only emissive materials are FIRE, FUSE, BOMB, ACID,
-   GLASS and LAVA, so each room has to earn its light out of that set. The lab
-   glows green because acid glows green. */
+   computeDims has run and changes on every resize. zoneRows() converts. */
 const ZONES=[
-  /* The `back` pairs are [ceiling colour, floor colour]. Quiet, shaded rear
-     walls sit below the value of props and masonry. Underground uses sixteen
-     hue-preserving luminance steps so these muted colours stay distinct. */
-  /* `bg` picks the motif the zone's parallax back layer is built from:
-     0 = a far colonnade, 1 = pipework and tanks, 2 = racking. It is a float
-     and it is interpolated between zones, so a value between two motifs is a
-     legitimate thing to ask for. The surface never shows it — ugK is zero
-     above the horizon — but it still has to carry a value for the crossfade
-     into the workshop to have something to come from. */
-  {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.05, bg:2,
+  /* The `back` pair is [ceiling colour, floor colour] for the underground
+     backdrop, and `bg` picks the motif its parallax layer is built from. The
+     surface never shows either — ugK is zero above the horizon — but the
+     shader reads both unconditionally, so they still have to be here. */
+  {id:'surface', cat:null,    label:'MEADOW',     top:0.00,bot:1.00, bg:2,
    back:[[0.300,0.228,0.176],[0.272,0.204,0.158]]},
-  /* The first thing under the turf is the person, not the work. Warm timber
-     and lamplight, directly below the cottage on the meadow — it reads as that
-     cottage's cellar, which is why it can be personal without a label saying
-     so, and why the cold rooms underneath it land as a change of subject. */
-  {id:'workshop',cat:'about',  label:'THE WORKSHOP',top:1.05,bot:2.45,
-   bg:2,
-   back:[[0.190,0.145,0.120],[0.125,0.100,0.090]]},
-  {id:'crypt',   cat:'snap',   label:'THE VAULTS', top:2.45,bot:4.15,
-   bg:0,
-   back:[[0.135,0.180,0.210],[0.095,0.130,0.165]]},
-  /* Games and the hackathon/installation work share one room. They were two,
-     and splitting them implied a distinction the work does not have: a jam
-     entry, an award-winning hack and a room-sized flytrap are all the same
-     move — build the strange interaction first and let the project follow.
-     One room also means a visitor sees the whole run of it at once instead of
-     meeting it two rooms apart. */
-  {id:'arcade',  cat:'play',   label:'THE ARCADE', top:4.15,bot:6.30,
-   bg:2,
-   back:[[0.165,0.120,0.205],[0.110,0.085,0.145]]},
-  /* The only zone whose ramp runs from cool to hot rather than bright to dark:
-     the hall at the top is pale stone, and the further down you look the more
-     of the magma under it you are seeing. It also has to start pale, because
-     the colonnade is stone and stone against a saturated orange backdrop reads
-     as silhouette rather than as marble. */
-  /* A charcoal ceiling gives the pale colonnade a clear silhouette; the
-     muted amber at its feet anticipates the magma below. */
-  {id:'core',    cat:'edu',    label:'THE CORE',   top:6.30,bot:9.00,
-   bg:0,
-   back:[[0.175,0.155,0.150],[0.280,0.165,0.105]]},
 ];
 // world-cell row bounds for a zone. Clamped to the grid so the last zone always
 // reaches the floor no matter how the fractions round.
@@ -1831,20 +1729,14 @@ function zoneAt(y){
   for(let i=ZONES.length-1;i>=0;i--){if(y>=ZONES[i].top*VH)return ZONES[i];}
   return ZONES[0];
 }
-const zoneById=id=>ZONES.find(z=>z.id===id);
-
-// Art direction by depth: quiet geology, lighter construction, coloured glass.
-// Cached per row so the hot pixel path never has to search the zone list.
-const UNDERGROUND_PALETTE={
-  workshop:{rock:[77,67,61],earth:[101,73,49],cut:[153,137,111],brick:[151,91,64],wood:[137,91,49],glass:[239,196,113],light:[0.52,0.31,0.10]},
-  crypt:   {rock:[65,76,83],earth:[84,78,62],cut:[141,158,157],brick:[111,130,132],wood:[109,85,63],glass:[143,221,226],light:[0.16,0.36,0.42]},
-  arcade:  {rock:[76,65,85],earth:[96,69,73],cut:[163,145,169],brick:[130,91,133],wood:[119,78,109],glass:[148,212,244],light:[0.22,0.27,0.46]},
-  core:    {rock:[77,66,66],earth:[103,72,54],cut:[180,166,137],brick:[143,99,77],wood:[129,87,52],glass:[245,209,145],light:[0.47,0.29,0.12]},
-};
 let grid,variant,frozen,updated,inChunk,maskOwner,artRGB,depthArt;
 function allocArrays(){
   for(const z of ZONES)Object.assign(z,DEPTH_LAYOUT.bands[z.id]);
-  depthArt=Array.from({length:H},(_,y)=>y>=VH*1.05?UNDERGROUND_PALETTE[zoneAt(y).id]:null);
+  /* Per-row art direction for a row that is underground: quiet geology,
+     lighter construction, coloured glass. Every row of a one-screen world is
+     above the horizon, so every entry is null and the two readers downstream
+     take their surface path. */
+  depthArt=new Array(H).fill(null);
   grid=new Uint8Array(W*H);
   variant=new Uint8Array(W*H);
   frozen=new Uint8Array(W*H);
@@ -7590,7 +7482,9 @@ function spawnNaturalLandscape(){
       else putCell(x,y,strataMat(d,y,x));
     }
   }
-  spawnStrata(surf);
+  // Weathering last: it is the only rule that needs the voids — the pond bowl,
+  // and whatever the visitor has dug — to already exist.
+  spawnContacts();
 
   // pass 2 — pond bowl, banks, water
   const px0=Math.max(0,pondCX-pondRX-5.5|0),px1=Math.min(W-1,pondCX+pondRX+2.5|0);
@@ -7767,15 +7661,6 @@ function spawnContent(){
 
   // projects are now DOM content — no rigid-body region
   WORK_REGION=null;
-
-  // a hole through the turf, and the sign that says the world keeps going
-  carveShaft();
-  stampSignpost();
-  buildWorldPanels();
-  // Furniture last: it is the only layer that yields to the others. See the
-  // FURNISHING banner for what went wrong when it ran first.
-  furnishRooms();
-  spawnGhosts();
 
   spawnArtifacts();
 
@@ -8472,13 +8357,10 @@ function syncBrushRing(){
 }
 syncBrushRing();
 brushSliderEl.addEventListener('input',syncBrushRing);
-/* The canvas covers the whole viewport, so a wheel handler that swallows every
-   event is a wheel handler that makes the page unscrollable — and scrolling is
-   now how you move through the world. So the plain wheel belongs to the page,
-   and the brush moves to Alt+wheel (not Ctrl, which is browser zoom, and not
-   Shift, which is horizontal scroll). */
+/* The page does not scroll, so the canvas is free to keep the plain wheel and
+   spend it on the brush. Ctrl is left alone: that is browser zoom. */
 canvas.addEventListener('wheel',e=>{
-  if(!e.altKey)return;            // let it bubble: the document scrolls
+  if(e.ctrlKey)return;
   e.preventDefault();
   const v=+brushSliderEl.value+(e.deltaY<0?1:-1);
   brushSliderEl.value=Math.max(+brushSliderEl.min,Math.min(+brushSliderEl.max,v));
@@ -9352,7 +9234,6 @@ window.addEventListener('resize',()=>{
     if(!computeDims())return;
     // VH moved, so every zone boundary moved with it
     packZoneUniforms();
-    syncScrollHeight();syncCamFromScroll();syncWorldLayer();
     allocArrays();allocChunks();allocTexture();allocLight();
     spawnContent();buildBodies();syncBrushRing();
   },200);
@@ -9564,7 +9445,6 @@ requestAnimationFrame(loop);
      A full-width strip has nowhere to be dragged to, and the site's whole
      top-edge layout is measured from it. */
   const dockEl = document.getElementById('projectShelf');
-  let dockAuto = true;                    // false once the visitor takes over
   const dockRolled = ()=> !!dockEl && dockEl.classList.contains('is-rolled');
   function setDockRolled(on){
     if(!dockEl || dockRolled()===on) return;
@@ -9583,24 +9463,12 @@ requestAnimationFrame(loop);
     const act = fn => e => {
       if(e.type==='keydown' && e.key!=='Enter' && e.key!==' ') return;
       e.preventDefault(); e.stopPropagation();
-      dockAuto = false;                   // hands off: it stays where it is put
       fn();
     };
     ['click','keydown'].forEach(ev=>{
       rollBtn.addEventListener(ev, act(()=> setDockRolled(!dockRolled())));
       hideBtn.addEventListener(ev, act(()=> minimize(dockEl)));
     });
-    /* The index is for the meadow. Once the descent starts, the rooms are the
-       content and the shelf is in the way — so it rolls itself up, and unrolls
-       when you come back up to the surface. Touching either button ends that
-       for the session, because a control that keeps undoing you is worse than
-       one that never helped. */
-    const dockAutoSync = ()=>{
-      if(!dockAuto || dockEl.dataset.minimized==='1') return;
-      setDockRolled(window.scrollY > window.innerHeight*0.8);
-    };
-    window.addEventListener('scroll', dockAutoSync, {passive:true});
-    dockAutoSync();
   }
 
   // resume blocks: inject real tbtns into the h3 (replaces the ::after deco)
