@@ -2834,10 +2834,10 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      vec2 vres=vec2(uGrid.x,uCam.y);
      vec2 cell=floor(uv*vres);
      vec2 cuv=(cell+0.5)/vres;
-     // How far down we have scrolled, in screenfuls. The sky was authored for
-     // a one-screen world; shifting its vertical coordinate by depth means at
-     // camY=0 nothing changes at all, and descending simply carries the whole
-     // sky, hills and turbines up out of frame like real scenery.
+     // How far down we have scrolled, in screenfuls — zero, now that the world
+     // is one screen. The sky was authored for exactly that, and shifting its
+     // vertical coordinate by depth is what let a descent carry the whole sky,
+     // hills and turbines up out of frame like real scenery.
      float depth=uCam.x/uCam.y;
      float y=cuv.y-depth;                   // 0 = horizon plane, 1 = top of sky
 
@@ -3750,10 +3750,10 @@ function render(){
     const x0=rcMinX[c];
     if(x0===BIG)continue;
     const y0=rcMinY[c],x1=rcMaxX[c],y1=rcMaxY[c];
-    // Keep offscreen chunks dirty until the camera reveals them. Upload whole
-    // intersecting chunks, including a one-cell sampling margin, so a scroll
-    // always paints current terrain before drawing without processing all ten
-    // screens at boot or on every change in the sun's direction.
+    // Upload whole intersecting chunks, including a one-cell sampling margin,
+    // so what is drawn is always current terrain. The cull below is what kept
+    // a ten-screen world from being processed in full at boot and on every
+    // change in the sun's direction; at one screen it passes everything.
     if(y1<camY-1||y0>camY+VH)continue;
     // hand this chunk's rect to the next light pass before we clear it
     if(x0<edX0)edX0=x0; if(y0<edY0)edY0=y0;
@@ -5397,13 +5397,14 @@ function spawnContent(){
 // Walk every element with data-collide and stamp it into the sim grid as MASK.
 //   data-collide="text"  → per-glyph raster (sand falls into letter cavities)
 //   data-collide  (any)  → bounding-box rectangle (for cards with backgrounds)
-/* The static content is fixed to the SCREEN while the world scrolls under it,
-   so a mask stamped once would leave invisible ledges strewn down the shaft.
-   The two stampers therefore record SCREEN cells (y measured from the top of
-   the frame) into _domMaskScreen, and restampDOMMasks() projects that set into
-   the world at the current camY. Re-projecting is a flat array walk over cells
-   we already know about — the expensive halves, getBoundingClientRect and the
-   glyph rasterisation, run once at spawn and never again on scroll. */
+/* The static content is fixed to the SCREEN, so the two stampers record
+   SCREEN cells (y measured from the top of the frame) into _domMaskScreen and
+   restampDOMMasks() projects that set into the world at the current camY.
+   With camY pinned at 0 the projection is the identity and the re-stamp exits
+   on its first line; it earned its keep when the world scrolled under the
+   page, where a mask stamped once left invisible ledges strewn down the shaft.
+   Either way the expensive halves — getBoundingClientRect and the glyph
+   rasterisation — run once at spawn and never again. */
 let _domMaskScreen=[];   // screen cells (sy*W+sx) occupied by static content
 let _domMaskPlaced=[];   // world cells currently carrying that stamp
 let _domMaskCamY=-1;
@@ -5533,8 +5534,9 @@ function updateWindowMasks(){
      EACH, and a maximized window is ~25k cells - yet the union of all those
      3x3 stamps is just the window's own bbox grown by one. One pixDirtyRect
      and one wakeRect per window marks the identical chunk set for a fraction
-     of the work, which is what makes scrolling cheap: the camera moving
-     restamps every viewport-fixed window, once per four animation frames. */
+     of the work. Every viewport-fixed window is restamped once per four
+     animation frames, so this runs on a cadence whether or not anything
+     moved. */
   for(const i of _winMaskCells){
     if(grid[i]===MASK){grid[i]=EMPTY;variant[i]=0;}
     maskOwner[i]=0;
@@ -6815,21 +6817,25 @@ window.addEventListener('resize',()=>{
    BOOT
 ═══════════════════════════════════════════════════════ */
 /* Wait for the webfonts, THEN one frame, before we measure and stamp.
-   stampGlyphMask rasterises the live computed style into the collision grid,
-   and spawnArtifacts bakes poster labels into GL textures — both read whatever
-   face is resolved at the instant they run. Boot on the first frame instead
-   and GROUT/MEK Mono arrive afterwards: the sand keeps colliding with the
-   shape of Courier's letters while the screen shows MEK Mono's, and every
-   poster label is baked in the fallback for the life of the page.
-   fonts.ready also resolves after layout, so the clamp()ed nameplate has
-   already settled at its real measure. It never rejects; the catch is for
-   browsers old enough to lack document.fonts, where the fallback stack is what
-   renders anyway and one frame is the old correct answer. */
-/* fonts.ready alone is not enough: it waits only for faces the document
+
+   Two places bake a typeface in rather than reading it every frame:
+   stampGlyphMask rasterises an element's live computed style into the
+   collision grid, and makePanelTexture bakes a poster label into a GL texture.
+   Both are dormant on this branch — nothing carries data-collide yet and
+   buildBodies returns early — so today this gate changes nothing you can see.
+   It is here because the moment the resume DOM comes back, booting before the
+   faces land means the sand collides with the shape of Courier's letters while
+   the screen shows MEK Mono's, and that is a bug nobody would think to look
+   for in a font. The fetch is already in flight from the <link rel=preload> in
+   the head, so the wait is not a round trip.
+
+   fonts.ready alone is not enough: it waits only for faces the document
    already USES, and on the surface nothing does — #resume is empty and every
-   window is closed, so it resolves instantly with both files still unfetched
-   and the first poster bake lands in Courier. Asking for each face by name
-   starts the load; fonts.ready then also covers the layout settling. */
+   window is closed, so it resolves instantly with both files still unfetched.
+   Naming each face starts its load; fonts.ready then also covers layout
+   settling, which the clamp()ed nameplate wants. It never rejects — the catch
+   is for browsers with no document.fonts, where the fallback stack is what
+   renders anyway and one frame is the old correct answer. */
 Promise.resolve(document.fonts && Promise.all([
     document.fonts.load('400 16px GROUT'),
     document.fonts.load('400 16px "MEK Mono"'),
@@ -8029,8 +8035,9 @@ requestAnimationFrame(loop);
        scroll position every frame, so the drift yields for a moment after any
        touch; and a visitor who has asked their system for no motion gets none,
        which — with no button to press — is the only way they could stop it.
-       A wheel over the strip no longer stops it: the wheel scrolls the page
-       now, which is the camera, and the strip is not what is being aimed at. */
+       A wheel is not one of them, and over the strip it does nothing at all:
+       the track scrolls on one axis and a wheel offers the other. Over the
+       world it sizes the brush. */
     const pauseForInteraction=()=>{pauseUntil=performance.now()+3500;};
     shelf.addEventListener('pointerdown',()=>{touching=true;pauseForInteraction();});
     window.addEventListener('pointerup',()=>{if(touching)pauseForInteraction();touching=false;});
