@@ -26,11 +26,11 @@ function checkRender(W, VH, H) {
   const painted = new Uint8Array(W * H);
   const gl = new Proxy({}, { get: (_, key) => key === 'texSubImage2D' ?
     (target, level, x, y, width, height) => { uploads += width * height; } : () => {} });
-  const ctx = vm.createContext({ W, VH, H, camY: 0, BIG, rcMinX, rcMinY, rcMaxX, rcMaxY,
-    gl, updateSun() {}, dayFactor() { return 1; },
+  const ctx = vm.createContext({ W, VH, H, ncx: cols, camY: 0, BIG, rcMinX, rcMinY, rcMaxX, rcMaxY,
+    gl, updateSun() {}, prepareTexelCache() {}, dayFactor() { return 1; },
     fillTexel(x, y) { fills++; painted[y * W + x] = 1; },
     prog: 0, vbuf: 0, aloc: 0, tex: 0, texData: [],
-    uTimeLoc: 0, gTime: 0, uDayLoc: 0, uGridLoc: 0, uBarLoc: 0, TASKBAR_PX: 30, SCALE: 4,
+    uTimeLoc: 0, gTime: 0, uDayLoc: 0, uGridLoc: 0, TASKBAR_PX: 30, SCALE: 4,
     uCamLoc: 0, uShaftLoc: 0, SHAFT: null, uZoneColLoc: 0, zoneColBuf: [],
     uZoneCol2Loc: 0, zoneCol2Buf: [], uZoneTopLoc: 0, zoneTopBuf: [], uZoneStyleLoc: 0,
     zoneStyleBuf: [], uZoneFadeLoc: 0, uZoneNLoc: 0, ZMAX_JS: 8, ZONES: [0],
@@ -137,12 +137,59 @@ function checkBudget(cost, expected, physicsOn = true) {
   for (const name of ['buildLight', 'restampDOMMasks', 'updateWindowMasks', 'updateBodies',
     'restampBodies', 'updateSpriteBodies', 'doRain', 'doAmbient', 'updateChunks',
     'updateBoids', 'updateGhosts', 'updateCats', 'applyHoverFreeze', 'updateBurns',
-    'renderAll', 'drawBirds', 'drawGhosts', 'drawCats', 'updateEvil']) ctx[name] = () => {};
+    'renderAll', 'drawBirds', 'drawGhost', 'drawCats', 'updateEvil', 'flickerCaveLava']) ctx[name] = () => {};
   vm.runInContext(fn('loop'), ctx);
   ctx.loop(100);
   assert.equal(steps, expected, `${cost}ms steps, physics=${physicsOn}`);
 }
-checkBudget(12, 1); checkBudget(5, 2); checkBudget(1, 4); checkBudget(1, 0, false);
+checkBudget(12, 1); checkBudget(6, 1); checkBudget(5, 2); checkBudget(3, 3);
+checkBudget(1, 4); checkBudget(1, 0, false);
+
+// Compare batched wake regions with the original individual cell updates at
+// chunk seams, partial edge chunks and coordinates outside the world.
+const wakeCtx = vm.createContext({});
+vm.runInContext(`
+  const W=67,H=65,CW=32,ncx=Math.ceil(W/CW),BIG=1e9;
+  const n=ncx*Math.ceil(H/CW);
+  const dnMinX=new Int32Array(n),dnMinY=new Int32Array(n),dnMaxX=new Int32Array(n),dnMaxY=new Int32Array(n);
+  ${fn('clearNext')}
+  ${fn('wake')}
+  ${fn('wakeRect')}
+  ${fn('wake3')}
+  function snapshot(){return [dnMinX,dnMinY,dnMaxX,dnMaxY].map(a=>Array.from(a));}
+  function checkWake(x,y){
+    clearNext();
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)wake(x+dx,y+dy);
+    const expected=snapshot();clearNext();wake3(x,y);
+    return [snapshot(),expected];
+  }
+`, wakeCtx);
+for(let y=-2;y<=67;y++)for(let x=-2;x<=69;x++){
+  const [actual,expected]=wakeCtx.checkWake(x,y);
+  assert.deepEqual(actual,expected,`Wake neighbourhood at ${x},${y}`);
+}
+
+// Compare the optimized blur to the clamped stencil at edges and interiors.
+const blurCtx=vm.createContext({});
+vm.runInContext(fn('blurL'),blurCtx);
+function referenceBlur(a,tmp,w,h){
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x;
+    tmp[i]=(a[y*w+Math.max(0,x-1)]+a[i]*1.1+a[y*w+Math.min(w-1,x+1)])/3.1;
+  }
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const i=y*w+x;
+    a[i]=(tmp[Math.max(0,y-1)*w+x]+tmp[i]*1.1+tmp[Math.min(h-1,y+1)*w+x])/3.1;
+  }
+}
+for(const [w,h] of [[1,1],[1,8],[8,1],[17,13],[121,68]]){
+  const actual=Float32Array.from({length:w*h},(_,i)=>((i*37)%101)/31);
+  const expected=actual.slice(),tmp=new Float32Array(w*h),refTmp=new Float32Array(w*h);
+  for(let p=0;p<4;p++){
+    blurCtx.blurL(actual,tmp,w,h);referenceBlur(expected,refTmp,w,h);
+    assert.deepEqual(actual,expected,`Identical blur at ${w}x${h}, pass ${p}`);
+  }
+}
 
 let lightAllocations = 0, lightUpdates = 0;
 const lightGl = new Proxy({}, { get: (_, key) => {
@@ -160,7 +207,8 @@ vm.runInContext(`
   const rcMinX=[],rcMinY=[],rcMaxX=[],rcMaxY=[];
   let emX0=BIG,emY0=BIG,emX1=-1,emY1=-1,edX0=BIG,edY0=BIG,edX1=-1,edY1=-1;
   let lightScanAll=1,lightHadEmitters=true,camY=0,camDirty=true,lightNightQ=-1,hoverCells=[];
-  function dayFactor(){return 0;}
+  let testDay=0;
+  function dayFactor(){return testDay;}
   ${fn('allocLight')}
   ${fn('occRebuild')}
   ${fn('blurL')}
@@ -176,6 +224,34 @@ vm.runInContext('for(let n=0;n<3;n++){edX0=30;edY0=30;edX1=34;edY1=34;buildLight
 assert.equal(lightUpdates, 8, 'Each repainted region rebuilds and re-uploads both textures');
 vm.runInContext('allocLight();buildLight();', lightCtx);
 assert.equal(lightAllocations, 4, 'Resize reallocates both light textures');
+
+// Exercise extinction, moving shadows, dusk and a camera jump with the actual
+// blur and texture data. Reusing a buffer must never leave old light behind.
+vm.runInContext(`
+  let rgbBlurs=0,aoBlurs=0;
+  const actualBlur=blurL;
+  blurL=function(a,tmp,w,h){if(a===occBlur)aoBlurs++;else rgbBlurs++;actualBlur(a,tmp,w,h);};
+  OCC[1]=1;
+  testDay=1;grid.fill(0);grid[32*W+32]=1;
+  edX0=0;edY0=0;edX1=W-1;edY1=VH-1;buildLight();
+  globalThis.lightState=()=>({rgbBlurs,aoBlurs,core:Array.from(coreBuf),wide:Array.from(wideBuf)});
+`, lightCtx);
+let lightState=lightCtx.lightState();
+assert.equal(lightState.rgbBlurs,0,'Extinguished sources clear without blurring black channels');
+assert.equal(lightState.aoBlurs,3,'Changed solids rebuild occlusion');
+assert(lightState.core.some((v,i)=>i%4===3&&v>0),'A solid still casts occlusion');
+assert(lightState.wide.every((v,i)=>i%4===3||v===0),'Last source clears the wide glow');
+const darkUpdates=lightUpdates;
+vm.runInContext('grid[32*W+32]=0;edX0=32;edY0=32;edX1=32;edY1=32;buildLight();',lightCtx);
+assert.equal(lightUpdates,darkUpdates+1,'An unlit shadow update uploads only the core texture');
+assert(lightCtx.lightState().core.every(v=>v===0),'Removing the solid clears its shadow');
+vm.runInContext('for(let y=32;y<36;y++)for(let x=32;x<36;x++){grid[y*W+x]=GLASS;frozen[y*W+x]=1;}testDay=0;buildLight();',lightCtx);
+lightState=lightCtx.lightState();
+assert.equal(lightState.rgbBlurs,21,'Dusk restores both scales of glass light');
+assert.equal(lightState.aoBlurs,6,'Changing only the light reuses blurred occlusion');
+assert(lightState.wide.some((v,i)=>i%4!==3&&v>0),'Glass glow reaches the wide texture');
+vm.runInContext('camY=200;camDirty=true;buildLight();',lightCtx);
+assert(lightCtx.lightState().core.every(v=>v===0),'Camera jump clears offscreen light');
 
 // Exercise the complete robot script and its observer callbacks. No shader/GPU
 // behavior is emulated: only layout reads, draw requests, and scheduling count.

@@ -36,12 +36,29 @@ vm.runInContext([
   'globalThis.art={SPRITES,SPRITE_MATS,matTexel,STONE,DIRT,BRICK,WOOD,S_DEEP,S_SPRITE};'
 ].join('\n'), ctx);
 const a = ctx.art;
-/* ugK is not dead with the descent gone: it ramps in over the bottom ~14% of
-   the frame, which is the meadow's own subsoil. These two lines are what keep
-   that band from dithering against a world-anchored grid and from posterizing
-   into flat steps, and they are the reason the berm reads as earth. */
-assert(source.includes('float ud=0.5;'), 'Underground dithering must remain disabled');
-assert(source.includes('float levels=mix(7.0,31.0,ugK);'), 'Keep fine, hue-preserving underground light steps');
+/* The particle quantiser, which is what every sprite in here is drawn against.
+   These two lines used to read `float ud=0.5;` and `float levels=mix(7.0,31.0,
+   ugK);` — 32 undithered luminance levels underground, 8 Bayer-dithered ones
+   on the surface. The surface half of that was wrong in both halves.
+
+   EIGHT LEVELS is a 36-unit step, and SHADE — the four-step ramp every sprite
+   below is painted with — moves by 14, 22 and 38. So a LEAF's highlight
+   quantised onto the same level as its base and its deep shadow onto the same
+   level as its shadow, and a four-tone sprite rendered in two. BRICK, BERRY
+   and THATCH did the same; WOOD straddled a boundary and dithered into
+   speckle. Thirty-two levels is an 8.2-unit step and the whole ramp survives.
+
+   THE DITHER was ordered noise laid over authored matter. The dirt band, the
+   wordmark's sand letters and the worn foot path are flat colours with a
+   per-cell jitter, and they came out as checkerboard. Dither belongs on
+   gradients — the sky ramp, and nothing else — so the particle path takes a
+   plain round-to-nearest.
+
+   Asserted here because this tool draws sprites through matTexel and would
+   happily pass a contact sheet the browser then renders flat. */
+assert(source.includes('float levels=31.0;'), 'Particles keep 32 hue-preserving luminance levels above ground as well as below — 8 collapses the SHADE ramp to two tones');
+assert(/float pq=floor\(plum\*levels\+RND\)\/levels;/.test(source), 'Particles round to nearest: no ordered dither over authored matter');
+assert(!/dither\(cell\)/.test(source), 'No ordered dither anywhere in the fragment path; if it comes back it belongs to the sky gradient alone');
 /* There was a third assertion here: that a sprite's WOOD or BRICK cell comes
    out one flat authored colour. That was an UNDERGROUND property — it held
    because depthArt short-circuits the relief and jitter for a buried row, and

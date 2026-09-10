@@ -24,58 +24,14 @@
 <meta name="twitter:title" content="Mitchell Kuppersmith — Design Engineer">
 <meta name="twitter:description" content="AI-native AR for Spectacles at Snap — flagship lens experiences, system UI, and open-source developer tooling.">
 <meta name="twitter:image" content="https://kuppernetes.github.io/personal-site/images/projects/agent-center-poster.webp">
-<!-- The two webfonts, fetched during head parse. Boot blocks on them (see
-     BOOT) because the sim bakes DOM text into collision masks and poster
-     textures, so asking for them here rather than from script is worth the two
-     lines: it overlaps the fetch with parsing the rest of this file. -->
-<link rel="preload" href="fonts/GROUT-Display.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="fonts/MEK-Mono.woff2" as="font" type="font/woff2" crossorigin>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-/* ── MEK type ──
-   GROUT Display and MEK Mono by Michael Alexander (MEK), mek.gallery/mektype.
-   Credited in the Colophon window; see PANELS.colophon.
-
-   Both files ship one weight. GROUT is declared across 400–900 so a bold
-   request resolves to the same face instead of being synthetically smeared —
-   it is already a display weight, and its letters are built from tiles that a
-   fake bold welds together. MEK Mono stays at 400 so `font-weight:700` still
-   buys the thicker synthetic stroke the mono panels lean on for hierarchy.
-
-   font-display:block rather than swap: DOM text is rasterised into the sim's
-   collision grid by stampGlyphMask, so a face that arrived after that pass
-   would leave sand piling on the shape of the FALLBACK's letters. Boot waits
-   on document.fonts.ready (see BOOT) and block keeps the fallback from ever
-   painting in the meantime. Both files are under 15KB. */
-@font-face{
-  font-family:'GROUT';
-  src:url('fonts/GROUT-Display.woff2') format('woff2'),
-      url('fonts/GROUT-Display.woff') format('woff');
-  font-weight:400 900;font-style:normal;font-display:block;
-}
-@font-face{
-  font-family:'MEK Mono';
-  src:url('fonts/MEK-Mono.woff2') format('woff2'),
-      url('fonts/MEK-Mono.woff') format('woff');
-  font-weight:400;font-style:normal;font-display:block;
-}
 :root{
   /* The docked shelf's open height. It is chrome, so it earns its keep by
      being dismissable rather than by being small: below about 150px the
      thumbnails stop reading as pictures of anything. */
   --top-height:clamp(150px,26dvh,300px);
   --taskbar-h:30px;                       /* keep in sync with TASKBAR_PX */
-  /* GROUT is proportional and display-only — no italic, no true bold, and its
-     lowercase closes up below about 11px, so it is for headings and the
-     nameplate, not for running text. MEK Mono's cell is 0.45em against Courier
-     New's 0.6em, so anything set in it comes out about a quarter narrower;
-     nothing here is column-aligned ASCII, so that is free width.
-     Win95 chrome (Tahoma) is deliberately left alone: the taskbar, title bars
-     and menus are the pastiche, and MEK type in them reads as a bug rather
-     than as a choice. To try it anyway, add
-     'MEK Mono' to the front of those stacks. */
-  --font-display:'GROUT','Arial Black',Impact,sans-serif;
-  --font-mono:'MEK Mono','Courier New',monospace;
 }
 html,body{
   /* dvh, not vh: on mobile 100vh is the LARGE viewport (as if the URL bar were
@@ -83,7 +39,7 @@ html,body{
      chrome and off screen. dvh tracks the visible area. The vh line stays as a
      fallback for browsers without dvh; the later declaration wins where it's
      supported. window.innerHeight (computeDims) already matches dvh. */
-  width:100%;min-height:100vh;min-height:100dvh;font-family:var(--font-mono);
+  width:100%;min-height:100vh;min-height:100dvh;font-family:'Courier New',monospace;
   background:
     /* clouds */
     radial-gradient(ellipse 18vw 3vh at 16% 18%, rgba(255,255,255,0.88), rgba(255,255,255,0) 70%),
@@ -211,7 +167,11 @@ html,body{
   /* Deliberately NOT snapped. The strip is a conveyor: it never comes to rest,
      so there is no resting position to snap to, and mandatory snap would drag
      every frame of the drift back to the nearest card edge. */
-  overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#c0c0c0 #626975;scroll-padding-inline:8px}
+  /* Scrollable, but with nothing to show for it: the strip drives itself and
+     the only hand on it is a drag, so a scrollbar was a control that reported
+     on motion nobody asked for and ate a row of pixels doing it. */
+  overscroll-behavior-x:contain;scrollbar-width:none;-ms-overflow-style:none;scroll-padding-inline:8px}
+.shelf-track::-webkit-scrollbar{display:none}
 #projectShelf .gal-card{display:flex;flex-direction:column;flex:0 0 clamp(190px,20vw,280px);min-width:0;
   padding:3px;background:#c0c0c0;color:#000;text-decoration:none;cursor:pointer;
   border:2px solid;border-color:#fff #242833 #242833 #fff;
@@ -258,10 +218,13 @@ html,body{
    renderer already draws along the bottom edge, and it needs no title bar, no
    drag, no minimise and no decisions: 14 swatches and the name of the one that
    is loaded.
-   The swatches are not hex approximations. Each is a 10x10 tile rendered
+   The swatches are not hex approximations. Each is a 14x14 tile rendered
    through the sim's own matColor(), pixel by pixel with the same variant
    jitter, so sand is grainy, water dithers, bomb reads as a dark charge -- the
-   palette is made of the material it pours. See paintMatSwatches. */
+   palette is made of the material it pours. See paintMatSwatches.
+   Cells are 28px on the desktop: at 20 the grain was there but you had to lean
+   in for it, and sand and seed were two brownish squares. 28 is the tile at
+   the same 2x it always drew at, showing twice the material. */
 #matPicker{
   position:absolute;left:0;bottom:var(--taskbar-h);z-index:10;
   /* #uiLayer is pointer-events:none so the world stays touchable through it,
@@ -270,8 +233,8 @@ html,body{
      on a swatch went straight through to the canvas and poured sand behind the
      palette instead of loading the material. */
   pointer-events:auto;
-  display:flex;align-items:center;gap:7px;
-  padding:4px 8px 4px 5px;
+  display:flex;align-items:center;gap:9px;
+  padding:5px 10px 5px 6px;
   background:#c0c0c0;
   border:2px solid;border-color:#ffffff #000000 #000000 #ffffff;
   border-left-width:0;border-bottom-width:0;
@@ -281,20 +244,20 @@ html,body{
 /* The loaded material, named. Paint shows two overlapping squares here and
    trusts you to know what they mean; the name costs 60px and answers "what am
    I about to pour" without a hover. */
-.mat-current{display:flex;align-items:center;gap:5px;flex-shrink:0}
-.mat-cur-dot{width:20px;height:20px;flex-shrink:0;image-rendering:pixelated;
+.mat-current{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.mat-cur-dot{width:28px;height:28px;flex-shrink:0;image-rendering:pixelated;
   border:2px solid;border-color:#808080 #ffffff #ffffff #808080;
   box-shadow:inset 1px 1px 0 #000}
-.mat-cur-name{font-size:11px;color:#000;width:56px;white-space:nowrap;overflow:hidden}
+.mat-cur-name{font-size:12px;color:#000;width:64px;white-space:nowrap;overflow:hidden}
 /* One sunken frame with flat cells in it, Paint-fashion -- 14 individually
-   raised buttons in a 30px strip is noise. */
+   raised buttons in a strip this size is noise. */
 #matPicker .mat-list{
   display:grid;grid-template-rows:1fr;grid-auto-flow:column;gap:1px;
   padding:2px;background:#787878;
   border:2px solid;border-color:#808080 #ffffff #ffffff #808080;
 }
 .mat-opt{
-  position:relative;width:20px;height:20px;cursor:pointer;
+  position:relative;width:28px;height:28px;cursor:pointer;
   display:block;padding:0;
 }
 /* The label is for the screen reader, the tooltip and the rogue cursors that
@@ -313,8 +276,8 @@ html,body{
 .mat-opt:hover::after{box-shadow:inset 0 0 0 2px #ffffffd0}
 .mat-opt.active::after{box-shadow:inset 0 0 0 2px #fff,inset 0 0 0 3px #000}
 .mat-opt:focus-visible{outline:1px dotted #fff;outline-offset:1px}
-/* What is this swatch? A 20px tile of sand and a 20px tile of seed are not
-   far apart, and the answer used to be a `title` — the OS tooltip, which
+/* What is this swatch? A tile of sand and a tile of seed are not far
+   apart even at 28px, and the answer used to be a `title` — the OS tooltip, which
    arrives after a second, in the wrong typeface, and never on keyboard focus.
    This is the same Win95 tooltip the cursor tag and the rogue cursors carry,
    instantly, on hover or focus. Touch is excluded because touch has no hover:
@@ -323,8 +286,8 @@ html,body{
   .mat-opt::before{
     content:attr(data-label);position:absolute;left:50%;bottom:calc(100% + 6px);
     transform:translateX(-50%);z-index:3;pointer-events:none;opacity:0;
-    white-space:nowrap;font:700 9px Tahoma,'MS Sans Serif',sans-serif;color:#000;
-    background:#ffffe1;border:1px solid #000;padding:1px 3px;
+    white-space:nowrap;font:700 10px 'Tahoma','MS Sans Serif',sans-serif;color:#000;
+    background:#ffffe1;border:1px solid #000;padding:2px 4px;
     box-shadow:1px 1px 0 rgba(0,0,0,.45);
   }
   .mat-opt:hover::before,.mat-opt:focus-visible::before{opacity:1}
@@ -364,18 +327,15 @@ html,body{
 /* ── Resume overlay: real DOM content that particles collide with via [data-collide] ── */
 #resume{
   position:absolute;inset:0;pointer-events:none;z-index:6;
-  font-family:var(--font-mono);color:#1c1a22;
+  font-family:'Courier New',monospace;color:#1c1a22;
   padding:3.5vh 3.5vw;display:grid;
   grid-template-columns:1fr 1fr;gap:2vh 3vw;
   align-content:start;
 }
 #resume *{pointer-events:none} /* paint passes through; cards are purely visual + collision */
 .r-name{
-  /* The nameplate is the one place a display face has room to be one.
-     GROUT carries its own weight, so 700 here would only ask the browser
-     to smear it. */
-  font-family:var(--font-display);
-  font-size:clamp(28px,4.2vw,62px);font-weight:400;line-height:1.05;letter-spacing:0.02em;
+  font-family:'Tahoma','MS Sans Serif',sans-serif;
+  font-size:clamp(28px,4.2vw,62px);font-weight:700;line-height:1.05;letter-spacing:0.01em;
   color:#fff;
   background:linear-gradient(90deg,#000080 0%,#1084d0 100%);
   padding:10px 16px 12px;
@@ -610,13 +570,7 @@ html,body{
      (and on iOS, from rubber-banding the whole document) behind it */
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
-.win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080;
-  /* GROUT sets tighter and reads heavier than Tahoma at the same size, so
-     the heading needs no weight of its own, and a touch of tracking keeps
-     the tiles of adjacent letters from touching. The themes that name their
-     own face for h2 (vapor's Impact, terminal's mono) still win: they are
-     later in the sheet. */
-  font-family:var(--font-display);font-weight:400;letter-spacing:.5px}
+.win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080}
 .win-app .win-body h3{font-size:12px;margin:10px 0 4px;color:#000;font-weight:700}
 .win-app .win-body .sub{font-size:11px;color:#404040;margin-bottom:2px}
 .win-app .win-body .meta{font-size:11px;color:#606060;margin-bottom:8px;font-style:italic}
@@ -646,6 +600,60 @@ html,body{
   box-shadow:inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf;
 }
 
+/* ── THE DROP: a shelf card falling into the window it opens ──
+   The window is built, measured and positioned before any of this runs, then
+   hidden for the length of the fall. The flyer has to know exactly where it is
+   going and the only honest source for that is the real window's own rect. */
+.win-app.is-dropping{visibility:hidden}
+/* A child of #projectShelf on purpose: every `#projectShelf .gal-*` rule above
+   then dresses the flyer for free, so the thing that falls is the card itself
+   rather than a second copy of its styling that drifts out of date. */
+#dropLayer{position:fixed;inset:0;pointer-events:none}
+/* Both the flyer and its trail are placed by transform alone -- without the
+   absolute positioning here the stamps stack in flow and the trail lands in a
+   column below the card instead of behind it. `contain` keeps eighteen copies
+   of a card from being eighteen reflows. */
+#projectShelf .drop-card,#projectShelf .drop-stamp{
+  position:absolute;left:0;top:0;flex:none;contain:layout paint;
+}
+#projectShelf .drop-card{will-change:transform,width,height}
+/* The card's face is gone by the time the box starts growing into window
+   chrome -- a stretched screenshot is the one frame that gives the trick away.
+   Everything else about the box becomes the window's own frame in the same
+   breath: no padding, the window's black-and-white bevel, the window's shadow.
+   By the time the real thing surfaces underneath there is nothing left to
+   cross-fade but the content. */
+#projectShelf .drop-card.is-opening{
+  padding:0;border-color:#ffffff #000000 #000000 #ffffff;
+  box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px -1px 0 #808080,2px 2px 0 #000;
+  /* A project window's body is near-black. Leaving the growing box at the
+     card's #c0c0c0 meant the last frame of the unfold was a grey rectangle and
+     the first frame of the window was a dark one -- the one hard cut left in
+     the whole sequence. --drop-body is read off the real window's body, so the
+     box is already the right colour when the content lands in it. */
+  background:var(--drop-body,#c0c0c0);
+  transition:background-color .14s linear;
+}
+#projectShelf .drop-card.is-opening>*{opacity:0;transition:opacity .08s linear}
+/* The title bar is the exception, and it is the whole point: a card's grey bar
+   and a window's blue one are the same object in Win95's grammar, so that one
+   strip stays lit while the box grows underneath it. It goes active on the
+   frame the card lands -- instantly, the way focus changes in that OS, never a
+   fade -- in whatever colour the window it is becoming wears (--drop-bar is set
+   from the real window's own title bar). Without it the unfold was a featureless
+   grey rectangle inflating for a fifth of a second. */
+#projectShelf .drop-card.is-opening>.gal-name{
+  opacity:1;margin-bottom:0;padding-top:3px;padding-bottom:3px;
+  color:#fff;background:var(--drop-bar,linear-gradient(90deg,#000080 0%,#1084d0 100%));
+  transition:padding .18s linear,margin .18s linear;
+}
+/* Solitaire's trail, which is the only part of that animation anyone actually
+   remembers -- and it is a trail of solid cards. Nothing here is translucent:
+   each copy is opaque for as long as it lasts and then it is simply not there,
+   which is what a program that could only ever blit a card looked like. Flat,
+   though: the drop shadow stacked eighteen deep was a dark smear. */
+#projectShelf .drop-stamp{opacity:0;box-shadow:none;will-change:opacity}
+
 /* ── 90s-flair atoms reused across themes ── */
 @keyframes blink95{50%{opacity:0}}
 .blink{animation:blink95 1s steps(1) infinite}
@@ -657,14 +665,14 @@ html,body{
 .marquee{
   overflow:hidden;white-space:nowrap;
   border:2px inset #808080;background:#000;color:#ffe600;
-  font-family:var(--font-mono);font-size:11px;
+  font-family:'Courier New',monospace;font-size:11px;
   padding:3px 0;margin:6px 0;
 }
 .marquee span{display:inline-block;padding-left:100%;animation:marq 18s linear infinite}
 @keyframes marq{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
 .hit-counter{
   display:inline-block;background:#000;color:#0f0;
-  font-family:var(--font-mono);font-size:14px;font-weight:700;
+  font-family:'Courier New',monospace;font-size:14px;font-weight:700;
   padding:2px 6px;border:1px solid #555;letter-spacing:3px;
 }
 .under-const{
@@ -847,7 +855,7 @@ html,body{
 /* ── THEME: vapor (vaporwave — Catiator) ── */
 .win-app.theme-vapor .win-body{
   background:linear-gradient(180deg,#1a0033 0%,#3b0764 35%,#831843 70%,#fb7185 100%);
-  color:#ffe9ff;font-family:var(--font-mono);
+  color:#ffe9ff;font-family:'Courier New',monospace;
 }
 .win-app.theme-vapor .win-title{
   background:linear-gradient(90deg,#ff00aa 0%,#00e5ff 100%) !important;
@@ -891,14 +899,14 @@ html,body{
 /* ── THEME: terminal (AI samples / dev tools) ── */
 .win-app.theme-terminal .win-body{
   background:#000;color:#33ff66;
-  font-family:var(--font-mono);
+  font-family:'Courier New','Consolas',monospace;
   font-size:11px;
 }
 .win-app.theme-terminal .win-title{
   background:linear-gradient(90deg,#003300 0%,#006600 100%) !important;
 }
 .win-app.theme-terminal h2{
-  color:#33ff66;font-family:var(--font-mono);
+  color:#33ff66;font-family:'Courier New',monospace;
   font-size:16px;border-bottom:1px dashed #33ff66;padding-bottom:3px;
 }
 .win-app.theme-terminal h2::before{content:"C:\\> "}
@@ -910,6 +918,47 @@ html,body{
 .win-app.theme-terminal li::before{content:">";color:#ffcc00;font-weight:700}
 .win-app.theme-terminal blockquote{background:#001100;color:#33ff66;border-color:#33ff66}
 .win-app.theme-terminal .tag{background:#001a00;color:#33ff66;border:1px solid #33ff66;box-shadow:none}
+
+/* Agent Center keeps the same floating, draggable, burnable window as the
+   other projects. Its content borrows the desktop's inset panels and bevels. */
+.win-app.theme-agent{width:min(540px,calc(100vw - 16px));max-width:620px;container-type:inline-size}
+.win-app.theme-agent .win-body{background:#c0c0c0;color:#151525;padding:10px;font:13px/1.5 'Tahoma','MS Sans Serif',sans-serif}
+.theme-agent .ac-page{max-width:850px;margin:auto}
+.theme-agent .ac-hero{padding:14px 14px 12px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
+.win-app.theme-agent .ac-eyebrow{font:10px/1.5 'Courier New',monospace;letter-spacing:.4px;color:#555575;margin:0 0 6px}
+.win-app.theme-agent .win-body h2{font:bold 26px/1.15 'Tahoma',sans-serif;letter-spacing:-.6px;color:#000080;margin:0 0 7px}
+.win-app.theme-agent .ac-intro{max-width:62ch;font-size:13px;line-height:1.5;margin:0;color:#282838}
+.theme-agent .ac-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.win-app.theme-agent .win-body .ac-actions a{display:inline-flex;align-items:center;gap:12px;padding:4px 10px;text-decoration:none;color:#000080;background:#c0c0c0;font-size:11px;font-weight:bold;border:2px solid;border-color:#fff #000 #000 #fff;box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf}
+.win-app.theme-agent .win-body .ac-actions a:hover{background:#d4d0c8}
+.win-app.theme-agent .win-body .ac-actions a:active{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px #808080}
+.theme-agent .ac-facts{display:flex;gap:10px 24px;flex-wrap:wrap;padding:9px 3px;font-size:11px}
+.theme-agent .ac-facts dt{font-size:10px;color:#444;margin-bottom:1px}
+.theme-agent .ac-facts dd{font-weight:bold}
+.theme-agent .ac-figure{margin:0;background:#c0c0c0;padding:3px;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
+.theme-agent .ac-figure video{width:100%;max-height:320px;display:block;object-fit:contain;background:#080818;aspect-ratio:4/3}
+.theme-agent .ac-figure figcaption{display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px 10px;padding:5px 3px 1px;font:10px/1.5 'Tahoma',sans-serif;color:#333}
+.theme-agent .ac-section{padding:15px 13px;margin-top:12px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
+.win-app.theme-agent .win-body h3{font:bold 15px/1.3 'Tahoma',sans-serif;margin:0 0 9px;color:#000080}
+.win-app.theme-agent .ac-section p{margin:0 0 10px;max-width:65ch}
+.theme-agent .ac-section-number{font:10px/1.5 'Courier New',monospace;color:#555575;margin-bottom:6px}
+.theme-agent .ac-tools{margin:0}
+.theme-agent .ac-tools>div{padding:9px 0;border-bottom:1px solid #d6d6df}
+.theme-agent .ac-tools>div:first-child{padding-top:0}
+.theme-agent .ac-tools dt{font-size:12px;font-weight:bold;color:#000080;margin-bottom:3px}
+.theme-agent .ac-tools dd{font-size:12px;line-height:1.5;color:#333}
+.win-app.theme-agent .ac-integrations{margin:12px 0 0;font-size:12px}
+.theme-agent .ac-steps{display:grid;gap:10px;margin-top:13px}
+.theme-agent .ac-step{border-left:3px solid #000080;padding-left:9px}
+.theme-agent .ac-step b{display:block;font-size:12px;margin-bottom:2px}
+.win-app.theme-agent .ac-step p{font-size:12px;color:#333;line-height:1.5;margin:0}
+.theme-agent .ac-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;padding:6px;border:1px solid;border-color:#808080 #fff #fff #808080;font-size:10px;color:#333}
+.win-app.theme-agent .win-body a{color:#000080;text-underline-offset:2px}
+.theme-agent button:focus-visible,.theme-agent a:focus-visible{outline:1px dotted #000;outline-offset:2px}
+@container (max-width:360px){
+  .theme-agent .ac-hero,.theme-agent .ac-section{padding:11px}
+  .theme-agent .ac-facts{gap:7px 14px}
+}
 
 /* ── THEME: project (the four game/installation detail pages) ──
    One readable dark base; the personality is a single hue per project,
@@ -943,7 +992,7 @@ html,body{
    invisible on a dark one — every dark theme has to restate them */
 .win-app.theme-project .sub{color:#c9c5da;font-size:12px}
 .win-app.theme-project .meta{
-  color:#9a95ad;font-family:var(--font-mono);
+  color:#9a95ad;font-family:'Courier New',monospace;
   font-size:11px;font-style:normal;
 }
 .win-app.theme-project a{color:var(--proj,#9fd0ff)}
@@ -1096,13 +1145,6 @@ html,body{
   background:#c0c0c0;color:#000;
 }
 .win-app.theme-desktop h2{color:#000080}
-/* Colophon specimens. Each line is set in the face the heading above it
-   names, at a size that face is actually used at, so the credit shows its
-   work instead of describing it. */
-.win-app .win-body .spec-grout{font-family:var(--font-display);font-size:22px;
-  line-height:1.15;letter-spacing:.5px;color:#000080;margin:2px 0 6px}
-.win-app .win-body .spec-mono{font-family:var(--font-mono);font-size:12px;
-  line-height:1.4;color:#202020;margin:2px 0 6px}
 .win-app.theme-desktop .icon-grid{
   display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));
   gap:10px;margin-top:8px;padding:8px;
@@ -1228,7 +1270,7 @@ html,body{
 
 /* ── PIXEL SYSTEM ICONS ────────────────────────────────────
    Every icon on the site comes from the #icoSprite symbols:
-   overview grid (32px), start menu (20px), titlebars and the
+   panel grids (32px), start menu (20px), titlebars and the
    taskbar (14px). No emoji — the OS rendered those three
    different ways and none of them matched the palette. */
 .pxi{
@@ -1275,6 +1317,108 @@ html,body{
    the one icon whose dominant surface is navy. */
 .win-app.theme-project .pxi{filter:drop-shadow(0 0 1px rgba(255,255,255,.55))}
 .win-app.theme-project use[href="#ico-floppy"]{--accent:#3454d8}
+
+/* ── SHARED PROJECT CASE STUDIES ────────────────────────────
+   Agent Center established the useful grammar for a project page here: a
+   restrained hero, factual strip, framed media, white inset reading cards and
+   a quiet next-project footer. Legacy project copy is promoted into that same
+   structure by formatProjectPanel(); --case-accent and --case-bar preserve a
+   small amount of each project's own identity without changing the layout. */
+.win-app.is-case-study{
+  width:min(540px,calc(100vw - 16px));max-width:620px;
+  container-type:inline-size;
+}
+.win-app.is-case-study .win-title{
+  background:linear-gradient(90deg,var(--case-bar,#000080) 0%,
+    color-mix(in srgb,var(--case-accent,#1084d0) 70%,#fff) 100%) !important;
+}
+.win-app.is-case-study .win-body{
+  padding:10px;background:#c0c0c0;color:#151525;
+  font:13px/1.5 'Tahoma','MS Sans Serif',sans-serif;
+}
+.case-page{max-width:850px;margin:auto}
+.case-hero,.case-section{
+  background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;
+  box-shadow:inset 1px 1px #000;
+}
+.case-hero{padding:14px 14px 12px}
+.win-app.is-case-study .case-eyebrow{
+  margin:0 0 6px;color:#555575;font:10px/1.5 'Courier New',monospace;
+  letter-spacing:.4px;text-transform:uppercase;
+}
+.win-app.is-case-study .win-body .case-hero h2{
+  margin:0 0 7px;padding:0;border:0;background:none;color:var(--case-accent,#000080);
+  text-shadow:none;font:bold 26px/1.15 'Tahoma',sans-serif;letter-spacing:-.6px;
+  text-transform:none;
+}
+.win-app.is-case-study .case-intro{
+  max-width:62ch;margin:0;color:#282838;font-size:13px;line-height:1.5;
+}
+.case-facts{
+  display:flex;flex-wrap:wrap;gap:5px;padding:9px 3px;
+}
+.win-app.is-case-study .case-facts .tag{
+  padding:2px 7px;background:#e8e8e8;color:#303040;border:1px solid;
+  border-color:#fff #808080 #808080 #fff;box-shadow:none;
+  font:10px/1.4 'Tahoma',sans-serif;
+}
+.case-figure{
+  margin:0;padding:3px;background:#c0c0c0;border:2px solid;
+  border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000;
+}
+.case-figure>.shot-vid,.case-figure>.shot-clip,.case-figure>.shot{
+  width:100%;max-width:none;max-height:320px;margin:0;border:0;box-shadow:none;
+  background:#080818;object-fit:contain;
+}
+.case-figure>.shot-vid{max-height:none}
+.case-figure figcaption{
+  display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px 10px;
+  padding:5px 3px 1px;color:#333;font:10px/1.5 'Tahoma',sans-serif;
+}
+.case-section{margin-top:12px;padding:15px 13px}
+.case-section-number{
+  margin-bottom:6px;color:#555575;font:10px/1.5 'Courier New',monospace;
+  text-transform:uppercase;
+}
+.win-app.is-case-study .win-body .case-section h3{
+  margin:0 0 9px;padding:0;border:0;color:var(--case-accent,#000080);
+  text-shadow:none;font:bold 15px/1.3 'Tahoma',sans-serif;
+  letter-spacing:0;text-transform:none;
+}
+.win-app.is-case-study .case-section p{max-width:65ch;margin:0 0 10px}
+.win-app.is-case-study .case-section p:last-child,
+.win-app.is-case-study .case-section ul:last-child,
+.win-app.is-case-study .case-section blockquote:last-child{margin-bottom:0}
+.win-app.is-case-study .case-section ul{margin:7px 0 10px;padding-left:14px}
+.win-app.is-case-study .case-section li{margin:5px 0;padding-left:10px}
+.win-app.is-case-study .case-section li::before{
+  content:"▪";left:-4px;top:1px;color:var(--case-accent,#000080);font-size:1em;
+}
+.win-app.is-case-study .case-section blockquote{
+  margin:10px 0;padding:8px 10px;background:#f2f2f7;color:#303040;
+  border:0;border-left:3px solid var(--case-accent,#000080);font-size:11px;
+}
+.win-app.is-case-study .case-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.win-app.is-case-study .win-body .case-actions a{
+  display:inline-flex;align-items:center;padding:4px 10px;background:#c0c0c0;
+  color:var(--case-accent,#000080);border:2px solid;border-color:#fff #000 #000 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf;
+  text-decoration:none;font-size:11px;font-weight:bold;
+}
+.win-app.is-case-study .win-body .case-actions a:hover{background:#d4d0c8;color:var(--case-accent,#000080)}
+.win-app.is-case-study .win-body .case-actions a:active{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px #808080}
+.case-footer{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  margin-top:12px;padding:6px;color:#333;border:1px solid;
+  border-color:#808080 #fff #fff #808080;font-size:10px;
+}
+.win-app.is-case-study .win-body a{color:var(--case-accent,#000080);text-underline-offset:2px}
+.win-app.is-case-study .win-body a:hover{color:color-mix(in srgb,var(--case-accent,#000080) 75%,#000)}
+.win-app.is-case-study button:focus-visible,.win-app.is-case-study a:focus-visible{outline:1px dotted #000;outline-offset:2px}
+@container (max-width:360px){
+  .case-hero,.case-section{padding:11px}
+  .case-figure figcaption span:last-child{display:none}
+}
 </style>
 </head>
 <body>
@@ -1726,7 +1870,9 @@ function wake(x,y){
 }
 // wake a 3x3 neighbourhood (used around any changed cell)
 function wake3(x,y){
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)wake(x+dx,y+dy);
+  // The nine cells form a rectangle. Merge it once per affected chunk instead
+  // of repeating the chunk lookup and four bounds checks for every cell.
+  wakeRect(x-1,y-1,x+1,y+1);
 }
 // wake a whole region for sim (used for spawn, resize, hover release, emitters)
 function wakeRect(x0,y0,x1,y1){
@@ -1776,6 +1922,25 @@ let simSpeed=2;
 let frameId=1;
 let stepDir=1;
 
+// A physics mutation wakes and repaints the same one-cell neighbourhood.
+// Merge both sets of chunk bounds in one traversal; keeping the two rects
+// independent preserves any earlier physics-only wakes or render-only dirt.
+function cellChanged(x,y){
+  const x0=Math.max(0,x-1),y0=Math.max(0,y-1);
+  const x1=Math.min(W-1,x+1),y1=Math.min(H-1,y+1);
+  if(x1<x0||y1<y0)return;
+  const cx0=(x0/CW)|0,cx1=(x1/CW)|0,cy0=(y0/CW)|0,cy1=(y1/CW)|0;
+  for(let cy=cy0;cy<=cy1;cy++)for(let cx=cx0;cx<=cx1;cx++){
+    const c=cy*ncx+cx;
+    const rx0=Math.max(x0,cx*CW),rx1=Math.min(x1,cx*CW+CW-1);
+    const ry0=Math.max(y0,cy*CW),ry1=Math.min(y1,cy*CW+CW-1);
+    if(rx0<dnMinX[c])dnMinX[c]=rx0;if(ry0<dnMinY[c])dnMinY[c]=ry0;
+    if(rx1>dnMaxX[c])dnMaxX[c]=rx1;if(ry1>dnMaxY[c])dnMaxY[c]=ry1;
+    if(rx0<rcMinX[c])rcMinX[c]=rx0;if(ry0<rcMinY[c])rcMinY[c]=ry0;
+    if(rx1>rcMaxX[c])rcMaxX[c]=rx1;if(ry1>rcMaxY[c])rcMaxY[c]=ry1;
+  }
+}
+
 /* ═══ NEIGHBOUR OFFSET TABLES ═══
    The material rules below scan their four neighbours constantly, and they used
    to do it over a fresh [[0,-1],[1,0],...] literal — five objects allocated per
@@ -1795,6 +1960,21 @@ const NY_DXXU=new Int8Array([1,0,0,-1]);                 // down, d, -d, up   (x
 const NX_DXX =new Int8Array([0,1,-1]),  NY_DXX =new Int8Array([1,0,0]);      // down, d, -d
 const NX_DISP=new Int8Array([0,-1,1,-1,1,0]), NY_DISP=new Int8Array([-1,-1,-1,0,0,-2]);
 
+// Blast geometry never changes. Cache the farthest-first order once, retaining
+// the original row-major order for equal distances so random draws stay exact.
+// Scratch snapshots are safe to reuse: a detonation cannot recurse into step.
+const BLAST_RADIUS=22,BLAST_KILL_RADIUS=10;
+const BLAST_OFFSETS=(()=>{
+  const cells=[];
+  for(let y=-BLAST_RADIUS;y<=BLAST_RADIUS;y++)for(let x=-BLAST_RADIUS;x<=BLAST_RADIUS;x++){
+    const d2=x*x+y*y;if(d2<=BLAST_RADIUS*BLAST_RADIUS)cells.push([x,y,d2]);
+  }
+  cells.sort((a,b)=>b[2]-a[2]);
+  return new Int16Array(cells.flat());
+})();
+const blastMat=new Int16Array(BLAST_OFFSETS.length/3);
+const blastVariant=new Uint8Array(blastMat.length);
+
 // movement target tests (exclude frozen so hover-freeze pins matter)
 function eFree(x,y){return x>=0&&x<W&&y>=0&&y<H&&grid[idx(x,y)]===EMPTY&&!frozen[idx(x,y)];}
 function lFree(x,y){if(x<0||x>=W||y<0||y>=H)return false;const i=idx(x,y);return !frozen[i]&&isLiq(grid[i]);}
@@ -1805,14 +1985,13 @@ function moveSwap(x,y,nx,ny){
   grid[j]=grid[i];variant[j]=variant[i];
   grid[i]=gm;variant[i]=gv;
   updated[i]=frameId;updated[j]=frameId;
-  wake3(x,y);wake3(nx,ny);
-  pixDirty(x,y);pixDirty(nx,ny);
+  cellChanged(x,y);cellChanged(nx,ny);
 }
 function setMat(x,y,m,v){
   if(x<0||x>=W||y<0||y>=H)return;
   const i=idx(x,y);
   grid[i]=m;variant[i]=(v===undefined?(Math.random()*8|0):v);
-  updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+  updated[i]=frameId;cellChanged(x,y);
 }
 
 // A frozen sprite cell wakes when: fire/acid touches it, an upper neighbour
@@ -1918,7 +2097,7 @@ function chunkShift(ch,dx,dy){
     grid[t]=grid[i];variant[t]=variant[i];frozen[t]=1;inChunk[t]=1;
     grid[i]=EMPTY;variant[i]=0;frozen[i]=0;inChunk[i]=0;
     const x=i%W,y=(i/W)|0;
-    pixDirty(x,y);pixDirty(x+dx,y+dy);wake3(x,y);wake3(x+dx,y+dy);
+    cellChanged(x,y);cellChanged(x+dx,y+dy);
     ch.cells[q]=t;                       // uniform shift keeps the sort order
   }
   ch.set=new Set(ch.cells);
@@ -1928,7 +2107,7 @@ function chunkShift(ch,dx,dy){
     const b=ch.cells[rev?k:n-1-k]-dl;
     if(ch.set.has(b)||grid[b]!==EMPTY)continue;
     grid[b]=pm[p];variant[b]=pv[p];p++;
-    pixDirty(b%W,(b/W)|0);wake3(b%W,(b/W)|0);
+    cellChanged(b%W,(b/W)|0);
   }
   return true;
 }
@@ -1993,7 +2172,7 @@ function updateChunks(){
         if(hard&&(y+1>=H||(grid[i+W]!==EMPTY&&!ch.set.has(i+W)))&&Math.random()<0.55){
           frozen[i]=0;
         }
-        wake3(x,y);pixDirty(x,y);
+        cellChanged(x,y);
       }
       chunks.splice(k,1);
     }else if(landed){
@@ -2020,7 +2199,7 @@ function step(x,y){
        always has air above it; testing up as well would unfreeze every tank on
        the first frame. */
     if(m===ACID&&(variant[i]&ACID_VESSEL)&&(mat(x-1,y)===EMPTY||mat(x+1,y)===EMPTY)){
-      frozen[i]=0;wake3(x,y);pixDirty(x,y);
+      frozen[i]=0;cellChanged(x,y);
     } else {
       const why=isDebris(m)?tryDecompose(x,y,i,m):0;
       if(why===0)return;
@@ -2029,7 +2208,7 @@ function step(x,y){
       // held up elsewhere and leave it standing)
       if(why===2&&isChunkMat(m)&&tryChunkDetach(x,y))return;
       frozen[i]=0;
-      wake3(x,y);pixDirty(x,y);
+      cellChanged(x,y);
     }
     // fall through into the falling-debris path below
   }
@@ -2061,9 +2240,9 @@ function step(x,y){
       if(frozen[bi]){
         const bm=grid[bi];
         if((bm===LEAF||bm===THATCH||bm===BERRY)&&Math.random()<0.06){
-          frozen[bi]=0;wake3(x,y+1);pixDirty(x,y+1);
+          frozen[bi]=0;cellChanged(x,y+1);
         } else if(bm===GLASS&&Math.random()<0.04){
-          frozen[bi]=0;wake3(x,y+1);pixDirty(x,y+1); // glass gives out under a pile
+          frozen[bi]=0;cellChanged(x,y+1); // glass gives out under a pile
         }
       }
     }
@@ -2202,7 +2381,7 @@ function step(x,y){
       else if(t===WATER&&Math.random()<0.06){setMat(x+ax,y+ay,STEAM);setMat(x,y,STEAM);return;}
     }
     if(eFree(x,y-1)&&Math.random()<0.4){moveSwap(x,y,x,y-1);return;}
-    updated[i]=frameId;wake3(x,y);pixDirty(x,y);return; // keep flickering & awake
+    updated[i]=frameId;cellChanged(x,y);return; // keep flickering & awake
   }
 
   if(m===SMOKE){
@@ -2263,27 +2442,27 @@ function step(x,y){
     // flames and fumes lick off the surface
     if(mat(x,y-1)===EMPTY&&Math.random()<0.05)setMat(x,y-1,Math.random()<0.55?FIRE:SMOKE);
     // viscous: it only advances on some ticks, so it creeps rather than pours
-    if(Math.random()<0.55){updated[i]=frameId;wake3(x,y);pixDirty(x,y);return;}
+    if(Math.random()<0.55){updated[i]=frameId;cellChanged(x,y);return;}
     if(eFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
     if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
     if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
     if(eFree(x+d,y)&&Math.random()<0.45){moveSwap(x,y,x+d,y);return;}
     // gone nowhere for a while: the flow crusts over on its own
     if(Math.random()<0.0018){setMat(x,y,STONE);return;}
-    updated[i]=frameId;wake3(x,y);pixDirty(x,y);return;
+    updated[i]=frameId;cellChanged(x,y);return;
   }
 
   if(m===PLANT){
     // roots drink: a plant with water beside it climbs an order of magnitude
     // faster and pulls the puddle down as it goes
     let drink=false;
-    if(Math.random()<0.025){
+    if(Math.random()<0.006){
       for(let k=0;k<3;k++){ // down, d, -d
         const ax=NX_DXX[k]*d,ay=NY_DXX[k];
         if(mat(x+ax,y+ay)===WATER){setMat(x+ax,y+ay,EMPTY);drink=true;break;}
       }
     }
-    if(drink||Math.random()<0.004){
+    if(drink||Math.random()<0.001){
       const k=Math.random()*4|0, ax=NX_URLD[k], ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
       if(t===EMPTY||t===WATER||(t===GRASS&&Math.random()<0.25))setMat(x+ax,y+ay,PLANT);
@@ -2292,7 +2471,7 @@ function step(x,y){
       else if(t===DIRT&&Math.random()<0.35)setMat(x+ax,y+ay,GRASS);
     }
     // a thicket dense enough to shade itself sets fruit; birds do the rest
-    if(Math.random()<0.0008){
+    if(Math.random()<0.0002){
       let n=0;
       for(let k=0;k<4;k++)if(mat(x+NX_URLD[k],y+NY_URLD[k])===PLANT)n++;
       if(n>=3){setMat(x,y,BERRY,Math.random()*4|0);return;}
@@ -2383,15 +2562,15 @@ function step(x,y){
       if(nx<0||nx>=W||ny<0||ny>=H)continue;
       const ni=idx(nx,ny),t=grid[ni];
       if(t===FUSE&&!(variant[ni]&0x80)&&Math.random()<0.45){
-        variant[ni]|=0x80;wake3(nx,ny);pixDirty(nx,ny);updated[ni]=frameId;
+        variant[ni]|=0x80;cellChanged(nx,ny);updated[ni]=frameId;
       } else if(t===BOMB&&!(variant[ni]&0x80)){
         variant[ni]=0x80|(7<<4);
-        wake3(nx,ny);pixDirty(nx,ny);updated[ni]=frameId;
+        cellChanged(nx,ny);updated[ni]=frameId;
       } else if(t===OIL&&Math.random()<0.35){setMat(nx,ny,FIRE);}
     }
     if(Math.random()<0.35&&eFree(x,y-1))setMat(x,y-1,SMOKE);
     if(Math.random()<0.10){setMat(x,y,SMOKE);return;}
-    updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+    updated[i]=frameId;cellChanged(x,y);
     return;
   }
 
@@ -2416,33 +2595,32 @@ function step(x,y){
       // radially outward (with an upward bias) keeping its original material —
       // sand sprays as sand, dirt as chunks, wood as splinters.
       // Text/MASK survive so the page stays intact.
-      const R_kill=10, R_push=22;
-      const snap=[];
-      for(let by=-R_push;by<=R_push;by++)for(let bx=-R_push;bx<=R_push;bx++){
-        const d2=bx*bx+by*by;
-        if(d2>R_push*R_push)continue;
+      const R_kill=BLAST_KILL_RADIUS, R_push=BLAST_RADIUS;
+      for(let k=0;k<blastMat.length;k++){
+        blastMat[k]=-1;
+        const bx=BLAST_OFFSETS[k*3],by=BLAST_OFFSETS[k*3+1];
         const nx=x+bx,ny=y+by;
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),tm=grid[ni];
         if(tm===TITLE||tm===ACCENT||tm===BODY||tm===MASK||tm===RIGID)continue;
-        snap.push({x:nx,y:ny,d2,m:tm,v:variant[ni]});
+        blastMat[k]=tm;blastVariant[k]=variant[ni];
         grid[ni]=EMPTY;variant[ni]=0;frozen[ni]=0;
-        updated[ni]=frameId;pixDirty(nx,ny);wake3(nx,ny);
+        updated[ni]=frameId;cellChanged(nx,ny);
       }
       // farthest cells settle first so closer flung pixels land into vacated air
-      snap.sort((a,b)=>b.d2-a.d2);
-      for(const c of snap){
-        const d2=c.d2, srcM=c.m;
+      for(let q=0;q<blastMat.length;q++){
+        const srcM=blastMat[q];if(srcM<0)continue;
+        const cx=x+BLAST_OFFSETS[q*3],cy=y+BLAST_OFFSETS[q*3+1],d2=BLAST_OFFSETS[q*3+2];
         if(d2<R_kill*R_kill){
-          setMat(c.x,c.y,FIRE);continue;
+          setMat(cx,cy,FIRE);continue;
         }
         // empty/smoke: dust the air so the shockwave reads even where there
         // was nothing to fling
         if(srcM===EMPTY||srcM===SMOKE||srcM===STEAM){
           if(d2<R_push*R_push*0.45){
-            setMat(c.x,c.y,Math.random()<0.55?FIRE:SMOKE);
+            setMat(cx,cy,Math.random()<0.55?FIRE:SMOKE);
           } else if(Math.random()<0.35){
-            setMat(c.x,c.y,SMOKE);
+            setMat(cx,cy,SMOKE);
           }
           continue;
         }
@@ -2450,10 +2628,10 @@ function step(x,y){
         // fling: project outward along the radial with an upward bias so
         // debris arcs up before gravity takes over
         const d=Math.sqrt(d2)||1;
-        const dirX=(c.x-x)/d, dirY=(c.y-y)/d;
+        const dirX=(cx-x)/d, dirY=(cy-y)/d;
         const push=2+((R_push-d)*0.85|0)+(Math.random()*3|0);
-        const tx=c.x+Math.round(dirX*push);
-        const ty=c.y+Math.round(dirY*push)-((push*0.35)|0);
+        const tx=cx+Math.round(dirX*push);
+        const ty=cy+Math.round(dirY*push)-((push*0.35)|0);
         let placed=false;
         for(let k=0;k<6;k++){
           const ox=k?((Math.random()*5|0)-2):0;
@@ -2464,18 +2642,18 @@ function step(x,y){
           const pm=grid[pi];
           if(pm===EMPTY||pm===SMOKE||pm===STEAM){
             grid[pi]=srcM;
-            variant[pi]=c.v&7; // strip lit/countdown bits
+            variant[pi]=blastVariant[q]&7; // strip lit/countdown bits
             frozen[pi]=0;
-            updated[pi]=frameId;pixDirty(px,py);wake3(px,py);
+            updated[pi]=frameId;cellChanged(px,py);
             placed=true;break;
           }
         }
-        if(!placed&&Math.random()<0.5)setMat(c.x,c.y,SMOKE);
+        if(!placed&&Math.random()<0.5)setMat(cx,cy,SMOKE);
       }
       return;
     }
     variant[i]=0x80|((ct-1)<<4);
-    updated[i]=frameId;wake3(x,y);pixDirty(x,y);
+    updated[i]=frameId;cellChanged(x,y);
     return;
   }
 }
@@ -2596,7 +2774,17 @@ function surf(x,y,gi){
    takes the hardest bevel because a cut face should look cut; water takes the
    least because a liquid's surface is the story and its body is not. */
 const RELIEF=new Float32Array(64);
-RELIEF[STONE]=17; RELIEF[SAND]=15; RELIEF[DIRT]=14; RELIEF[WATER]=9;
+RELIEF[STONE]=17; RELIEF[SAND]=15; RELIEF[DIRT]=14; RELIEF[WATER]=22;
+/* Water is the exception to "the surface is the story and the body is not",
+   and it took the posterize being fixed to see it. At 8 luminance levels a
+   36-unit step, the old 9 was invisible — a third of a level — so water
+   rendered as one flat blue and the reasoning above was untestable. At 32
+   levels a step is 8.2 units, and 22 buys the top row (the only row with open
+   sky above it, so the only row S_UP fires on) a lit line two and a half
+   levels clear of the body, with the interior sinking half that far the other
+   way. That lit line is the pixel-art ripple: it is what makes a blue shape
+   read as a surface with water under it, and it is drawn by the same one light
+   model as every other material rather than by a special case in the pond. */
 /* ═══ THE SUN ═══
    sunX runs -1 (dawn, sun low on the left) through 0 (noon, straight
    overhead) to +1 (dusk, low on the right); sunK flattens the whole relief
@@ -2630,11 +2818,15 @@ const SHADE=[[0,0,0],[-22,-22,-18],[14,14,10],[-38,-36,-30]];
    path and losing the coursing along with it. The four steps mean what SHADE's
    four have always meant.
 
-   The steps are much wider than SHADE's, and have to be. Particles are
-   posterized to 8 levels per channel downstream, so a delta under ~32 lands on
-   the same level as the cell beside it for most of the range and simply does
-   not exist. SHADE's ±22 is below that line, which is why every hand-shaded
-   accent in the underground currently renders flat. */
+   The steps are much wider than SHADE's. They were WIDENED for a reason that
+   no longer holds: particles were posterized to 8 levels per channel
+   downstream, a delta under ~32 landed on the same level as the cell beside
+   it, and SHADE's ±22 sat below that line, so every hand-shaded accent
+   rendered flat. The quantiser is 32 hue-preserving luminance levels now and
+   ±22 clears it comfortably. These stay wide because a string course or a
+   dentil wants to read as a whole unit of brightness against its wall —
+   that is what the name says — and not because anything narrower would
+   vanish. Use SHADE for shading a sprite and TONE for stepping a course. */
 const TONE=[[0,0,0],[-30,-29,-25],[32,31,27],[-52,-50,-43]];
 /* Sprite stone, likewise widened. `D` and `E` in SPRITE_MATS have always meant
    "dark stone" and "light stone" and have always rendered identically, because
@@ -2706,7 +2898,7 @@ gl.attachShader(prog,mkSh(gl.VERTEX_SHADER,
   `#version 300 es\nin vec2 a;out vec2 uv;\nvoid main(){uv=a*.5+.5;gl_Position=vec4(a,0,1);}`));
 gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
   `#version 300 es
-   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;uniform float uBar;
+   precision mediump float;in vec2 uv;uniform sampler2D t;uniform sampler2D uLC;uniform sampler2D uLW;uniform float uT;uniform float uDay;uniform vec2 uGrid;
    // uCam = (camY in world cells, VH = screen height in cells). uGrid.y is the
    // WORLD height, so uv (screen space) and the particle texture (world space)
    // are no longer the same thing — see tuv below.
@@ -2804,23 +2996,100 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
      return step(length(pa-ba*h),w);
    }
-   // background-hill skyline height at horizontal position x
-   float crestAt(float x){
-     return 0.14
-           +0.070*exp(-pow((x-0.30)*2.6,2.0))
-           +0.055*exp(-pow((x-0.72)*2.9,2.0))
-           +0.008*fbm(vec2(x*3.0+7.0,1.5));
+   /* ═══ THE FAR HILLS ═══
+      Three ridges, far to near, each a FLAT colour. That is the whole design
+      and it is the third attempt.
+
+      Attempt one was one hill in vivid lime, the same green as the meadow's
+      GRASS: foreground sprites sank into it — the pine grove and the oak's
+      canopy both vanished the moment they crossed the skyline — because two
+      things the same colour are at the same distance whatever else you do.
+
+      Attempt two kept one hill and gave it aerial perspective as a GRADIENT:
+      lighter, cooler and greyer toward the crest. It fixed the sinking and
+      introduced a worse thing. A gradient with a hard horizontal edge where
+      the meadow cuts it off is a fog wall, not a hill — there is no shape in
+      it, so what the eye gets is a band of haze with a ruled bottom.
+
+      What reads as distance in pixel art is not a ramp, it is LAYERS: flat
+      fields of colour separated by a drawn edge, each one lighter and bluer
+      than the one in front. The edge does the work; the fill just has to stay
+      out of its way, which is why there is no gradient and no dither in any of
+      these three. Each ridge is its own noise so the crests cross rather than
+      running parallel, and the near one is deliberately allowed to dip BELOW
+      the meadow's turf line in places — that is what stops the join reading as
+      a flat band, because in those places there is no join to see.
+
+      crestK returns a fraction of the frame measured up from its bottom edge.
+      The ranges are the only window the frame leaves and the chain is tight:
+        · the near ridge must dip below the turf line (0.26 + the meadow's own
+          two-cell roll) in places and rise clear of it in others
+        · the far ridge's maximum is SKY_CREST over in the layout code, which
+          is what the wordmark clears; push it up and the name drops a size */
+   float crestK(float x,int k){
+     if(k==0) return 0.293                                   // far: the skyline
+              +0.048*exp(-pow((x-0.30)*2.5,2.0))
+              +0.038*exp(-pow((x-0.73)*2.8,2.0))
+              +0.008*fbm(vec2(x*3.0+7.0,1.5));
+     if(k==1) return 0.286                                   // middle
+              +0.034*exp(-pow((x-0.58)*2.3,2.0))
+              +0.026*exp(-pow((x-0.14)*3.1,2.0))
+              +0.010*fbm(vec2(x*4.4+19.0,3.5));
+     return 0.264                                            // near: meets the turf
+              +0.026*exp(-pow((x-0.40)*2.1,2.0))
+              +0.020*exp(-pow((x-0.87)*2.7,2.0))
+              +0.010*fbm(vec2(x*6.0+31.0,5.5));
    }
-   // 4x4 ordered (Bayer) dither thresholds, normalised to [0,1)
-   const float bayer[16]=float[16](
-     0.0,    0.5,    0.125,  0.625,
-     0.75,   0.25,   0.875,  0.375,
-     0.1875, 0.6875, 0.0625, 0.5625,
-     0.9375, 0.4375, 0.8125, 0.3125);
-   float dither(vec2 cell){
-     int bx=int(mod(cell.x,4.0)), by=int(mod(cell.y,4.0));
-     return bayer[by*4+bx];
+   /* The treeline along the near ridge. One or two cells of canopy on a
+      three-cell column pitch, with the middle cell of each clump a cell taller
+      so it comes to a point — a conifer at this distance is three pixels and a
+      tip, and anything more detailed at this size is just noise on an edge.
+      Returned in CELLS, added to the ridge, so it keeps its weight whatever
+      the window does. */
+   float treeAt(float cx){
+     float col=floor(cx/3.0), sub=cx-col*3.0;
+     float h=hash(vec2(col,4.4));
+     if(h<0.38)return 0.0;                                   // gaps in the wood
+     return 1.0+step(0.74,h)+step(0.5,sub)*step(sub,1.5);
    }
+   /* ═══ CUMULUS FIELD ═══
+      A jittered grid of soft circles, evaluated as a FUNCTION rather than
+      inline, for one reason: it has to be sampled more than once per fragment.
+      A single sample can only give a radial gradient, and a radial gradient
+      thresholded into two tones is a crescent — it rings the puff instead of
+      pooling under it. Sampling the same field a few cells higher answers the
+      question that actually decides the shading, which is "is there cloud
+      above me?": yes means you are in the belly of the puff and in shade, no
+      means you are on its crown and in the sun. That is what gives a flat lit
+      top with the shadow following the bumps along the bottom, which is how
+      cumulus is drawn by hand.
+
+      Three parallax layers at different scales and drift speeds, max-combined,
+      so the shapes overlap into clusters rather than reading as a grid. */
+   float puffField(vec2 c){
+     float v=0.0;
+     for(int k=0;k<3;k++){
+       float fk=float(k);
+       float speed=0.020+0.012*fk;
+       float scale=3.2+1.6*fk;
+       vec2 q=vec2(c.x*scale - uT*speed + fk*4.7, (c.y-0.58)*scale*2.4 + fk*1.3);
+       vec2 ce=floor(q), f=fract(q);
+       for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++){
+         vec2 g=vec2(float(dx),float(dy));
+         vec2 ci=ce+g+vec2(fk*17.3);
+         vec2 ctr=g+vec2(hash(ci), 0.35+0.30*hash(ci+vec2(7.1)));
+         float r=0.30+0.22*hash(ci+vec2(3.7));
+         v=max(v, smoothstep(r, r*0.42, length(f-ctr)));
+       }
+     }
+     return v;
+   }
+   /* The 4x4 ordered (Bayer) dither table lived here. Nothing calls it any
+      more: see the POSTERIZE block in main() for why the particle path never
+      wanted it and why the sky reads better in clean bands than in bands with
+      a fringe of chequer down every boundary. Left as a note rather than as
+      dead code, because a dither table is trivial to write and an unused one
+      in a shader is an invitation to reintroduce the bug. */
    void main(){
      // ── world/screen split ──
      // The texture holds the whole world y-flipped (row 0 = world bottom). The
@@ -2860,77 +3129,167 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        sky+=vec3(1.0,1.0,0.92)*st*(night-0.5)*2.0*tw;
      }
 
-     // ── puffy white cumulus clouds, drifting horizontally ──
-     // two layers: bigger lazy crowns on top, smaller wisps lower down
-     float c1=fbm(vec2(cuv.x*2.4 - uT*0.012, y*4.2));
-     float band1=smoothstep(0.42,0.78,y)*smoothstep(0.98,0.70,y);
-     float lit1=smoothstep(0.0,0.20,c1-0.55);
-     vec3 cloud1=mix(vec3(0.84,0.88,0.94),vec3(1.0,1.0,1.0),lit1);cloud1=mix(vec3(0.09,0.11,0.19),cloud1,uDay);
-     sky=mix(sky,cloud1,smoothstep(0.54,0.74,c1)*band1);
-     float c2=fbm(vec2(cuv.x*4.5 - uT*0.028 + 9.0, y*7.0));
-     float band2=smoothstep(0.30,0.55,y)*smoothstep(0.74,0.46,y);
-     sky=mix(sky,mix(vec3(0.10,0.12,0.20),vec3(0.97,0.99,1.0),uDay),smoothstep(0.62,0.80,c2)*band2*0.55);
+     /* ── clouds ──
+        These used to be two fbm layers laid across the whole width with a soft
+        smoothstep for an alpha. Two things went wrong with that and both are
+        the same thing: fbm has no silhouette, and a soft alpha has no edge. The
+        result was horizontal smears of half-transparent grey, at their worst
+        directly behind the wordmark, where a name that wants a clean field to
+        sit on got noise instead. Clouds here are SHAPES: one hard threshold,
+        three flat tones, and nothing in between. */
+     float cpx=1.0/uCam.y;                  // one screen cell, in uv-y units
+     /* The band no longer fades the clouds OUT — a faded cloud is a
+        semi-transparent cloud, which is the thing being fixed. Instead it
+        raises the threshold, so a cloud approaching the edge of its band gets
+        SMALLER and then stops existing, with hard edges the whole way. */
+     float cBand=smoothstep(0.40,0.56,y)*smoothstep(0.92,0.70,y);
+     float cT=0.55+(1.0-cBand)*0.80;
+     float pC=puffField(vec2(cuv.x,y));
+     // Six cells up. Below a full puff-height it started shading the crowns of
+     // the small puffs too; much above it and the shadow peels away from the
+     // bottom edge of the big ones and floats.
+     float pU=puffField(vec2(cuv.x,y+6.0*cpx));
+     float inCloud=step(cT,pC);
+     float cShaded=step(cT,pU);             // cloud above me ⇒ I am in the belly
+     /* The keyline. The puff field ramps across roughly thirteen cells between
+        a puff's rim and its solid core, so 0.075 of its range is about one cell
+        — measured off the field, not guessed, and the reason the outline holds
+        its weight instead of thickening wherever the curve goes shallow. */
+     float cKey=inCloud*(1.0-step(cT+0.075,pC));
+     vec3 cloudLit  =mix(vec3(0.135,0.155,0.245),vec3(1.00,1.00,1.00),uDay);
+     vec3 cloudShade=mix(vec3(0.095,0.110,0.185),vec3(0.78,0.83,0.92),uDay);
+     vec3 cloudKey  =mix(vec3(0.055,0.065,0.125),vec3(0.62,0.68,0.80),uDay);
+     vec3 cloudCol=mix(cloudLit,cloudShade,cShaded);
+     cloudCol=mix(cloudCol,cloudKey,cKey);
+     sky=mix(sky,cloudCol,inCloud);
+     /* High cirrus, and only high: it lives above 0.82 of the frame, clear of
+        both the wordmark and the crests, so the one place a streak layer was
+        actively hurting is the one place it can no longer reach.
 
-     // ── distinct round cumulus puffs: jittered grid of soft circles, parallax layers ──
-     float puffs=0.0;
-     for(int k=0;k<3;k++){
-       float fk=float(k);
-       float speed=0.020+0.012*fk;
-       float scale=3.2+1.6*fk;
-       vec2 q=vec2(cuv.x*scale - uT*speed + fk*4.7, (y-0.58)*scale*2.4 + fk*1.3);
-       vec2 cell=floor(q), f=fract(q);
-       for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++){
-         vec2 g=vec2(float(dx),float(dy));
-         vec2 ci=cell+g+vec2(fk*17.3);
-         vec2 ctr=g+vec2(hash(ci), 0.35+0.30*hash(ci+vec2(7.1)));
-         float r=0.30+0.22*hash(ci+vec2(3.7));
-         float d=length(f-ctr);
-         puffs=max(puffs, smoothstep(r, r*0.42, d));
-       }
-     }
-     float puffBand=smoothstep(0.40,0.58,y)*smoothstep(0.88,0.66,y);
-     vec3 puffShade=mix(vec3(0.08,0.10,0.18),vec3(0.80,0.85,0.93),uDay);
-     vec3 puffLit  =mix(vec3(0.12,0.14,0.24),vec3(1.00,1.00,1.00),uDay);
-     vec3 puffCol=mix(puffShade, puffLit, smoothstep(0.05,0.75,puffs));
-     sky=mix(sky, puffCol, puffs*puffBand*0.90);
+        Stretched hard along x (2.0 across the width against 26.0 up the frame)
+        so the wisps come out long and thin rather than as the stepped diagonal
+        staircase a squarer noise gives once you threshold it. And painted in a
+        tone only one step off the crown sky rather than in white: up here the
+        sky is its deepest blue, and full white read as a scratch on the glass
+        rather than as cloud at altitude. */
+     float ci=fbm(vec2(cuv.x*2.0 - uT*0.008, y*26.0));
+     float ciBand=smoothstep(0.82,0.90,y)*smoothstep(1.04,0.94,y);
+     float inCirrus=step(0.60+(1.0-ciBand)*0.60,ci);
+     sky=mix(sky,mix(vec3(0.075,0.095,0.175),vec3(0.455,0.630,0.860),uDay),inCirrus);
 
-     // ── two gentle background hills: low on the horizon, never dominant ──
-     // two offset gaussian bumps so distinct crests rise out of a flat skyline
-     float crest=crestAt(cuv.x);
-     if(y<crest){
-       // grass shading: vivid lime at the crest, deeper olive at the bottom
-       float gT=clamp((crest-y)/crest,0.0,1.0); // 0 at crest, 1 at frame bottom
-       vec3 grassTop =vec3(0.56,0.74,0.26);
-       vec3 grassMid =vec3(0.42,0.62,0.18);
-       vec3 grassDeep=vec3(0.26,0.46,0.12);
-       vec3 grass=mix(grassTop,grassMid,smoothstep(0.0,0.35,gT));
-       grass=mix(grass,grassDeep,smoothstep(0.40,1.0,gT));
-       // subtle wind-streak striations along the slope
-       grass+=0.025*sin(cuv.x*38.0 + y*12.0);
-       sky=grass*(0.12+0.88*uDay);
-     }
+     /* ── background hills: three flat layers, far to near ──
+        See crestK above for why this is layers and not a gradient. Here it is
+        just: paint each ridge over the one behind it, flat, hard-edged, no
+        interpolation of any kind. Order is far → near, so each overwrites the
+        part of its predecessor that it stands in front of.
 
-     // ── wind turbines planted along the hill crests ──
-     // per turbine: x position, tower height, phase offset
+        The colours run lighter and BLUER toward the horizon, which is the
+        whole of aerial perspective in three steps: hNear is a deep cool green
+        that is clearly darker than the meadow's GRASS (0.267,0.541,0.196), so
+        a pine or an oak crossing that skyline separates instead of sinking;
+        hMid is lighter with the green pulled down; hFar is nearly a blue-grey.
+        Each is also mixed a little toward whatever the sky is doing at the
+        horizon, more the further back it is — that one term is what makes all
+        three work at dusk and at night without a second palette, because at
+        dusk the horizon is orange and at night it is nearly black and the
+        hills follow it either way.
+
+        No lit rim, no haze band, no shading of any kind inside a layer. The
+        EDGE is the drawing. */
+     const float TURF_Y=0.26;               // baseLine's fraction; the two move together
+     float c0=crestK(cuv.x,0), c1=crestK(cuv.x,1), c2=crestK(cuv.x,2);
+     c2+=treeAt(cell.x)/uCam.y;             // the wood standing on the near ridge
+     vec3 hFar =mix(vec3(0.126,0.148,0.226),vec3(0.455,0.565,0.520),uDay);
+     vec3 hMid =mix(vec3(0.082,0.100,0.166),vec3(0.330,0.470,0.375),uDay);
+     vec3 hNear=mix(vec3(0.046,0.058,0.102),vec3(0.170,0.315,0.205),uDay);
+     /* The haze mix is per layer and it is the depth cue doing the most work:
+        the far ridge takes nearly a quarter of the horizon's colour, the near
+        one almost none. Held back from 0.30/0.15/0.05 — at 0.30 the far ridge
+        came out the same value as the mid one once the horizon had bleached
+        it, and two layers you cannot tell apart are one layer. */
+     hFar =mix(hFar ,horizon,0.22);
+     hMid =mix(hMid ,horizon,0.11);
+     hNear=mix(hNear,horizon,0.04);
+     if(y<c0)sky=hFar;
+     if(y<c1)sky=hMid;
+     if(y<c2)sky=hNear;
+     /* Below the turf line nothing that belongs to the sky may be painted, and
+        that includes the hills. It sounds obvious and it was not happening:
+        the hill branch ran to the bottom of the frame, so every row of the
+        cross-section had hill green behind it, and any cell the soil did not
+        fill showed it — a dark olive band across the whole width, only partly
+        pulled toward the underground backdrop by ugK, which does not begin
+        until 0.86 of the world's height. The soil runs to the bottom of the
+        grid now so there should BE no such cell, but the backdrop under the
+        ground is not allowed to be sky-coloured whether or not anything is
+        standing in front of it. Dark, warm, and low: what you would see down
+        the side of a cut, which is exactly where this shows. */
+     /* Not black, though. The cave carved under the meadow is the one place
+        this backdrop is seen over any area, and at 0.058 it was a hole with
+        a lava strip at the bottom: the stalactites hanging from its roof
+        and the stone rim round it were rock on near-black, and did not
+        exist. A mottled dark warm rock — still well below anything the
+        soil renders as, so it stays the far wall — is enough for the void
+        to read as a chamber with a back to it. */
+     vec3 cutRock=vec3(0.135,0.108,0.086)*(0.78+0.44*fbm(vec2(cell.x*0.07,cell.y*0.09)));
+     sky=mix(sky,cutRock,1.0-step(TURF_Y,y));
+
+     /* ── wind turbines planted along the hill crests ──
+        Per turbine: x position, tower height, phase offset.
+
+        Both numbers moved when the ground came up. The HEIGHTS halved: these
+        are objects on the far skyline, and at 0.115 of the frame a distant
+        turbine stood taller than the cottage in the foreground, which inverts
+        the depth the hills behind it are working to establish. Halved again
+        against the sprites rather than against the frame — a turbine on the
+        crest should read as roughly the mast the meadow's own turbine sprite
+        is, seen from much further off.
+
+        The X POSITIONS moved OUT of [0.228, 0.769], which is the column the
+        wordmark occupies. Turbines are drawn into the sky, the name is stamped
+        as particles over it, and letters have holes in them: a white mast
+        crossing the counter of a P shows through it. Nothing on the far
+        skyline may stand in the name's column, so they stand either side. */
      const vec3 TURB[3]=vec3[3](
-       vec3(0.230,0.115,0.0),
-       vec3(0.345,0.085,2.1),
-       vec3(0.710,0.100,4.2));
+       vec3(0.135,0.058,0.0),
+       vec3(0.205,0.046,2.1),
+       vec3(0.815,0.053,4.2));
      float asp=uGrid.x/uCam.y;
      vec2 pp=vec2(cuv.x*asp,y);        // aspect-corrected so rotors sweep circles
      float pw=1.0/uCam.y;                 // one sim cell, in uv-y units
+     /* Two tones and two widths, to match the line weight the sprites are drawn
+        at. A one-cell white hairline was the thinnest mark anywhere in the
+        picture and read as a scratch on the glass rather than as a machine on
+        a hill; everything authored in this world has a body and an outline, so
+        these get the same. The outline pass is the same geometry one cell
+        fatter, drawn first, so the light stroke lands inside it. */
      vec3 turbCol=mix(vec3(0.28,0.31,0.40),vec3(0.94,0.96,0.98),uDay);
+     vec3 turbEdge=mix(vec3(0.10,0.12,0.18),vec3(0.42,0.47,0.56),uDay);
+     /* The rotor is snapped to twelve positions per turn. Sub-cell angles are
+        the classic pixel-art alias: the blade is one cell wide, the grid it
+        lands on is one cell, so a continuous sweep makes the tip crawl between
+        cells and the whole rotor shimmer. Twelve is the smallest count where
+        three blades 120° apart still land on visibly different pixels at every
+        step (three and six put the rotor back on itself), and it holds the
+        stepped, hand-animated look the rest of the scene is drawn in. */
+     const float RSTEP=6.2831853/12.0;
      for(int k=0;k<3;k++){
        vec3 tp=TURB[k];
-       vec2 base=vec2(tp.x*asp,crestAt(tp.x)-0.006);
+       vec2 base=vec2(tp.x*asp,crestK(tp.x,k==2?1:0)-0.006);
        vec2 hub=base+vec2(0.0,tp.y);
-       float m=seg(pp,base,hub,pw*0.7);    // tower
-       float ang=uT*(0.42+0.06*float(k))+tp.z;
+       float ang=floor((uT*(0.42+0.06*float(k))+tp.z)/RSTEP)*RSTEP;
+       float m=0.0,mo=0.0;
+       mo=max(mo,seg(pp,base,hub,pw*1.6));  // tower, outlined
+       m =max(m ,seg(pp,base,hub,pw*0.8));
        for(int i=0;i<3;i++){
          float a=ang+float(i)*2.0944;
-         m=max(m,seg(pp,hub,hub+vec2(cos(a),sin(a))*tp.y*0.52,pw*0.55));
+         vec2 tip=hub+vec2(cos(a),sin(a))*tp.y*0.62;
+         mo=max(mo,seg(pp,hub,tip,pw*1.5));
+         m =max(m ,seg(pp,hub,tip,pw*0.7));
        }
-       m=max(m,step(length(pp-hub),pw*1.1)); // nacelle
+       mo=max(mo,step(length(pp-hub),pw*2.0));
+       m =max(m ,step(length(pp-hub),pw*1.2)); // nacelle
+       sky=mix(sky,turbEdge,mo);
        sky=mix(sky,turbCol,m);
        // blinking red aviation light on the nacelle after dusk
        if(night>0.5){
@@ -3023,12 +3382,13 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      // its own walls. Where surf gives a cell its one-cell edge, this is the
      // long-range half of the same idea, and the two stack into real volume.
      //
-     // 0.22 is a ceiling set by the posterize below, not by taste. Particles
-     // are crushed to 8 levels per channel, so a channel under ~32 lands on
-     // level zero — pure black. Stone's body sits near 50 before ambient, which
-     // leaves very little room: at 0.38 the darkest rock fell off the bottom
-     // and whole cliffs went flat black. Bright materials have levels to spare,
-     // which is why sand and dirt carry most of the visible depth here.
+     // 0.22 was a ceiling set by the posterize below, back when particles were
+     // crushed to 8 levels and a channel under ~32 landed on level zero — pure
+     // black. Stone's body sits near 50 before ambient, so at 0.38 the darkest
+     // rock fell off the bottom and whole cliffs went flat black. The posterize
+     // is 32 levels now and that cliff is gone; the number stays because what
+     // it does at 0.22 is still the right AMOUNT of occlusion, not because
+     // anything below it would break. It is now a taste number, honestly.
      // Ambient light. Above ground it tracks the day/night clock; underground
      // it does not, and must not — there is no sun down a mine shaft, so a
      // buried panel that dimmed at dusk would be lit by a sky it cannot see.
@@ -3036,7 +3396,22 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      // that changes the light down there is what you bring with you: fire,
      // lava, a lit fuse. ugK does the crossfade, so the transition happens at
      // the same world row where the sky stops.
-     float ambSky=0.16+0.84*uDay;
+     /* Night used to be 0.16 of the day ambient, flat and neutral, which is
+        what a dimmer switch does and not what the moon does. Everything on the
+        meadow crushed to one near-black silhouette: the oak, the pines, the
+        cottage walls and the turf were all the same colour, and the only thing
+        left in the frame was the two lit windows and the greenhouse.
+
+        The lift to 0.30 is what buys back one readable step of the authored
+        shading — a SHADE highlight is +14 on a base, and at 0.16 that arrives
+        as +2, under a posterize level either way. The tint is what stops the
+        lift from reading as daylight: moonlight is cool and dim, so the blue
+        channel goes UP past unity while red drops well below it, and a green
+        leaf at night comes out blue-grey rather than a dark green. The hue
+        moves, not just the level, which is the whole difference between night
+        and an underexposed day. */
+     float ambSky=0.30+0.70*uDay;
+     vec3 ambTint=mix(vec3(0.62,0.76,1.14),vec3(1.0,1.0,1.0),uDay);
      /* Bright enough to read the strata and anything buried in them, dim
         enough that a torch, a lava seam or a lit fuse still visibly changes
         the room.
@@ -3051,23 +3426,57 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
         a lit fuse still visibly changes a room that is no longer near-black. */
      float ambUnder=0.94;
      float amb=mix(ambSky,ambUnder,ugK)*(1.0-0.22*lc.a);
-     vec3 partRGB=tx.rgb*(amb + lit*1.35);
+     // Underground has no sky to be blue, so the moon tint fades out on the
+     // same ugK the rest of the day/night term already fades out on.
+     vec3 partRGB=tx.rgb*(amb*mix(ambTint,vec3(1.0),ugK) + lit*1.35);
      tx=vec4(partRGB,tx.a);
 
-     // Surface gradients retain a little ordered texture. Underground has NO
-     // Bayer pattern: authored shapes and light, not checkerboard, carry form.
-     float L=10.0;
-     float dAmt=0.22;
-     float d=(dither(cell)-0.5)*dAmt+0.5;
-     // More luminance steps retain quiet bevels without synthetic stippling.
-     float ud=0.5;
+     /* ═══ POSTERIZE ═══
+        Two quantisers, and the split between them is the whole of it.
+
+        GRADIENTS — the sky ramp, the hills' haze, the parallax backdrop — are
+        smooth fields, and quantising a smooth field into flat bands is what
+        gives pixel art its sky. Those bands are the drawing, so they are drawn
+        clean. The old settings ran ten bands with a 4x4 Bayer at 0.22 strength,
+        which is not a dithered gradient — a dithered gradient needs the full
+        band width, and at 0.22 you get a hard step with a two-cell fringe of
+        checkerboard stapled to its edge. At four screen pixels per cell that
+        fringe is a 8px chequer, and behind the clouds it read as static rather
+        than as air. Twenty clean bands cost one instruction less and read as
+        something somebody chose.
+
+        PARTICLES are not a gradient and never were. Every cell of them is
+        authored — a shade index out of SHADE, a grain tone out of SAND_T, a
+        one-cell relief bevel — so an ordered dither over them is noise laid on
+        top of a decision that has already been made. The dirt band, the
+        wordmark's sand letters and the worn foot path were the visible
+        casualties: three flat colours, rendered as checkerboard. */
+     const float RND=0.5;                  // round to nearest, no dither
+     const float L=20.0;
      float blum=dot(sky,vec3(0.299,0.587,0.114));
-     vec3 under=sky*(floor(blum*31.0+ud)/31.0)/max(blum,0.0001);
-     sky=mix(floor(sky*(L-1.0)+d)/(L-1.0),under,ugK);
+     vec3 under=sky*(floor(blum*31.0+RND)/31.0)/max(blum,0.0001);
+     sky=mix(floor(sky*(L-1.0)+RND)/(L-1.0),under,ugK);
      sky=clamp(sky,0.0,1.0);
 
-     /* Posterize particle LUMINANCE and carry the colour along. The surface
-        keeps eight levels; underground gets 32 clean, undithered steps.
+     /* Posterize particle LUMINANCE and carry the colour along. Thirty-two
+        clean, undithered steps, above ground and below.
+
+        The surface used to get eight, and eight is not enough to draw with.
+        SHADE — the four-step ramp every sprite in this world is painted
+        against — is [0, -22, +14, -38] as an RGB delta. A luminance level at
+        eight steps is 36 units wide. So at noon, on a LEAF: base 74, highlight
+        88, shadow 52, deep 38. Base and highlight land on the same level and
+        render identically; shadow and deep land on the same level and render
+        identically. A four-tone sprite came out in two tones, and it was not
+        the artist's ramp that was flat, it was the quantiser underneath it.
+        BRICK, BERRY and THATCH did the same; WOOD fell either side of a
+        boundary and its shadow and highlight dithered into speckle.
+
+        At 32 steps a level is 8.2 units wide, so +14 clears one and -22 clears
+        two — every step of the authored ramp survives, with room under it. The
+        alternative was widening SHADE to TONE's ±30/±52, but the sprites are
+        drawn against SHADE, and there are a lot more sprites than there are
+        quantisers.
 
         Independent channels do not preserve hue, and the error is worst
         exactly where this world spends most of its pixels: neutral rock. Raw
@@ -3081,54 +3490,35 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
 
         Scaling the original colour to a quantised luminance keeps the channel
         RATIO exactly, so a grey quantises to a grey and a lit orange stays
-        orange. The dither is the same ordered one the sky uses — the particle
-        path never had it, which is also why gradients here hard-banded while
-        the sky's were smooth. */
+        orange. */
      float plum=dot(tx.rgb,vec3(0.299,0.587,0.114));
-     float levels=mix(7.0,31.0,ugK);
-     float pq=floor(plum*levels+mix(d,ud,ugK))/levels;
+     float levels=31.0;
+     float pq=floor(plum*levels+RND)/levels;
      vec3 part=clamp(tx.rgb*(pq/max(plum,0.0001)),0.0,1.0);
      vec3 col=mix(sky,part,tx.a);
      col+=lit*0.30;                        // soft bloom over everything
 
-     // ── foreground plane: a dark turf berm with swaying blades, composited
-     // over everything so the world reads as having a near plane and the
-     // taskbar is framed by scenery instead of butting into bedrock.
-     // Drawn after the posterize so it stays a flat, undithered silhouette.
-     float fy=cell.y, fx=cell.x;           // sim cells, y counted from frame bottom
-     // berm: ragged ridge cresting a few cells above the taskbar
-     float bermTop=uBar+1.0+floor(fbm(vec2(fx*0.035,3.7))*4.0);
-     float fg=step(fy,bermTop);
-     float rim=step(bermTop-1.0,fy)*fg;    // topmost cell catches the light
-     // blades: sparse jittered lanes, quadratic lean, gentle wind sway
-     float lane=floor(fx/13.0);
-     for(int k=-1;k<=1;k++){
-       float li=lane+float(k);
-       if(hash(vec2(li,5.1))<0.42)continue;               // not every lane sprouts
-       float bh=3.0+10.0*pow(hash(vec2(li,11.3)),2.0);    // mostly short, rarely tall
-       float bBase=bermTop-1.0;
-       float bt=(fy-bBase)/bh;                            // 0 at base, 1 at tip
-       if(bt<0.0||bt>1.0)continue;
-       float lean=(hash(vec2(li,7.7))*2.0-1.0)*bh*0.30;
-       // sway must clear a whole cell or it quantises away to nothing —
-       // amplitude is in cells, with a floor so short blades still step
-       lean+=sin(uT*(0.5+0.4*hash(vec2(li,13.1)))+li*2.3)*(0.9+bh*0.15);
-       float bx=li*13.0+13.0*(0.15+0.7*hash(vec2(li,2.9)))+lean*bt*bt;
-       float on=step(abs(fx-bx),mix(1.1,0.5,bt));         // taper toward the tip
-       fg=max(fg,on);
-       rim=max(rim,on*step(0.86,bt));
-     }
-     // the near plane belongs to the surface; leaving it, the berm goes with it
-     fg*=1.0-smoothstep(0.10,0.45,depth);
-     if(fg>0.5){
-       // By night the meadow behind this crushes to black, so a dark silhouette
-       // would invert and read as a glowing strip. Instead the body sinks into
-       // that black and the rim carries a cool moonlit edge — the near plane
-       // stays legible in both lighting states.
-       vec3 fgDark=mix(vec3(0.008,0.012,0.010),vec3(0.055,0.105,0.045),uDay);
-       vec3 fgLite=mix(vec3(0.105,0.130,0.175),vec3(0.130,0.215,0.090),uDay);
-       col=mix(fgDark,fgLite,rim)+lit*0.35;               // still catches nearby fire
-     }
+     /* ── the near plane ──
+        There was a foreground berm here: a dark turf bank with swaying blades,
+        composited over everything so the taskbar was "framed by scenery
+        instead of butting into bedrock". It is gone, and the reason is worth
+        writing down because the idea keeps looking good on paper.
+
+        It only ever worked while it was eight cells tall — a hairline of dark
+        along the very bottom that nobody looked at. Once the meadow's turf
+        line came up and the berm was raised with it to close off the deeper
+        cross-section, it became a band of dark olive across the whole width
+        with a hard flat crest, and what it read as was not a near plane. It
+        read as a bar. A near plane needs somewhere to BE near to, and in a
+        strictly side-on view with no camera movement there is no parallax to
+        sell it with — so all a foreground layer can do here is take height
+        away from the picture and give back a silhouette of nothing.
+
+        The cross-section runs to the bottom of the frame now: turf, topsoil,
+        subsoil, rock, and the chrome sits on the rock. What the berm's blades
+        were for — the turf line reading as grass rather than as a ruled edge —
+        is done by the meadow's own PLANT tufts, at the real turf line, where
+        the grass in this world actually grows. */
      c=vec4(col,1.0);
    }`));
 gl.linkProgram(prog);gl.useProgram(prog);
@@ -3149,7 +3539,6 @@ gl.uniform1i(gl.getUniformLocation(prog,'uLW'),2);
 const uTimeLoc=gl.getUniformLocation(prog,'uT');
 const uDayLoc=gl.getUniformLocation(prog,'uDay');
 const uGridLoc=gl.getUniformLocation(prog,'uGrid');
-const uBarLoc=gl.getUniformLocation(prog,'uBar');
 const uCamLoc=gl.getUniformLocation(prog,'uCam');
 const uZoneColLoc=gl.getUniformLocation(prog,'uZoneCol');
 const uZoneCol2Loc=gl.getUniformLocation(prog,'uZoneCol2');
@@ -3180,6 +3569,31 @@ function packZoneUniforms(){
 }
 packZoneUniforms();
 const TASKBAR_PX=30;          // keep in sync with #taskbar height
+/* ═══ THE FAR SKYLINE ═══
+   The top of the background hills, as a fraction of the frame measured UP from
+   its bottom edge — crestK(x,0)'s base plus its taller gaussian plus the noise
+   term, i.e. the highest row the shader will ever paint hill on. The shader
+   owns the curves; this is the one number the layout on top of it has to know,
+   because the wordmark has to clear it. Change the far ridge and change this.
+   0.358 is 0.293 + 0.048 + 0.009 + 0.008, and it is a ceiling rather than a
+   preference: push it up and skyFloor comes down, and at 1920 the name drops
+   from three cells per glyph to two. */
+const SKY_CREST=0.358;
+/* ═══ THE DOCKED CHROME, IN CELLS ═══
+   How many rows at the bottom of the frame the taskbar and the Materials
+   palette docked on it cover. Nothing is DRAWN against it — the world's own
+   soil runs all the way down behind it now — but two things have to know where
+   it ends: the turf line, which must not be pushed under it, and the rock band
+   at the foot of the cross-section, which is sized so a few cells of it show
+   above the chrome rather than all of it or none.
+
+   Cached rather than read per frame: offsetHeight forces layout, and the only
+   things that move it are a resize and a world rebuild. */
+let CHROME_ROWS=Math.ceil((TASKBAR_PX+38)/SCALE);
+function measureChromeRows(){
+  const px=document.getElementById('matPicker')?.offsetHeight||38;
+  CHROME_ROWS=Math.ceil((TASKBAR_PX+px)/SCALE);
+}
 let gTime=0;
 
 function allocTexture(){
@@ -3249,11 +3663,26 @@ const DAY_PERIOD=240;         // seconds per full day
 let dayWarp=0;                // extra phase from clock clicks (eased)
 function dayFactor(){return 0.5+0.5*Math.cos(dayPhase);}
 
-function blurL(a,tmp,w,h){
-  for(let y=0;y<h;y++){const row=y*w;
-    for(let x=0;x<w;x++){const l=x>0?a[row+x-1]:a[row+x],r=x<w-1?a[row+x+1]:a[row+x];tmp[row+x]=(l+a[row+x]*1.1+r)/3.1;}}
-  for(let y=0;y<h;y++){const row=y*w;
-    for(let x=0;x<w;x++){const u=y>0?tmp[row-w+x]:tmp[row+x],d=y<h-1?tmp[row+w+x]:tmp[row+x];a[row+x]=(u+tmp[row+x]*1.1+d)/3.1;}}
+function blurL(a,tmp,w,h,x0=0,y0=0,x1=w-1,y1=h-1){
+  // Emitters have finite support: four passes can only reach four texels.
+  // Keep the same stencil and Float32 rounding inside that padded rectangle.
+  // Scratch rows outside it may hold old data, so treat them as zero unless
+  // this is the physical texture edge (where the original stencil clamps).
+  for(let y=y0;y<=y1;y++){const row=y*w;
+    // Handle the clamped edges once per row; the interior has no branches.
+    let i=row+x0;
+    tmp[i]=(a[i-(x0>0?1:0)]+a[i]*1.1+a[i+(x0<w-1?1:0)])/3.1;
+    for(i=row+x0+1;i<row+x1;i++)tmp[i]=(a[i-1]+a[i]*1.1+a[i+1])/3.1;
+    if(x1>x0){i=row+x1;tmp[i]=(a[i-1]+a[i]*1.1+a[i+(x1<w-1?1:0)])/3.1;}
+  }
+  for(let y=y0;y<=y1;y++){
+    const row=y*w,up=y>0?-w:0,down=y<h-1?w:0;
+    if((y===y0&&y>0)||(y===y1&&y<h-1)){
+      for(let i=row+x0,end=row+x1;i<=end;i++)a[i]=((y===y0&&y>0?0:tmp[i+up])+tmp[i]*1.1+(y===y1&&y<h-1?0:tmp[i+down]))/3.1;
+    }else{
+      for(let i=row+x0,end=row+x1;i<=end;i++)a[i]=(tmp[i+up]+tmp[i]*1.1+tmp[i+down])/3.1;
+    }
+  }
 }
 // lookup table gating the full-grid emissive scan: one array read rejects the
 // sky/terrain bulk instead of a 5-way branch chain per cell
@@ -3339,6 +3768,9 @@ function buildLight(){
   const nightQ=(night*128)|0;
   if(!lightScanAll&&edX1<edX0&&nightQ===lightNightQ&&!hoverCells.length)return;
   lightNightQ=nightQ;
+  // Emitters must be revisited to rebuild their glow, but unchanged matter
+  // under those lights does not need its occlusion counted or blurred again.
+  const occMoved=lightScanAll?occRebuild(0,camY,W-1,camY+VH-1):occRebuild(edX0,edY0,edX1,edY1);
   let sx0=0,sy0=camY,sx1=W-1,sy1=camY+VH-1;
   if(lightScanAll)lightScanAll=0;
   else{
@@ -3352,11 +3784,6 @@ function buildLight(){
   // the clears, the blur passes and both uploads below are all wasted. Nothing
   // changed also means no cell moved, so the occlusion field is still valid.
   if((sx1<sx0||sy1<sy0)&&!lightHadEmitters)return;
-
-  // Occlusion rides the same dirty region the emissive scan uses. It is
-  // rebuilt incrementally — only the 4x4 blocks the region covers get
-  // re-counted — so the cost tracks what actually moved, not the world size.
-  const occMoved=occRebuild(sx0,sy0,sx1,sy1);
 
   for(const c of coreF)c.fill(0);
   for(const c of wideF)c.fill(0);
@@ -3393,34 +3820,73 @@ function buildLight(){
   // AO alive on a world with no fire in it at all, where the emissive path
   // would otherwise bail out here every single pass.
   if(!found&&!lightHadEmitters&&!occMoved)return;
+  const uploadWide=found>0||lightHadEmitters;
   lightHadEmitters=found>0; // one last all-black upload when the last light dies
-  for(const c of coreF)for(let i=0;i<c.length;i++)if(c[i]>1.8)c[i]=1.8;
-  for(const c of wideF)for(let i=0;i<c.length;i++)if(c[i]>1.2)c[i]=1.2;
-  for(let p=0;p<4;p++)for(const c of coreF)blurL(c,tmpF,LW,LH);
-  for(let p=0;p<3;p++)for(const c of wideF)blurL(c,tmpW,WW,WH);
+  // With no sources these arrays are already black. Blurring them would do
+  // 21 full-buffer passes just to reproduce zero, even in a sunny meadow.
+  if(found){
+    const cx0=emX0>>2,cy0=(emY0-camY)>>2,cx1=emX1>>2,cy1=(emY1-camY)>>2;
+    const wx0=emX0>>4,wy0=(emY0-camY)>>4,wx1=emX1>>4,wy1=(emY1-camY)>>4;
+    for(const c of coreF)for(let y=cy0;y<=cy1;y++)for(let i=y*LW+cx0,end=y*LW+cx1;i<=end;i++)if(c[i]>1.8)c[i]=1.8;
+    for(const c of wideF)for(let y=wy0;y<=wy1;y++)for(let i=y*WW+wx0,end=y*WW+wx1;i<=end;i++)if(c[i]>1.2)c[i]=1.2;
+    const bx0=Math.max(0,cx0-4),by0=Math.max(0,cy0-4),bx1=Math.min(LW-1,cx1+4),by1=Math.min(LH-1,cy1+4);
+    const hx0=Math.max(0,wx0-3),hy0=Math.max(0,wy0-3),hx1=Math.min(WW-1,wx1+3),hy1=Math.min(WH-1,wy1+3);
+    for(let p=0;p<4;p++)for(const c of coreF)blurL(c,tmpF,LW,LH,bx0,by0,bx1,by1);
+    for(let p=0;p<3;p++)for(const c of wideF)blurL(c,tmpW,WW,WH,hx0,hy0,hx1,hy1);
+  }
   // Blur a copy, not occRaw itself — occRaw is the incrementally maintained
   // truth and has to survive from pass to pass.
-  occBlur.set(occRaw);
-  for(let p=0;p<3;p++)blurL(occBlur,occTmp,LW,LH);
+  if(occMoved){
+    occBlur.set(occRaw);
+    for(let p=0;p<3;p++)blurL(occBlur,occTmp,LW,LH);
+  }
   // pack (y-flipped to match uv space), scale 140 units per 1.0
   for(let y=0;y<LH;y++){const fy=LH-1-y;
     for(let x=0;x<LW;x++){const s=y*LW+x,d=(fy*LW+x)*4;
       coreBuf[d]=Math.min(255,coreF[0][s]*140);coreBuf[d+1]=Math.min(255,coreF[1][s]*140);coreBuf[d+2]=Math.min(255,coreF[2][s]*140);
       coreBuf[d+3]=Math.min(255,occBlur[s]*255);}}
-  for(let y=0;y<WH;y++){const fy=WH-1-y;
-    for(let x=0;x<WW;x++){const s=y*WW+x,d=(fy*WW+x)*4;
-      wideBuf[d]=Math.min(255,wideF[0][s]*140);wideBuf[d+1]=Math.min(255,wideF[1][s]*140);wideBuf[d+2]=Math.min(255,wideF[2][s]*140);wideBuf[d+3]=255;}}
+  if(uploadWide){
+    for(let y=0;y<WH;y++){const fy=WH-1-y;
+      for(let x=0;x<WW;x++){const s=y*WW+x,d=(fy*WW+x)*4;
+        wideBuf[d]=Math.min(255,wideF[0][s]*140);wideBuf[d+1]=Math.min(255,wideF[1][s]*140);wideBuf[d+2]=Math.min(255,wideF[2][s]*140);wideBuf[d+3]=255;}}
+  }
   gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,lightTexC);
   gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,LW,LH,gl.RGBA,gl.UNSIGNED_BYTE,coreBuf);
-  gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightTexW);
-  gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,WW,WH,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
+  if(uploadWide){
+    gl.activeTexture(gl.TEXTURE2);gl.bindTexture(gl.TEXTURE_2D,lightTexW);
+    gl.texSubImage2D(gl.TEXTURE_2D,0,0,0,WW,WH,gl.RGBA,gl.UNSIGNED_BYTE,wideBuf);
+  }
   gl.activeTexture(gl.TEXTURE0);
 }
 
+// Sand and water have only a few thousand combinations of grain, exposed
+// faces and micro-texture. Cache their final colours instead of repeating the
+// palette and relief arithmetic for every moving particle. The byte and word
+// views share native byte order, so a packed write preserves RGBA on any host.
+const particleColors=new Uint32Array(4096),particleColorValid=new Uint8Array(4096);
+const particleColorBytes=new Uint8Array(4),particleColorWord=new Uint32Array(particleColorBytes.buffer);
+let texWords,particleSunX=NaN,particleSunK=NaN;
+function prepareTexelCache(){
+  if(!texWords||texWords.buffer!==texData.buffer)texWords=new Uint32Array(texData.buffer);
+  if(particleSunX!==sunX||particleSunK!==sunK){
+    particleColorValid.fill(0);particleSunX=sunX;particleSunK=sunK;
+  }
+}
 // inline pixel fill — writes RGBA directly to texData, no array allocations
 function fillTexel(x,y){
   const fy=H-1-y; // texture is y-flipped
-  const gi=y*W+x, m=grid[gi];
+  const gi=y*W+x, m=grid[gi],dst=fy*W+x;
+  if(m===EMPTY){texWords[dst]=0;return;}
+  if(m===SAND||m===WATER){
+    const s=surf(x,y,gi),v=variant[gi]&7,art=depthArt[y]?1:0;
+    const pattern=m===WATER?(y&3):(!art&&!(s&S_UP)&&((((x>>1)*7)^((y>>1)*11))%5===0)?1:0);
+    const key=((m===WATER?2:0)+art)*1024+v*128+s*4+pattern;
+    if(!particleColorValid[key]){
+      matTexel(m,v,x,y,particleColorBytes,0,s);
+      particleColors[key]=particleColorWord[0];particleColorValid[key]=1;
+    }
+    texWords[dst]=particleColors[key];return;
+  }
   // Only materials with a relief strength look at their neighbours; for
   // everything else (and for empty sky, which is most of the grid) the mask
   // is never computed and this costs one array lookup.
@@ -3723,6 +4189,7 @@ function rockTexture(x,y){
 
 function render(){
   updateSun();   // may mark the whole grid dirty; must run before the paint loop
+  prepareTexelCache();
   gl.useProgram(prog);
   gl.bindBuffer(gl.ARRAY_BUFFER,vbuf);
   gl.enableVertexAttribArray(aloc);
@@ -3732,7 +4199,6 @@ function render(){
   gl.uniform1f(uTimeLoc,gTime);
   gl.uniform1f(uDayLoc,dayFactor());
   gl.uniform2f(uGridLoc,W,H);
-  gl.uniform1f(uBarLoc,TASKBAR_PX/SCALE);
   gl.uniform2f(uCamLoc,camY,VH);
   gl.uniform3fv(uZoneColLoc,zoneColBuf);
   gl.uniform3fv(uZoneCol2Loc,zoneCol2Buf);
@@ -3746,6 +4212,15 @@ function render(){
   gl.disable(gl.BLEND);
   // iterate dirty chunks: only re-fill+upload pixels that actually changed
   gl.pixelStorei(gl.UNPACK_ROW_LENGTH,W);
+  let uploadX0=BIG,uploadY0=BIG,uploadX1=-1,uploadY1=-1,uploadChunk=-2,uploadPixels=0;
+  const flushUpload=()=>{
+    if(uploadX0===BIG)return;
+    const fy0=H-1-uploadY1;
+    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,uploadX0);
+    gl.pixelStorei(gl.UNPACK_SKIP_ROWS,fy0);
+    gl.texSubImage2D(gl.TEXTURE_2D,0,uploadX0,fy0,uploadX1-uploadX0+1,uploadY1-uploadY0+1,gl.RGBA,gl.UNSIGNED_BYTE,texData);
+    uploadX0=BIG;
+  };
   for(let c=0;c<rcMinX.length;c++){
     const x0=rcMinX[c];
     if(x0===BIG)continue;
@@ -3759,12 +4234,19 @@ function render(){
     if(x0<edX0)edX0=x0; if(y0<edY0)edY0=y0;
     if(x1>edX1)edX1=x1; if(y1>edY1)edY1=y1;
     for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)fillTexel(x,y);
-    const fy0=H-1-y1;
-    gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,x0);
-    gl.pixelStorei(gl.UNPACK_SKIP_ROWS,fy0);
-    gl.texSubImage2D(gl.TEXTURE_2D,0,x0,fy0,(x1-x0+1),(y1-y0+1),gl.RGBA,gl.UNSIGNED_BYTE,texData);
+    // Adjacent dirty chunks share one upload. Bound the extra clean pixels
+    // to keep scattered one-pixel edits cheap; never bridge a deferred chunk.
+    const mergedY0=Math.min(uploadY0,y0),mergedY1=Math.max(uploadY1,y1);
+    const mergedArea=(x1-uploadX0+1)*(mergedY1-mergedY0+1);
+    const rectPixels=(x1-x0+1)*(y1-y0+1);
+    if(c!==uploadChunk+1||c%ncx===0||mergedArea>(uploadPixels+rectPixels)*1.5)flushUpload();
+    if(uploadX0===BIG){uploadX0=x0;uploadY0=y0;uploadX1=x1;uploadY1=y1;uploadPixels=0;}
+    else{uploadY0=mergedY0;uploadX1=x1;uploadY1=mergedY1;}
+    uploadPixels+=rectPixels;
+    uploadChunk=c;
     rcMinX[c]=BIG;rcMinY[c]=BIG;rcMaxX[c]=-1;rcMaxY[c]=-1;
   }
+  flushUpload();
   gl.pixelStorei(gl.UNPACK_ROW_LENGTH,0);
   gl.pixelStorei(gl.UNPACK_SKIP_PIXELS,0);
   gl.pixelStorei(gl.UNPACK_SKIP_ROWS,0);
@@ -3838,9 +4320,9 @@ function makePanelTexture(label,sub,scheme){
   // label bar
   c.fillStyle='#0b0b0e';c.fillRect(0,motifH,cw,26);
   c.fillStyle='#b8e000';c.fillRect(0,motifH,3,26);
-  c.fillStyle='#f0ece4';c.font='700 11px "MEK Mono","Courier New",monospace';c.textBaseline='middle';
+  c.fillStyle='#f0ece4';c.font='700 11px "Courier New",monospace';c.textBaseline='middle';
   c.fillText(label.length>16?label.slice(0,16):label,8,motifH+9);
-  c.fillStyle='#555';c.font='400 8px "MEK Mono","Courier New",monospace';
+  c.fillStyle='#555';c.font='400 8px "Courier New",monospace';
   c.fillText(sub,8,motifH+19);
   // frame border
   c.strokeStyle='#3a3a3a';c.lineWidth=2;c.strokeRect(1,1,cw-2,ch-2);
@@ -4205,23 +4687,29 @@ const SPRITES={
     "....Tt...",
     "...^TTt..",
   ],
-  // toadstool with a domed cap, white spots, and a banded stem
+  // A toadstool at toadstool size. The first one was fifteen rows — two
+  // thirds of the oak, and taller than the greenhouse — so a fungus was the
+  // biggest thing in the middle of the meadow. Eight rows puts it under the
+  // oak's canopy where it belongs, with the same cap-highlight, white spots
+  // and banded stem, just fewer of each.
   mushroom:[
-    "....AABBBBB....",
-    "..AABBBGBBBBB..",
-    ".ABBGBBBBBBGBB.",
-    "ABBBBBBBBBBBBBb",
-    "ABBBBBGBBBBBBBb",
-    "BBBGBBBBBBGBBBb",
-    "bBBBBBBBBBBBBbb",
-    ".bbbbbbbbbbbbb.",
-    "..bbbbbbbbbbb..",
-    "....^TTTTt.....",
-    "....^TTTTt.....",
-    "....^TTTTt.....",
-    "....^TTTTt.....",
-    "...^TTTTTTt....",
-    "..^ttTTTTttt...",
+    "...AABBB...",
+    "..ABGBBBBb.",
+    ".ABBBBBGBBb",
+    "ABGBBBBBBBb",
+    ".bbbbbbbbb.",
+    "....^Tt....",
+    "....^Tt....",
+    "...^tTtt...",
+  ],
+  // A flower at flower size: five rows, down from ten. At ten it stood
+  // taller than a fence picket. Still on a leaf stem so it falls cleanly.
+  flower:[
+    ".ABA.",
+    "BABBb",
+    ".bBb.",
+    "..L..",
+    ".LlL.",
   ],
   // dense bush with a few berries — easy fuel for fire experiments
   bush:[
@@ -4234,22 +4722,18 @@ const SPRITES={
     ".lLLLLLLLLll%",
     "..%lllLLlll%.",
   ],
-  // small flower cluster on a leaf-stem so it falls cleanly when disturbed
-  flower:[
-    ".A.B.A.",
-    "ABBBBBA",
-    "BABBABB",
-    ".BBBBb.",
-    "..bBb..",
-    "...L...",
-    "...L...",
-    "..LlL..",
-    "...l...",
-    "...l...",
-  ],
-  // a small cottage: thatch roof with a shaded eave, two glass windows,
-  // a wooden door, brick foundation. plenty of surface area for fire,
-  // acid, and impact tests to crumble it apart.
+  // A small half-timbered cottage: living roof with a shaded eave and a
+  // dormer, plaster walls in a deep-wood frame, two glass windows, a plank
+  // door, and a course of dressed light stone under all of it.
+  //
+  // The walls used to be plain WOOD, and wood's base (104,68,38) is within
+  // a few units of DIRT (98,72,46) in every channel — the house was the same
+  // brown as the cross-section it stands over, and with brick (168,88,62)
+  // for a footing the whole lower half melted into the ground. Thatch is the
+  // palette's cream (210,168,86), the brightest thing that is not glass, and
+  // light stone (124,121,121) is neutral where everything below it is warm,
+  // so the wall separates from the soil by value and the footing by hue.
+  // Plenty of surface area for fire, acid, and impact tests to crumble apart.
   cottage:[
     "............HL............",
     "...........HLLL..cKC......",
@@ -4264,27 +4748,28 @@ const SPRITES={
     "..H!*GGGGGG!LLMLLLLLLLLLl.",
     ".HLL!!!!!!!!LLLLLLLLLLLLLl",
     ".%llllllllllllllllllllllll",
-    "..!TTTTTTTTTTTTTTTTTTTT!L.",
-    "..!T*Ggt*GgTTTTTT*Ggt*GgLl",
-    "..!TGgGtGgGTTTTTTGgGtGgGL.",
-    "..!TtttttttTTTTTTtttttttLl",
-    "..!TGgGtGgGTTTTTTGgGtGgGBL",
-    "..!TTTTTTTTT!!!!!TTTTTTTL.",
-    "..!TTTTTTTTT!tt^!TTTTTTTLl",
-    "..!TTTTTTTTT!ttt!TTTTTTTL.",
-    "..!TTTTTTTTT!tt^!TTTTTTTL.",
-    "..EKKCKKEKKC!ttt!KKEKKCKL.",
-    "..cKKKEKKCKK!ttt!KCKKKEKkL",
+    "..!!!!!!!!!!!!!!!!!!!!!!L.",
+    "..!r!*Gg!rr!^Ttt!rr!*Gg!Ll",
+    "..!R!GgG!RR!^Ttt!RR!GgG!L.",
+    "..!R!gGG!RR!^Ttt!RR!gGG!Ll",
+    "..!R!!!!!RR!^Ttt!RR!!!!!BL",
+    "..!!!!!!!!!!^Ttt!!!!!!!!L.",
+    "..!RRRRRRRR!^Ttt!RRRRRR!Ll",
+    "..!RRRRRRRR!^Ttt!RRRRRR!L.",
+    "..!RRRRRRRR!^Ttt!RRRRRR!L.",
+    "..EEDEEDEED!^Ttt!EEDEEDEL.",
+    "..DSDDSDDSD!^Ttt!DSDDSDDL.",
   ],
-  // a longer picket fence — five pickets
+  // A picket fence, four pickets. Five was 29 cells and would not fit
+  // between the greenhouse and the arch, which is the gap it is for.
   fence:[
-    "..^.....^.....^.....^.....^..",
-    "..T.....T.....T.....T.....T..",
-    "^TTTTTTTTTTTTTTTTTTTTTTTTTTT.",
-    "..T.....T.....T.....T.....T..",
-    "..T.....T.....T.....T.....T..",
-    "..t.....t.....t.....t.....t..",
-    "tTTTTTTTTTTTTTTTTTTTTTTTTTTTt",
+    "..^.....^.....^.....^..",
+    "..T.....T.....T.....T..",
+    "^TTTTTTTTTTTTTTTTTTTTT.",
+    "..T.....T.....T.....T..",
+    "..T.....T.....T.....T..",
+    "..t.....t.....t.....t..",
+    "tTTTTTTTTTTTTTTTTTTTTTt",
   ],
   // a chunky stone well with a peaked roof, water in the basin
   well:[
@@ -4315,17 +4800,22 @@ const SPRITES={
     "...t....",
     "..ttt...",
   ],
-  // a mossy boulder — a moss cap crowns weathered stone. sits as solid
-  // terrain that sand drifts against and moss can creep from.
+  // A boulder that reads as a boulder. The old one was eight rows of
+  // shadow-and-base grey that the posterize crushed to a black lump; this
+  // one is lit from the upper left like everything else on the meadow —
+  // highlight on the crown, base on the face, shadow down the left and deep
+  // stone along the ground contact — with a moss cap it can creep from.
   rock:[
-    "....MMMM....",
-    "..MMMMMMM...",
-    ".MEESSSSSM..",
-    ".ESSSSSSSSD.",
-    "ESSSSSSSSSD.",
-    "ESSSSSSSSDDD",
-    ".SSSSSSSDDD.",
-    "..DDSSSDDD..",
+    ".....MMMMM......",
+    "...MMEEEEMMM....",
+    "..MEEEEEEEEEM...",
+    ".SEEEEEEEEEEED..",
+    ".SDEEEEEEEEDDD..",
+    "SSDDEEEEEEDDDDD.",
+    "SSDDDDDDDDDDDDX.",
+    ".SSDDDDDDDDDDX..",
+    "..SSSDDDDDXXX...",
+    "...XXXXXXXXX....",
   ],
   // a slim cattail reed — brown seed-head on a leaf stalk, for the pond rim
   cattail:[
@@ -4341,48 +4831,71 @@ const SPRITES={
     "..P..",
     "..P..",
   ],
+  // A greenhouse the height of a greenhouse: sixteen rows, up from eleven,
+  // with a proper glazing-bar frame in deep wood so the panes read as panes
+  // rather than a pale blob, and the crop showing through the lower lights.
   greenhouse:[
     ".........!!.........",
-    ".......*!GG!g.......",
-    ".....*!GGGGGG!g.....",
-    "...*!GGGGGGGGGG!g...",
+    "........!GG!........",
+    ".......!G*GG!.......",
+    "......!GGGGGG!......",
+    ".....!G*GGGGGG!.....",
+    "....!GGGGGGGGGG!....",
+    "...!GGGGGGGG*GGG!...",
     "..!GGGGGGGGGGGGGG!..",
-    "..!*GGGGGGGGGGGGG!..",
-    "..!GGGGGGGGGGGGGG!..",
-    "..!GGPGGBGGPGGBGG!..",
-    "..!GPPGPPPGPPGPPG!..",
-    "..!GPPGPPPGPPGPPG!..",
-    "..!!!!!!!!!!!!!!!!..",
+    ".!!!!!!!!!!!!!!!!!!.",
+    ".!GG!GGGG!GGGG!GGG!.",
+    ".!G*!GGGG!G*GG!GGG!.",
+    ".!!!!!!!!!!!!!!!!!!.",
+    ".!GG!GBGG!GGGG!GBG!.",
+    ".!LG!GLLG!GLPG!LLG!.",
+    ".!LL!LLLL!LLLL!LLL!.",
+    ".!!!!!!!!!!!!!!!!!!.",
   ],
+  // A turbine you can see from the meadow. The old rotor was two rows of
+  // glass — pale cells on a pale sky, gone at noon — on a one-cell wood
+  // post. This one is steel: light stone for the blades so they hold their
+  // value against sky, a dark hub, and the tower in base stone running down
+  // to a footing. One blade straight up, two down and out, so no blade lies
+  // along the tower and disappears into it.
   turbine:[
-    "Gg.........gG",
-    ".Gg.......gG.",
-    "..Gg.....gG..",
-    "...Gg...gG...",
-    "....gg.gg....",
-    ".....g*g.....",
-    "......!......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......t......",
-    "......T......",
-    "......T......",
-    "......T......",
-    ".....^Tt.....",
-    "....^tTtt....",
+    ".......E.......",
+    ".......E.......",
+    ".......E.......",
+    ".......E.......",
+    ".......E.......",
+    ".......E.......",
+    ".......E.......",
+    "......DXD......",
+    "......EDE......",
+    ".....E.D.E.....",
+    "....E..D..E....",
+    "...E...D...E...",
+    "..E....D....E..",
+    ".E.....D.....E.",
+    "E......D......E",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    ".......D.......",
+    "......DDD......",
+    ".....SDDDX.....",
   ],
+  // A solar panel with a frame. Bare glass lying on the turf read as a
+  // spill; a deep-wood surround and glazing bars make it an object, and the
+  // stepped rows tilt it toward the morning sun over the cottage.
   solarpanel:[
-    "**GGGGGGGGg...",
-    ".g*GGGGGGGGg..",
-    "..gg*GGGGGGGg.",
-    "......!...!...",
-    "......t...t...",
-    ".....tt...tt..",
+    "...!!!!!!!!!!",
+    "..!GgGgGgGg!.",
+    ".!*gGgGgGg!..",
+    "!!!!!!!!!!!..",
+    "....!...!....",
+    "....t...t....",
+    "...tt...tt...",
   ],
   archway:[
     "...tTTTTTt...",
@@ -4409,7 +4922,6 @@ const SPRITES={
 
 
 };
-
 
 // Stamp a sprite anchored so its bottom-left lands at (gx, gy_bottom).
 // Pixels are written FROZEN (the sprite holds its pixel-art shape) except
@@ -4675,7 +5187,14 @@ function stampWordmark(){
   const clearTop=wmClearTop();
   // Fit the remaining sky vertically as well as horizontally; a taller top
   // band must never push the name back up underneath the project previews.
-  const skyScale=Math.floor((VH*.86-clearTop-6)/(WM_ROWS*2+3));
+  /* The name's floor used to be VH*.86, which was fine while the meadow was a
+     strip two cells off the bottom of the frame and there was nothing else in
+     the sky. Now the hills crest at SKY_CREST and the oak's canopy reaches
+     about twenty-four cells above the turf, so the name has to end above BOTH
+     or it sits in the scenery. Two cells of air below it, because at one the
+     rim of the M and the tip of a crest touch and read as a join. */
+  const skyFloor=Math.floor(VH*(1.0-SKY_CREST))-2;
+  const skyScale=Math.floor((skyFloor-clearTop-6)/(WM_ROWS*2+3));
   const k=Math.max(1,Math.min(3,skyScale,Math.floor((W*0.78)/wmLineW(L2,1))));
   /* At k=1 the rim becomes a one-cell drop shadow rather than a keyline (see
      below), and a shadow cast into a one-cell gap welds neighbouring letters
@@ -4866,8 +5385,16 @@ const BED_H=18;                            // broad strata leave room for quiet 
    numbers in its suite rather than by a different hand-written expression. */
 const SUITES={
   /* Under the turf: soil grading into weathered rock, the way ground actually
-     does. No masonry — nothing was ever built this shallow. */
-  subsoil:{matrix:DIRT, beds:[{m:STONE,every:3,of:1,p:0.55}], veins:[], damp:0.30},
+     does. No masonry — nothing was ever built this shallow.
+
+     The stone beds were every:3/of:1 at p:0.55 — a third of all beds, better
+     than half of them realised — which was invisible while this suite only
+     ever covered the four cells directly under the grass. It covers most of
+     the cross-section now, and at that density it stopped reading as stones in
+     soil and started reading as coursing: alternating grey and brown bands
+     down the whole cutting. Every fourth bed at 40% leaves the matrix winning,
+     which is what "subsoil" is supposed to mean. */
+  subsoil:{matrix:DIRT, beds:[{m:STONE,every:4,of:1,p:0.40}], veins:[], damp:0.30},
   /* THE WORKSHOP — the cellar of a house. Ordinary ground with the builder's
      rubble in it: brick courses close to the surface where somebody dug, and
      clay lenses. It is the only suite with DIRT for a matrix underground, and
@@ -4908,9 +5435,20 @@ const suiteFor=id=>SUITES[id]||SUITES.default;
    which is subtly wrong in a way that is hard to name but easy to see.
 
    d = cells below the local surface, y = absolute world row. */
+/* How deep the soil profile runs before the suite for the zone takes over, in
+   cells. It was VH*0.10 — a tenth of the frame — which was right while the
+   meadow's cross-section was four cells tall and nothing below the first
+   couple of rows was ever seen. Raising the turf line put thirty cells of that
+   band on screen, and past the tenth the surface zone falls through to
+   SUITES.default, whose matrix is STONE: a slab of coursed grey ashlar under a
+   meadow, which is what a quarry floor looks like and not what a field sits
+   on. spawnNaturalLandscape sets this from how much cross-section the frame
+   actually shows, so the soil profile runs nearly the whole depth and the rock
+   is the last few cells before the chrome — a road cutting, in that order. */
+let SUBSOIL_D=0;
 function strataMat(d,y,x){
   x=x||0;
-  const s=(d<VH*0.10)?SUITES.subsoil:suiteFor(zoneAt(y).id);
+  const s=(d<(SUBSOIL_D||VH*0.10))?SUITES.subsoil:suiteFor(zoneAt(y).id);
   // veins first — youngest, so they cut everything
   for(const v of s.veins){
     const [wx,wy]=warp2(x,y,v.warp,v.scale*0.7);
@@ -5159,11 +5697,92 @@ function spawnNaturalLandscape(){
   // now, but every proportion here is written against VH rather than the world
   // floor, which is what let the descent grow underneath it without moving a
   // what those numbers were always really tuned against.
-  const soilDepth=Math.max(4,Math.floor(VH*0.02));
-  // gentler rolling hills — sprites now carry the visual rhythm,
-  // so the meadow itself reads as a calm stage rather than a noisy ground.
-  const hillAmp=Math.floor(VH*0.045);
-  const baseLine=VH-Math.max(4,Math.floor(VH*0.014));
+  /* Gentler rolling hills — sprites now carry the visual rhythm, so the meadow
+     itself reads as a calm stage rather than a noisy ground. Trimmed from
+     0.045 when the turf line came up: the roll is measured DOWNWARD from
+     baseLine, so its whole amplitude is headroom the far skyline has to stay
+     above, and at eight cells the meadow's rises poked through the flat parts
+     of the shader's crest and the middle distance vanished in exactly the
+     places it was needed most — the frame edges, where the gaussians are only
+     tails. Five cells, quantised to 2-cell steps below, is three visible
+     stairs, which is enough roll to read as land — and every cell trimmed off
+     it is a cell of headroom the hill ridges can spend, which is why it is
+     0.022 and not a rounder number. */
+  const hillAmp=Math.floor(VH*0.022);
+  /* Where the turf line sits. The bottom of the frame is not the bottom of the
+     picture: the taskbar, and the Materials palette docked as a second row on
+     top of it, own the last ~68px of it. The meadow used to end down inside
+     that — the cottage's bottom course was behind the palette and there was no
+     earth under the scene at all, so the village read as standing on the OS.
+     So the surface is measured up from the chrome rather than from the frame,
+     and then lifted a band further, and that band is the point: it is the
+     cross-section of subsoil the buildings stand ON.
+     The palette is measured rather than assumed because its height is set in
+     CSS (swatch + padding + border) and nothing here would notice it moving;
+     the fallback covers the first spawn, before layout has run. */
+  measureChromeRows();
+  const chromeRows=CHROME_ROWS;
+  /* Which brings us to how much of the frame the ground gets, which was the
+     real problem: the turf line sat at VH-chromeRows-soilShow with soilShow at
+     five percent, so at 1280x720 it landed on row 146 of 180 and the meadow —
+     every sprite in the scene, the pond, the path, the whole subject — had
+     nineteen percent of the picture while the sky had eighty-one. The sky is
+     the backdrop. It should not be the composition.
+
+     So the turf line is stated directly now, as a fraction, and the depth of
+     cross-section below it falls out of that rather than the other way round —
+     see turfDepth/soilDepth/SUBSOIL_D just below, which are written for what
+     SHOWS above the near-plane berm rather than for how far the grid goes.
+     0.74 is not arbitrary either — it is the LOWEST the ground can go
+     while everything above it still fits, and the chain is tight:
+
+       · the meadow needs the bottom ~30% of the frame (this is the target)
+       · the far skyline has to clear the meadow's rises (crestK, three ridges)
+       · the wordmark has to clear the far skyline (SKY_CREST, skyFloor)
+       · the wordmark needs 21k+6 rows and the docked shelf owns the first 59
+
+     At 1280x720 that spends the frame as: 59 rows of dock, 48 of name, 4 of
+     air, 15 of hills, then the meadow from row 127. Push the turf lower and
+     the ground loses its share back; pull it higher and the oak's canopy is
+     in the name. There is no slack in it, which is why it is written down.
+
+     The clamp is for short windows, where chromeRows is a bigger fraction of
+     the frame and 0.74 would put the turf line underneath the taskbar. */
+  const baseLine=Math.min(VH-chromeRows-6,Math.round(VH*0.74));
+  /* ── the cross-section, in four layers ──
+     Raising the turf line put roughly thirty cells of ground on screen where
+     there used to be four, and the old profile did not survive the promotion:
+     four cells of topsoil, then SUITES.default, whose matrix is STONE. What
+     showed was a hairline of grass on a slab of coursed grey blocks. Read as a
+     quarry with a lawn on it.
+
+     So the band is built the way ground is: turf, topsoil, stony subsoil,
+     rock, in that order and in that proportion. The rock is the last few cells
+     only, mostly behind the foreground berm, which is where rock belongs when
+     you are looking at a field.
+
+     TURF has to exist at all. It was one cell — the surface row — and it read
+     as one cell for the whole life of this scene, hidden only because the
+     background hills used to be the same green and ran right down to it. Push
+     the hills back (which is the point of the aerial perspective above) and
+     the meadow is revealed as sprites standing on bare dirt. Three cells of
+     grass over the soil is the block-game convention for the same reason it is
+     the convention: it is the smallest band that reads as a field. */
+  const turfDepth=Math.max(3,Math.round(VH*0.023));
+  /* Topsoil is held to nine or ten cells whatever the frame does. It is not a
+     proportion of the band: a cutting has about that much loam in it and then
+     it has subsoil, and scaling the loam with the window just gives a taller
+     brown rectangle. Everything under the berm's crest is invisible anyway, so
+     the profile is written for what shows, not for how far down the grid goes. */
+  const soilDepth=turfDepth+Math.max(8,Math.min(10,Math.round(VH*0.045)));
+  /* Then stony subsoil for the bulk of the cutting, and rock at the foot of
+     it. The rock band is sized BACKWARDS from the chrome — deep enough that
+     about five cells of it show above the taskbar and the rest is behind it —
+     rather than forwards from the surface. Forwards was how the bedrock slab
+     happened: a fixed depth means the deeper the frame lets you see, the more
+     of the picture is grey. What the eye wants at the bottom of a cutting is
+     the seam where soil gives out, and then the chrome. */
+  SUBSOIL_D=Math.max(soilDepth+4,(H-baseLine)-chromeRows-5);
   const surf=new Int16Array(W);
 
   for(let x=0;x<W;x++){
@@ -5177,18 +5796,31 @@ function spawnNaturalLandscape(){
 
   const pondCX=Math.floor(W*0.70);
   const pondRX=Math.max(14,Math.floor(W*0.095));
-  const pondRY=Math.max(6,Math.floor(VH*0.042));
+  const pondRY=Math.max(7,Math.floor(VH*0.055));
   const pondRefX=Math.max(0,Math.min(W-1,pondCX));
   const pondMidY=surf[pondRefX];
-  const bowlFloor=pondMidY+Math.floor(pondRY*0.55);
-  const waterY=bowlFloor-Math.floor(pondRY*0.35);
+  /* How far the dell dips below the surrounding turf at its middle. The old
+     bowl was two cells of water in a three-cell hollow, which is a puddle, and
+     it read as one — no volume, nothing for the bank to be a bank OF. Nine
+     cells of dell with the waterline two cells down gives seven of body, which
+     is deep enough that the lit top row and the bed underneath are separate
+     features instead of the same one. */
+  const bankDrop=Math.max(4,Math.round(pondRY*0.95));
+  const bowlFloor=pondMidY+bankDrop;
+  const waterY=pondMidY+2;
+  const bowlEdge=1.08;                        // radii out to where the dell closes
 
-  // carve a soft dell for the pond
-  for(let x=Math.max(0,pondCX-pondRX-4);x<Math.min(W,pondCX+pondRX+4);x++){
-    const dx=(x-pondCX)/pondRX;
-    if(Math.abs(dx)>=1)continue;
-    const drop=Math.floor((1-dx*dx)*pondRY*1.05);
-    surf[x]=Math.max(surf[x],bowlFloor-drop);
+  /* Carve the dell. The old version wrote max(surf, bowlFloor-drop) with drop
+     LARGEST at the middle, so the value it clamped up to was largest at the
+     RIM — it dug a shallow ring round the outside of the pond and left the
+     middle at meadow height, which is inside out. Nothing showed because the
+     numbers were small enough for the fill pass to paper over it. This digs
+     properly: a semicircular profile, deepest at the centre, meeting the
+     meadow at the mouth so there is no step to walk off. */
+  for(let x=Math.max(0,Math.ceil(pondCX-pondRX*bowlEdge));x<Math.min(W,pondCX+pondRX*bowlEdge);x++){
+    const dx=(x-pondCX)/(pondRX*bowlEdge);
+    surf[x]+=Math.round(bankDrop*Math.sqrt(Math.max(0,1-dx*dx)));
+    surf[x]=Math.min(surf[x],H-4);
   }
 
   function pondEl(x,y){
@@ -5196,11 +5828,16 @@ function spawnNaturalLandscape(){
     return dx*dx+dy*dy;
   }
 
-  // pass 1 — earth, then the full depth column beneath it
+  // pass 1 — turf, topsoil, then the full depth column beneath them
   for(let x=0;x<W;x++){
+    /* The turf's underside wavers, for the same reason the wordmark's material
+       seams do: a ruled horizontal line reads as a mistake in a world where
+       nothing else is ruled. Two incommensurate sines and no random, so the
+       same meadow comes back identical on every reset. */
+    const td=Math.max(1,Math.round(turfDepth+Math.sin(x*0.21)*0.9+Math.sin(x*0.071+2.1)*0.7));
     for(let y=surf[x];y<H;y++){
       const d=y-surf[x];
-      if(d===0)putCell(x,y,GRASS);
+      if(d<td)putCell(x,y,GRASS);
       else if(d<soilDepth)putCell(x,y,DIRT);
       else putCell(x,y,strataMat(d,y,x));
     }
@@ -5209,19 +5846,66 @@ function spawnNaturalLandscape(){
   // and whatever the visitor has dug — to already exist.
   spawnContacts();
 
-  // pass 2 — pond bowl, banks, water
-  const px0=Math.max(0,pondCX-pondRX-5.5|0),px1=Math.min(W-1,pondCX+pondRX+2.5|0);
-  const py0=Math.max(0,waterY-pondRY-2),py1=Math.min(H-1,bowlFloor+pondRY);
-  for(let y=py0;y<=py1;y++)for(let x=px0;x<=px1;x++){
-    const el=pondEl(x,y),dist=Math.sqrt(el);
-    if(dist>1.12)continue;
-    if(dist>0.84&&dist<1.10){
-      putCell(x,y,Math.random()<0.42?MOSS:STONE,Math.random()*6|0);
-    }else if(y>=waterY&&dist<0.88){
-      putCell(x,y,WATER);
-    }else if(y>=surf[x]&&dist<0.95){
-      putCell(x,y,DIRT,Math.random()*5|0);
+  /* ── pass 2: the pond ──
+     It read as a puddle: flat blue over brown dirt, with a coin flip of moss
+     and stone scattered round the edge for a rim. Three things turn it back
+     into a pond, and all three are one cell wide, because one cell is the only
+     width anything in this world is drawn at.
+
+       · A SAND BED. Water renders at alpha 205, so a fifth of every water cell
+         is whatever lies behind it — and behind it was dirt and, low enough
+         down, the underground backdrop. That is why the pond came out the
+         colour of the bank it sat in. A pale bed lifts the whole body, and it
+         gives the shallows somewhere to go: out at the mouth the bed IS the
+         surface, so the water thins to beach instead of stopping on a line.
+       · A LIT WATERLINE, from RELIEF[WATER] reopened to 22 — see the note
+         there. Only the top row has open sky above it, so only the top row
+         takes the bevel, and one pale row across the body is exactly the
+         pixel-art ripple line this was missing.
+       · A KERB. One cell of stone at each end of the water, running from the
+         lip down to the waterline, capped with one cell of moss. Two of them,
+         not a ring: this is a cross-section, and in section a pond has a left
+         edge and a right edge and nothing else.
+
+     The bank sand is frozen. SAND is a powder and the bank is a slope, so left
+     live it slumps into the water on the first tick and silts the pond up
+     inside a few seconds — accurate, and it eats the composition. Frozen SAND
+     is inert (it is not debris, so tryDecompose never unfreezes it) while
+     still burning, melting and blowing up like any other cell. */
+  const putFrozen=(x,y,m,v)=>{
+    if(x<0||x>=W||y<0||y>=H)return;
+    putCell(x,y,m,v);frozen[idx(x,y)]=1;
+  };
+  const px0=Math.max(0,Math.ceil(pondCX-pondRX*bowlEdge)),
+        px1=Math.min(W-1,Math.floor(pondCX+pondRX*bowlEdge));
+  let wx0=-1,wx1=-1;                     // the columns the water actually spans
+  for(let x=px0;x<=px1;x++){
+    const sy=surf[x];
+    // The bed sits on the carved ground, but never above the waterline: past
+    // the point where the dell is shallower than the water is deep, the bowl
+    // has run out and what is left is shore.
+    const bed=Math.max(sy,waterY);
+    for(let y=bed;y<Math.min(H,bed+2);y++)putFrozen(x,y,SAND,Math.random()*8|0);
+    /* Pass 1 laid its turf band down the inside of the bowl, because pass 1
+       only knows where the ground is and not what is standing on it — so under
+       two cells of bed there was a green stripe following the pond's floor.
+       A pond bed is not a lawn: the turf's depth of it goes back to earth. */
+    for(let y=bed+2;y<Math.min(H,bed+2+turfDepth);y++)putCell(x,y,DIRT,Math.random()*5|0);
+    for(let y=sy;y<Math.min(waterY,bed);y++)putFrozen(x,y,SAND,Math.random()*8|0);
+    for(let y=waterY;y<bed;y++){
+      putCell(x,y,WATER,Math.random()*8|0);
+      if(wx0<0)wx0=x;
+      wx1=x;
     }
+  }
+  /* The kerb runs from the lip down PAST the waterline rather than stopping on
+     it. Stopping on it made a one-or-two-cell mark that the eye read as a stray
+     pebble; carried two cells under the surface it reads as a stone edge the
+     water comes up to, which is the whole job. */
+  if(wx0>0&&wx1<W-1)for(const kx of [wx0-1,wx1+1]){
+    const ky=surf[kx];
+    for(let y=ky;y<=Math.min(H-1,waterY+2);y++)putCell(kx,y,STONE,Math.random()*4|0);
+    putCell(kx,ky-1,MOSS,Math.random()*8|0);
   }
 
   // ── packed-dirt foot path: a bare-earth trail worn across the meadow from
@@ -5237,17 +5921,22 @@ function spawnNaturalLandscape(){
     if(Math.random()<0.05)putCell(x,sy,STONE,Math.random()*4|0); // a worn pebble
   }
 
-  // pass 3 — sparse grass tufts. The authored sprites carry the visual rhythm
-  // now, so we keep the meadow surface mostly clean and only occasionally
-  // poke a single-cell blade above the turf.
+  /* pass 3 — the grass fringe. The authored sprites carry the visual rhythm, so
+     the meadow surface stays mostly clean and only pokes a blade or two above
+     the turf. Raised from 6% to 14% when the shader's foreground berm was
+     deleted: the berm's swaying blades were the only thing making a turf line
+     read as grass rather than as a ruled edge between green and brown, and
+     with the berm gone that job comes back to the meadow's own plants — at the
+     REAL turf line, where the grass in this world actually grows, rather than
+     on a bar across the bottom of the frame. */
   for(let x=0;x<W;x++){
     const sy=surf[x];
     if(sy<=2)continue;
     const pd=Math.sqrt(pondEl(x,sy));
     if(pd<0.92)continue;
     if(grid[idx(x,sy)]!==GRASS)continue;   // leave the bare-earth path clear
-    if(Math.random()<0.06){
-      const h=1+(Math.random()*2|0);
+    if(Math.random()<0.14){
+      const h=1+(Math.random()*3|0);
       for(let i=1;i<=h;i++){
         const ty=sy-i;
         if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT);
@@ -5324,38 +6013,223 @@ function spawnNaturalLandscape(){
       if(sy>=0&&sy<H&&grid[idx(sx,sy)]===PLANT)grid[idx(sx,sy)]=GRASS;
     }
     stampSprite(name,gx,gyBottom);
+    /* A building gets a footing. The sprite sits one cell above the LOWEST
+       point of its footprint, so on a slope its far end hangs over a wedge
+       of open turf and whatever shows through it is the dirt band — which is
+       the same brown as a wooden wall, and the house read as grown out of
+       the ground. Dressed light stone fills the wedge and replaces the turf
+       row under the whole footprint, so a building stands on a plinth of
+       something that is neither grass nor soil. Frozen, like the sprite. */
+    if(opts.plinth){
+      for(let i=0;i<w;i++){
+        const sx=gx+i;
+        if(sx<0||sx>=W)continue;
+        for(let y=gyBottom+1;y<=surf[sx];y++){
+          if(y<0||y>=H)continue;
+          const gi=idx(sx,y);
+          if(grid[gi]===STONE&&frozen[gi])continue;
+          grid[gi]=STONE;variant[gi]=0x40|2;frozen[gi]=1;
+        }
+      }
+    }
     return true;
   }
+  /* Order is draw order. stampSprite never overwrites a frozen cell, so the
+     first sprite stamped on a spot owns it and anything later slips behind.
+     The anchors go down first for that reason: where a fence end runs into
+     the greenhouse post, the post wins. */
 
   // ── focal: a single big oak on the rise, set off-center to anchor the view
   place('oak',(W*0.42)|0);
 
   // ── solarpunk homestead on the left: turbine on the horizon, cottage with
-  // its living roof, greenhouse in the garden, an arch framing the foot path
-  place('cottage',(W*0.15)|0);
+  // its living roof and a solar panel in the yard, greenhouse in the garden,
+  // a picket fence running from the garden to the arch that frames the path
+  place('cottage',(W*0.15)|0,{plinth:true});
   place('turbine',(W*0.045)|0);
   place('signpost',(W*0.09)|0);
-  place('greenhouse',(W*0.25)|0);
-  place('archway',(W*0.335)|0);
-  place('solarpanel',(W*0.52)|0);
+  place('greenhouse',(W*0.25)|0,{plinth:true});
+  place('archway',(W*0.36)|0);
+  place('solarpanel',(W*0.205)|0);
+  place('fence',(W*0.31)|0);
 
-  // ── pine grove sweeping along the far-right horizon, past the pond.
-  place('pine',(W*0.87)|0);
-  place('pine',(W*0.96)|0);
-  place('smallpine',(W*0.82)|0);
-  place('smallpine',(W*0.92)|0);
+  // ── the well on the pond's near bank — the far bank belongs to the chest
+  // (EVIL_CHEST_AT), which is drawn in front of anything standing there —
+  // and a pine grove sweeping along the far-right horizon past the pond
+  place('well',(W*0.56)|0,{plinth:true});
+  place('smallpine',(W*0.845)|0);
+  place('pine',(W*0.90)|0);
+  place('pine',(W*0.955)|0);
 
-  // ── boulders, mushrooms, bushes tucked between the anchors
-  for(const f of [0.46,0.565]){ place('rock',(W*f)|0); }
+  // ── boulders, mushrooms, bushes tucked between the anchors. The
+  // mushrooms live in the oak's shade, where a toadstool grows.
+  place('rock',(W*0.52)|0);
   place('cattail',(W*0.61)|0,{allowPond:true});
   place('cattail',(W*0.81)|0,{allowPond:true});
-  for(const f of [0.375,0.475]){ place('mushroom',(W*f)|0); }
-  for(const f of [0.205,0.575]){ place('bush',(W*f)|0); }
+  for(const f of [0.395,0.455]){ place('mushroom',(W*f)|0); }
+  place('bush',(W*0.485)|0);
   // pollinator strip: flowers thick near the greenhouse, looser across the meadow
-  const flowerCount=6;
+  const flowerCount=7;
   for(let i=0;i<flowerCount;i++){
     const fx=((W*0.06)+(i/(flowerCount-1))*(W*0.48)+(Math.random()*W*0.03-W*0.015))|0;
     place('flower',fx);
+  }
+
+  spawnCave(surf);
+}
+
+/* ═══ THE CAVE ═══
+   A pocket in the cross-section under the middle of the meadow, with a lava
+   pool at the bottom of it. The turf line came up to give the meadow room,
+   and what that bought below it was a band of plain dirt: a cutaway with
+   nothing cut away. This is the something. It sits under the oak so the
+   tree's roots hang into it, and it is the one thing on the page that glows
+   by day — LAVA is an emitter, so the pool lights its own ceiling through the
+   light buffers with nothing else needed.
+
+   The lava is stamped FROZEN, the same way the old core's fittings were.
+   Live lava does two things a decorative pool cannot afford: with open air
+   above it, it licks fire and smoke off its surface every few ticks, which
+   fills a sealed pocket with smoke in seconds; and lava that has nowhere to
+   flow crusts over into stone at 0.18% per tick, so a still pool is grey
+   rock inside a minute. Frozen, step() never visits it, and it is a stable
+   glowing floor until a visitor digs into it — at which point what they
+   drop in reacts with the frozen cells' neighbours exactly as it would with
+   any other stone-hard surface. Dirt and stone are static in this sim
+   (isStatic), so the roof holds without being frozen.
+
+   Everything is proportional to the band between the turf line and the
+   docked chrome, and the whole thing is skipped when that band is too short
+   to hold a pocket that reads as a cave rather than a crack. */
+let CAVE=null;   // {x0,x1,top,bot,cx} of the pocket, for the ghost that haunts it
+function spawnCave(surf){
+  CAVE=null;
+  const chromeRows=CHROME_ROWS;
+  /* Centred a little left of the meadow's middle so the far end stays clear
+     of the pond's dell, which digs down from the turf on the right. */
+  const cx=(W*0.47)|0, rx=Math.max(24,(W*0.12)|0);
+  /* Not an ellipse. The first cut was one — a clean semi-ellipse of EMPTY —
+     and it read as a stencil, because nothing in the ground is that even.
+     So the two halves get different reaches (the left runs further and
+     lower, the right is stubbier), the roof carries a low-frequency wobble
+     nearly half the chamber's height so it has lobes rather than a curve,
+     the whole profile is quantised to two-cell steps so it stairs the way
+     the meadow's own surface does, and the floor drops a ledge on the
+     right so the lava sits a step lower there than under the rest of the
+     chamber. */
+  const rxL=Math.round(rx*1.18), rxR=Math.round(rx*0.82);
+  if(cx-rxL<2||cx+rxR>W-3)return;
+  // roof: four cells of dirt under the HIGHEST turf across the span, so the
+  // ceiling is one arch and not a copy of the meadow's stairs
+  let turf=H;for(let x=cx-rxL;x<=cx+rxR;x++)if(surf[x]<turf)turf=surf[x];
+  const bot=VH-chromeRows-2;
+  const band=bot-(turf+5);
+  if(band<10)return;
+  /* Wider than it is tall, always. The band under the turf is what limits
+     the height; the width is free, so the height is capped against it and
+     the pocket becomes a low chamber rather than a dome — a cave you look
+     INTO from the side, which is what a cutaway is for. */
+  const hh=Math.min(band,Math.round(rx*0.7));
+  const top=bot-hh;
+  const x0=cx-rxL, x1=cx+rxR;
+  const ceilY=new Int16Array(W).fill(-1), floorY=new Int16Array(W).fill(-1);
+  for(let x=x0;x<=x1;x++){
+    const t=x<cx?(cx-x)/rxL:(x-cx)/rxR;          // 0 at centre, 1 at either end
+    const arch=Math.sqrt(Math.max(0,1-t*t));
+    const wob=fbm2(x*0.09,7.7,3)-0.5;            // roughly -0.5..0.5, slow
+    let c=top+Math.round((1-arch)*hh*0.7)+Math.round(wob*hh*0.9);
+    c=Math.max(turf+4,c); c=c-(c&1);
+    let f=bot-Math.round((1-arch)*hh*0.22)+Math.round((fbm2(x*0.13,2.2,2)-0.5)*2);
+    if(x>cx+rxR*0.42)f-=3;                       // the ledge
+    f=f-(f&1);
+    if(f-c<3)continue;
+    ceilY[x]=c;floorY[x]=f;
+    for(let y=c;y<=f;y++){const gi=idx(x,y);grid[gi]=EMPTY;variant[gi]=0;frozen[gi]=0;}
+  }
+  // stone rim one cell into the dirt all round, so the pocket reads as
+  // carved out of rock rather than as a hole in soil
+  for(let x=x0-1;x<=x1+1;x++)for(let y=top-2;y<=bot+2;y++){
+    if(x<0||x>=W||y<0||y>=H)continue;
+    const gi=idx(x,y);
+    if(grid[gi]!==DIRT)continue;
+    let open=false;
+    for(let k=0;k<4&&!open;k++){
+      const nx=x+[1,-1,0,0][k],ny=y+[0,0,1,-1][k];
+      if(nx>=0&&nx<W&&ny>=0&&ny<H&&grid[idx(nx,ny)]===EMPTY&&ny>=top-1)open=true;
+    }
+    if(open){grid[gi]=STONE;variant[gi]=hash2i(x,y)&3;}
+  }
+  // the pool: a basin of stone in the floor, running the full width of the
+  // chamber bar one rim column each side, lava to its brim
+  const px0=x0+1, px1=x1-1;
+  let poolY0=H,poolY1=0;
+  for(let x=px0;x<=px1;x++){
+    if(floorY[x]<0)continue;
+    const f=floorY[x];
+    const depth=3;
+    for(let y=f-depth+1;y<=f;y++){const gi=idx(x,y);grid[gi]=LAVA;variant[gi]=0;frozen[gi]=1;}
+    if(f-depth+1<poolY0)poolY0=f-depth+1;
+    if(f>poolY1)poolY1=f;
+    // lining under and beside it
+    for(let y=f+1;y<=f+2;y++)if(y<H){const gi=idx(x,y);grid[gi]=STONE;variant[gi]=hash2i(x,y+9)&3;frozen[gi]=1;}
+  }
+  for(const x of [px0-1,px1+1]){
+    if(floorY[x]<0)continue;
+    for(let y=floorY[x]-3;y<=floorY[x]+2;y++)if(y>=0&&y<H){const gi=idx(x,y);grid[gi]=STONE;variant[gi]=hash2i(x,y+9)&3;frozen[gi]=1;}
+  }
+  // stalactites: stone, hung from the rim, every six to nine cells with a
+  // hashed length so no two are the same. Stalagmites are gone with them —
+  // the floor they rose from is lava now, brim to brim.
+  for(let x=x0+3;x<=x1-3;x++){
+    if(ceilY[x]<0)continue;
+    const h=hash2i(x,17);
+    if(h%8===0){
+      const len=2+(hash2i(x,23)%4);
+      for(let y=ceilY[x];y<ceilY[x]+len&&y<floorY[x]-3;y++){const gi=idx(x,y);grid[gi]=STONE;variant[gi]=hash2i(x,y+31)&3;}
+    }
+  }
+  // moss along the ceiling where the roof is dirt, and the oak's roots
+  // hanging through it: deep wood, one cell wide, three to six long
+  for(let x=x0;x<=x1;x++){
+    if(ceilY[x]<0)continue;
+    const ry=ceilY[x]-1;
+    if(ry<0)continue;
+    const gi=idx(x,ry);
+    if(grid[gi]===STONE&&hash2i(x,41)%3!==0){grid[gi]=MOSS;variant[gi]=hash2i(x,43)&7;}
+  }
+  const oakX=(W*0.42)|0;
+  for(const dx of [-4,1,5,9]){
+    const x=oakX+dx;
+    if(x<x0||x>x1||ceilY[x]<0)continue;
+    const len=3+(hash2i(x,47)%4);
+    for(let y=ceilY[x];y<ceilY[x]+len&&y<floorY[x]-2;y++){const gi=idx(x,y);grid[gi]=WOOD;variant[gi]=3;frozen[gi]=1;}
+  }
+  CAVE={x0,x1,top,bot,cx,poolX0:px0,poolX1:px1,poolY0,poolY1};
+  wakeRect(x0-2,top-3,x1+2,bot+3);
+  pixDirtyRect(x0-2,top-3,x1+2,bot+3);
+}
+
+/* ═══ THE LAVA'S PULSE ═══
+   Frozen lava never re-enters step() (see the frozen check at the top of
+   it), so it never repaints itself either — cellChanged is a physics-side
+   effect the frozen branch never reaches. matTexel already rolls a fresh
+   random highlight into LAVA's colour on every redraw (the "crust that
+   glows through" trick, shared with FIRE's ember), it just never gets
+   asked to redraw. This is the same trick with none of the physics: a
+   cosmetic pixDirtyRect, never cellChanged or wakeRect, so no neighbour
+   ever wakes and the frozen flag never lifts — the pool cannot flow,
+   spawn fire, quench, or crust over just from being looked at. Sparse and
+   throttled on purpose: a cell or two relights every few frames, at
+   random, so the glow crawls slowly rather than flickering. */
+function flickerCaveLava(){
+  if(!CAVE||CAVE.poolX0===undefined)return;
+  if((frameNo&3)!==0)return;              // one redraw pass every 4th frame
+  const{poolX0,poolX1,poolY0,poolY1}=CAVE;
+  for(let x=poolX0;x<=poolX1;x++){
+    if(Math.random()>=0.02)continue;      // a slow, sparse crawl, not a flicker
+    const y=poolY0+((Math.random()*(poolY1-poolY0+1))|0);
+    const gi=idx(x,y);
+    if(grid[gi]===LAVA)pixDirtyRect(x,y,x,y);
   }
 }
 
@@ -6086,7 +6960,7 @@ canvas.addEventListener('wheel',e=>{
    MATERIAL PICKER + KEYS
 ═══════════════════════════════════════════════════════ */
 /* ═══ PALETTE SWATCHES ═══
-   Every swatch is a 10x10 tile of the material itself: matColor() run one
+   Every swatch is a 14x14 tile of the material itself: matColor() run one
    pixel at a time with the same variant jitter the renderer uses, scaled to
    the cell with image-rendering:pixelated. A flat hex cannot show that sand is
    grainy, that water dithers, or that a bomb is a dark charge rather than a
@@ -6096,7 +6970,7 @@ canvas.addEventListener('wheel',e=>{
    birds are agents that flock above the meadow, drawn here as the specks they
    read as against the sky they fly in, and erase is the absence of material,
    drawn the way every paint program has ever drawn nothing at all. */
-const SWATCH_PX=10;
+const SWATCH_PX=14;
 function matSwatchURL(m){
   const c=document.createElement('canvas');c.width=c.height=SWATCH_PX;
   const x=c.getContext('2d');
@@ -6110,7 +6984,7 @@ function matSwatchURL(m){
   if(m===BIRD){                                    // a flock, not a cell
     x.fillStyle='#9fc8ea';x.fillRect(0,0,SWATCH_PX,SWATCH_PX);
     x.fillStyle='#1c1a22';
-    for(const [bx,by] of [[2,3],[5,2],[7,5],[4,6]]){x.fillRect(bx,by,1,1);x.fillRect(bx+1,by,1,1);}
+    for(const [bx,by] of [[3,4],[7,3],[10,7],[6,9],[2,10]]){x.fillRect(bx,by,1,1);x.fillRect(bx+1,by,1,1);}
     return c.toDataURL();
   }
   const img=x.createImageData(SWATCH_PX,SWATCH_PX);
@@ -6230,6 +7104,21 @@ function doAmbient(){
 ═══════════════════════════════════════════════════════ */
 const birds=[];
 const BIRD_MAX=350;
+// hungry birds steer toward ripe fruit: a cheap periodic sweep keeps a short
+// list of berry cells so flocking can treat them as a target, not just
+// something pecked at by chance when a bird happens to drift past
+let berryTargets=[];
+function scanBerries(){
+  berryTargets=[];
+  for(let y=0;y<H&&berryTargets.length<48;y++){
+    for(let x=0;x<W;x++){
+      if(grid[idx(x,y)]===BERRY){
+        berryTargets.push(x,y);
+        if(berryTargets.length>=48)break;
+      }
+    }
+  }
+}
 const birdCanvas=document.getElementById('birdCanvas');
 const bctx=birdCanvas.getContext('2d');
 
@@ -6255,6 +7144,7 @@ let boidHead=null,boidNext=null,boidGW=0,boidGH=0;
 function updateBoids(){
   const n=birds.length;
   if(!n)return;
+  if(frameId%20===0)scanBerries();
   const perc=18,perc2=perc*perc,sepR=5,sep2=sepR*sepR;
   const maxSpeed=1.15,maxForce=0.045;
   const gw=((W/BOID_CELL)|0)+1,gh=((H/BOID_CELL)|0)+1;
@@ -6305,6 +7195,22 @@ function updateBoids(){
       let m=Math.hypot(sepX,sepY);
       if(m>0){sepX=sepX/m*maxSpeed-b.vx;sepY=sepY/m*maxSpeed-b.vy;}
       ax+=sepX*1.7;ay+=sepY*1.7;
+    }
+    // hungry birds bias toward the nearest known berry — the flock still
+    // holds together via alignment/cohesion above, but a fruiting bush now
+    // pulls it off its wandering course instead of only getting pecked when
+    // a bird happens to drift past
+    if(b.fed===0&&berryTargets.length){
+      let bd2=Infinity,btx=0,bty=0;
+      for(let t=0;t<berryTargets.length;t+=2){
+        const dx=berryTargets[t]-b.x,dy=berryTargets[t+1]-b.y,d2=dx*dx+dy*dy;
+        if(d2<bd2){bd2=d2;btx=dx;bty=dy;}
+      }
+      const bm=Math.hypot(btx,bty);
+      if(bm>0.5){
+        ax+=(btx/bm*maxSpeed-b.vx)*0.65;
+        ay+=(bty/bm*maxSpeed-b.vy)*0.65;
+      }
     }
     // terrain avoidance: look ahead, pull away from solid + bias upward
     const lookX=(b.x+b.vx*8)|0,lookY=(b.y+b.vy*8)|0;
@@ -6691,6 +7597,48 @@ function updateCats(){
     }
   }
 }
+/* ═══ THE GHOST ═══
+   Something lives in the cave. It is drawn on the overlay with the birds and
+   the cat rather than stamped into the grid, because a ghost is the one
+   thing on the page that should NOT be matter: nothing lands on it, fire
+   does not catch on it, and it drifts through the stalactites. Pale and
+   translucent so the lava glow and the far wall show through it, with the
+   two dark eyes the only opaque cells. It keeps to the pocket's middle,
+   bobbing on one sine and wandering on a slower one, and its hem alternates
+   every third of a second so it reads as hovering rather than pasted. The
+   overlay is not lit by the day clock, so it is as visible at midnight as
+   at noon — which is the correct behaviour for a ghost. */
+const GHOST=[
+  "..###..",
+  ".#####.",
+  "##o#o##",
+  "#######",
+  "#######",
+  "#######",
+  "#.#.#.#",
+];
+const GHOST_ALT="##.#.##";   // the hem on the off beat
+function drawGhost(){
+  if(!CAVE||birdCanvas.width!==W)return;
+  const t=gTime;
+  const span=Math.max(2,(CAVE.x1-CAVE.x0)/2-9);
+  const cx=CAVE.cx+Math.sin(t*0.31)*span;
+  const cy=CAVE.top+(CAVE.bot-CAVE.top)*0.42+Math.sin(t*1.7)*1.5;
+  const gx=(cx-3)|0, gy=(cy-3)|0;
+  const hem=((t*3)|0)&1;
+  for(let r=0;r<GHOST.length;r++){
+    const row=(r===GHOST.length-1&&hem)?GHOST_ALT:GHOST[r];
+    for(let c=0;c<row.length;c++){
+      const ch=row[c];
+      if(ch==='.')continue;
+      const x=gx+c,y=gy+r;
+      if(x<0||x>=W||y<0||y>=H)continue;
+      bctx.fillStyle=ch==='o'?'#1c1a22':'rgba(226,236,255,0.78)';
+      bctx.fillRect(x,y,1,1);
+    }
+  }
+}
+
 function drawCats(){
   if(!cats.length)return;
   bctx.fillStyle='#0a0a0e';
@@ -6816,36 +7764,12 @@ window.addEventListener('resize',()=>{
 /* ═══════════════════════════════════════════════════════
    BOOT
 ═══════════════════════════════════════════════════════ */
-/* Wait for the webfonts, THEN one frame, before we measure and stamp.
-
-   Two places bake a typeface in rather than reading it every frame:
-   stampGlyphMask rasterises an element's live computed style into the
-   collision grid, and makePanelTexture bakes a poster label into a GL texture.
-   Both are dormant on this branch — nothing carries data-collide yet and
-   buildBodies returns early — so today this gate changes nothing you can see.
-   It is here because the moment the resume DOM comes back, booting before the
-   faces land means the sand collides with the shape of Courier's letters while
-   the screen shows MEK Mono's, and that is a bug nobody would think to look
-   for in a font. The fetch is already in flight from the <link rel=preload> in
-   the head, so the wait is not a round trip.
-
-   fonts.ready alone is not enough: it waits only for faces the document
-   already USES, and on the surface nothing does — #resume is empty and every
-   window is closed, so it resolves instantly with both files still unfetched.
-   Naming each face starts its load; fonts.ready then also covers layout
-   settling, which the clamp()ed nameplate wants. It never rejects — the catch
-   is for browsers with no document.fonts, where the fallback stack is what
-   renders anyway and one frame is the old correct answer. */
-Promise.resolve(document.fonts && Promise.all([
-    document.fonts.load('400 16px GROUT'),
-    document.fonts.load('400 16px "MEK Mono"'),
-  ]).then(()=>document.fonts.ready))
-  .catch(()=>{})
-  .then(()=>requestAnimationFrame(()=>{
-    spawnContent();
-    buildBodies();
-    physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
-  }));
+// wait one frame so the DOM resume has been laid out before we measure & stamp
+requestAnimationFrame(()=>{
+  spawnContent();
+  buildBodies();
+  physicsOn=true;btnP.textContent='⏸ physics';btnP.classList.add('on');
+});
 
 let lastSim=0,simAcc=0,frameNo=0;
 // Rolling estimate of what one sim step costs, in ms. A busy world (a big acid
@@ -6877,13 +7801,16 @@ function loop(ts){
     // fast machine down to one step, the exact opposite of the intent
     const maxN=Math.max(1,Math.min(4,Math.floor(SIM_BUDGET_MS/Math.max(0.25,stepCostMs))));
     const simStart=performance.now();
-    let n=0;
+    let n=0,lastStepCost=0;
     // The estimate lags sudden bursts. Check elapsed work too, while always
     // allowing one step so a heavy simulation continues to make progress.
-    while(simAcc>=stepMs&&n<maxN&&(n===0||performance.now()-simStart<SIM_BUDGET_MS)){
+    while(simAcc>=stepMs&&n<maxN&&(n===0||performance.now()-simStart+Math.max(stepCostMs,lastStepCost)<=SIM_BUDGET_MS)){
       const t0=performance.now();
       doRain();doAmbient();simulate();updateChunks();updateBoids();updateCats();
-      stepCostMs+=((performance.now()-t0)-stepCostMs)*0.15; // EMA, ~15 frames to settle
+      // Reserve enough room for another whole step. The last measurement
+      // catches a sudden burst before the rolling estimate has caught up.
+      lastStepCost=performance.now()-t0;
+      stepCostMs+=(lastStepCost-stepCostMs)*0.15; // EMA, ~15 frames to settle
       simAcc-=stepMs;n++;
     }
     if(simAcc>stepMs*maxN)simAcc=0;
@@ -6896,6 +7823,8 @@ function loop(ts){
   renderAll();
   drawBirds();
   drawCats();
+  drawGhost();
+  flickerCaveLava();
   updateEvil();
   requestAnimationFrame(loop);
 }
@@ -7127,7 +8056,7 @@ requestAnimationFrame(loop);
       blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.' },
     { id:'agent-center', name:'Agent Center', cat:'snap', icon:'gear',
       clip:'agent-center', badge:'OPEN SOURCE', meta:'Spectacles sample',
-      blurb:'Run coding agents from the glasses — each is a robot avatar whose animation says if it is working or waiting on you.' },
+      blurb:'Manage coding agents in AR with text, voice, image attachments, permission controls, and live status.' },
     { id:'ai-playground', name:'AI Playground', cat:'snap', icon:'gear',
       clip:'ai-playground', badge:'OPEN SOURCE', meta:'Spectacles sample',
       blurb:'The starter project for AI on Spectacles — live voice models, image generation and text-to-3D in one sample.' },
@@ -7239,27 +8168,13 @@ requestAnimationFrame(loop);
   }
 
   const PANELS = {
-    overview: { title:'My Computer — Overview', icon:'computer', theme:'desktop', html:`
-      <h2>Mitchell Kuppersmith</h2>
-      <div class="sub">Design Engineer · Snap Inc.</div>
-      <div class="meta">Santa Monica, CA</div>
-      <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses. My work spans flagship lens experiences, system UI and core OS interfaces, and open-source developer tooling.</p>
-      <p><b>Open <a data-launch="work">My Work</a> to see everything at a glance</b> — or use the Start menu.</p>
-      <div class="icon-grid">
-        <a class="ic" data-launch="work"><span class="ic-img">${ico('folder','','--accent:#ffd700')}</span><span>My Work</span></a>
-        <a class="ic" data-launch="snap"><span class="ic-img">${ico('briefcase','','--accent:#fffc00')}</span><span>Snap Role</span></a>
-        <a class="ic" data-launch="education"><span class="ic-img">${ico('book')}</span><span>Education</span></a>
-        <a class="ic" data-launch="about"><span class="ic-img">${ico('user')}</span><span>About Me</span></a>
-        <a class="ic" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener"><span class="ic-img">${ico('mail')}</span><span>Contact</span></a>
-      </div>
-    `},
     work: { title:'My Work', icon:'folder', theme:'gallery', html: galleryHTML() },
     'retrovirus-vr': { title:'RetroVirus VR', icon:'floppy', theme:'project',
       accent:'#ff8163', bar:'#8a2c18', html:`
       <h2>RetroVirus VR</h2>
       <div class="sub">Escape the antivirus prison</div>
       <div class="meta">VR Jam 2020 · Unity · SteamVR 2.0</div>
-      <img class="shot" loading="lazy" src="images/projects/retrovirus-vr.webp" alt="RetroVirus VR">
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2mGfEtkYbME?rel=0" title="RetroVirus VR demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p>You've been quarantined. Fight your way out of an antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
       <h3>Features</h3>
       <ul>
@@ -7286,7 +8201,7 @@ requestAnimationFrame(loop);
       <h2>Songbird</h2>
       <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
       <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
-      <img class="shot" loading="lazy" src="images/projects/songbird.webp" alt="Songbird">
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/c2cUoMuH6bY?rel=0" title="Songbird demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit. Take too much damage and rage takes over: harder to aim, easier to break your own instrument.</p>
       <h3>Controls</h3>
       <ul>
@@ -7314,7 +8229,7 @@ requestAnimationFrame(loop);
       <h2>Nira</h2>
       <div class="sub">A short 3D action-adventure about a girl and her hoverstaff</div>
       <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
-      <img class="shot" loading="lazy" src="images/projects/nira.webp" alt="Nira">
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/MCfxDnmBX3w?rel=0" title="Nira demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p>Your grandfather left something for you at the observatory. Guide Nira through an atmospheric low-poly world using <b>Kane</b>, a magical hoverstaff, and uncover the mystery of what he left behind.</p>
       <h3>Highlights</h3>
       <ul>
@@ -7384,30 +8299,47 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">Real-time</span><span class="tag">Speech</span><span class="tag">Multi-user</span></div>
     `},
-    'agent-center': { title:'agent-center // OSS', icon:'gear', theme:'terminal', html:`
-      <h2>agent-center</h2>
-      <div class="sub">// open source · Spectacles sample</div>
-      <video class="shot-clip" src="images/projects/agent-center.mp4" poster="images/projects/agent-center-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="Agent Center demo"></video>
-      <p>A spatial UI for running coding agents from the glasses. Each agent is a robot avatar you can place in the room; its animation is its status, so a glance tells you who is working and who is waiting on you.</p>
-      <h3>features</h3>
-      <ul>
-        <li>multi-agent management — claude, codex, cursor cloud, openclaw</li>
-        <li>voice or text in, with on-device speech recognition</li>
-        <li>pinch-to-capture a frame and hand it to an agent as context</li>
-        <li>agents are draggable avatars, themeable (cat, owl, ghost, axolotl, CRT, robot)</li>
-        <li>smart reply suggestions and automatic topic renaming</li>
-        <li>a permission prompt before any agent touches files or runs a shell</li>
-        <li>realtime sync, so a session follows you between devices</li>
-      </ul>
-      <h3>how it fits together</h3>
-      <ul>
-        <li><b>lens</b> — the AR interface on Spectacles</li>
-        <li><b>bridge</b> — a node daemon on your machine that owns the agent CLI processes</li>
-        <li><b>supabase</b> — auth, messaging and the realtime channel between the two</li>
-      </ul>
-      <div class="meta">Lens Studio v5.15.1+ · Spectacles OS v5.64+ · Node 18+ · pair with a 6-digit code</div>
-      <p><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">github.com/specs-devs/samples · Agent Manager →</a></p>
-      <div class="tags"><span class="tag">Spatial UI</span><span class="tag">Voice/Gesture</span><span class="tag">Supabase</span><span class="tag">Realtime</span></div>
+    'agent-center': { title:'Agent Center — Spectacles', icon:'gear', theme:'agent', html:`
+      <article class="ac-page" aria-label="Agent Center project">
+        <header class="ac-hero">
+          <div>
+            <p class="ac-eyebrow">SPECTACLES / OPEN-SOURCE EXPERIMENT</p>
+            <h2>Agent Center</h2>
+            <p class="ac-intro">An augmented-reality workspace for managing AI coding agents from Spectacles. Prompt agents by text or voice, attach images from your view, approve tool requests, and follow several tasks through animated avatars placed around you.</p>
+            <div class="ac-actions"><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">View source on GitHub <span aria-hidden="true">↗</span></a></div>
+          </div>
+        </header>
+        <dl class="ac-facts"><div><dt>Platform</dt><dd>Spectacles</dd></div><div><dt>Interaction</dt><dd>Text · voice · gesture</dd></div><div><dt>Built with</dt><dd>Lens Studio · Node.js · Supabase</dd></div></dl>
+        <figure class="ac-figure">
+          <video src="images/projects/agent-center.mp4" poster="images/projects/agent-center-poster.webp" controls muted loop playsinline preload="metadata" aria-label="Agent Center running on Spectacles"></video>
+          <figcaption><span>01 — Agent Center, through Spectacles.</span><span>Actual demo / sound off</span></figcaption>
+        </figure>
+        <section class="ac-section">
+          <div class="ac-section-number">01 / THE INTERACTION</div>
+          <div><h3>Manage agents without leaving the glasses.</h3><p>Each agent maps to a coding session and appears as an avatar you can place in the room. Live states show whether it is listening, working, waiting for permission, offline, or finished, while conversations retain their topic and message history.</p>
+            <div class="ac-steps"><div class="ac-step"><b>Prompt naturally</b><p>Send text or speak with on-device speech recognition, then use suggested replies to keep a task moving.</p></div><div class="ac-step"><b>Share what you see</b><p>Frame a subject with one or two hands, capture the image, and attach it to your next prompt.</p></div><div class="ac-step"><b>Stay in control</b><p>Choose each agent's repository and model, and approve or deny file and shell permissions in AR.</p></div></div>
+          </div>
+        </section>
+        <section class="ac-section">
+          <div class="ac-section-number">02 / THE TOOLBOX</div>
+          <div><h3>Built with</h3>
+            <dl class="ac-tools">
+              <div><dt>Lens Studio</dt><dd>Builds the Spectacles lens: the spatial interface, agent avatars, and in-room experience.</dd></div>
+              <div><dt>Spectacles Interaction Kit (SIK) + UIKit</dt><dd>Hand interaction and interface components for the lens.</dd></div>
+              <div><dt>Node.js</dt><dd>Runs the local bridge that manages agent CLI processes and relays messages between your computer and the lens.</dd></div>
+              <div><dt>Snap Cloud + Supabase</dt><dd>Provides authentication, realtime messaging, and backend edge functions.</dd></div>
+            </dl>
+            <p class="ac-integrations"><b>Agent integrations:</b> Claude, Codex, Cursor Cloud, and OpenClaw.</p>
+          </div>
+        </section>
+        <section class="ac-section">
+          <div class="ac-section-number">03 / THE TALK</div>
+          <div><h3>Dev talk</h3><p>A walkthrough of Agent Center's design and build.</p>
+            <div class="shot-vid"><iframe src="https://www.youtube.com/embed/GtULAKBGod8?rel=0" title="Agent Center dev talk" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+          </div>
+        </section>
+        <footer class="ac-footer"><span>Mitchell Kuppersmith / Selected work</span><a data-launch="ai-playground" role="button" tabindex="0">Next project: AI Playground →</a></footer>
+      </article>
     `},
     'ai-playground': { title:'ai-playground // OSS', icon:'gear', theme:'terminal', html:`
       <h2>ai-playground</h2>
@@ -7463,7 +8395,7 @@ requestAnimationFrame(loop);
       <h2>CATIATOR</h2>
       <div class="sub">★ MOONSHOT PRIZE · BEST HACKATHON PROJECT ★</div>
       <div class="meta">Stanford TreeHacks 2021</div>
-      <img class="shot" loading="lazy" src="images/projects/catiator.webp" alt="Catiator">
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/_OPf_EpcgpE?rel=0" title="Catiator demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet ${ico('cat','pxi-inline')}</p>
       <p>Interactive VR game to learn American Sign Language through finger-tracked gesture combat. Battle waves of fierce-but-chonky catiator warriors by signing the corresponding letters.</p>
       <blockquote>"Signs are to eyes as words are to ears."</blockquote>
@@ -7509,7 +8441,7 @@ requestAnimationFrame(loop);
       <h2>IntARnet</h2>
       <div class="sub">Scott Krulcik Grand Prize</div>
       <div class="meta">CMU TartanHacks 2021</div>
-      <img class="shot" loading="lazy" src="images/projects/intarnet.webp" alt="IntARnet">
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2WW6OzM3Tsc?rel=0" title="IntARnet demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p>An AR social media app built around spatial anchors — drop persistent posts at real-world locations and discover what others have left behind.</p>
       <h3>Concept</h3>
       <p>Twitter, but the timeline is the city. Post drawings, text or 3D models and they stay pinned to the spot you left them — the only way to read a post is to walk to it. That constraint is the feature: it gets people outdoors and keeps what you see relevant to the block you're standing on.</p>
@@ -7535,7 +8467,7 @@ requestAnimationFrame(loop);
     larp: { title:'lARp — mushroom AR', icon:'mushroom', theme:'forest', html:`
       <h2>lARp</h2>
       <div class="sub">Best Art and Gaming Hack · HooHacks 2021</div>
-      <video class="shot-clip" src="images/projects/larp.mp4" poster="images/projects/larp-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="lARp demo"></video>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/wR7rJfNN0Ow?rel=0" title="lARp demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
       <p>A mushroom-themed AR fitness game that promotes physical activity through gamification — battle or befriend procedurally generated mushroom NPCs while GPT-3 powers open-ended dialogue.</p>
       <blockquote>"The hardest part about exercise is to start doing it. Once you are doing exercise regularly, the hardest part is to stop it." — Erin Grey</blockquote>
       <p><em>lARp</em> makes it easy to start. Use the outdoors (or a treadmill) as your gym and work toward becoming the buff mushroom of your dreams.</p>
@@ -7634,47 +8566,110 @@ requestAnimationFrame(loop);
       <p class="rainbow">THANKS FOR VISITING ~ COME BACK SOON!</p>
       <p style="margin-top:8px"><span class="under-const">⚠ UNDER CONSTRUCTION ⚠</span></p>
     `},
-    /* The type credit. A colophon is the one window that has to be set in the
-       faces it is crediting, so each specimen line names its own face and the
-       CSS variables do the rest — reword the copy and the specimens follow. */
-    colophon: { title:'Colophon — Type & Credits', icon:'floppy', theme:'desktop', html:`
-      <h2>Colophon</h2>
-      <div class="sub">What this page is set in</div>
-      <div class="meta">And who to thank for it</div>
-
-      <h3>GROUT Display</h3>
-      <p class="spec-grout">Headings &amp; the nameplate</p>
-      <p>Letters built out of tiles with the grout left in — which is why it
-      belongs on a page made of square particles. It has one weight, no italic,
-      and a fourteen-row grid it wants to sit on, so it is used large.</p>
-
-      <h3>MEK Mono</h3>
-      <p class="spec-mono">Monospace: terminals, counters, captions &amp; the marquee</p>
-      <p>A narrow geometric mono — a 0.45em cell against Courier New's 0.6em.
-      Broad coverage: Latin Extended, Greek, arrows and maths.</p>
-
-      <h3>Credits</h3>
-      <p>Both faces are by <b>Michael Alexander</b>, released as
-      <b>MEK Type</b>.</p>
-      <p><a href="https://www.mek.gallery/mektype" target="_blank" rel="noopener">mek.gallery/mektype</a></p>
-      <blockquote>Used here with the type credited on this screen. If you want
-      them on your own work, get them from MEK rather than from this
-      page.</blockquote>
-
-      <h3>Everything else</h3>
-      <ul>
-        <li><b>Tahoma / MS Sans Serif</b> — the taskbar, title bars and menus.
-        Left as they were on purpose: the chrome is a Windows 95 impression,
-        and it stops being one in a different typeface.</li>
-        <li><b>The name in the sky</b> is not type at all — it is a hand-drawn
-        nine-row bitmap stamped straight into the sand (<i>WM_GLYPHS</i>).</li>
-      </ul>
-      <div class="tags"><span class="tag">GROUT Display</span><span class="tag">MEK Mono</span><span class="tag">MEK Type</span></div>
-    `},
   };
 
+  /* Give every project in the gallery the same page grammar as Agent Center
+     without duplicating its wrapper markup in twelve panel definitions. The
+     source copy stays simple and editable; this function only supplies layout,
+     section numbering, media captions and project-to-project navigation. */
+  const CASE_PALETTES = {
+    'retrovirus-vr':['#96351f','#702613'], songbird:['#765000','#5a3b0d'],
+    nira:['#236866','#174846'], snaptrap:['#41680d','#304e0a'],
+    'imagine-together':['#675300','#3f3500'], translation:['#075f91','#06466b'],
+    'ai-playground':['#08733a','#07542c'], 'ai-music-gen':['#08733a','#07542c'],
+    rsg:['#08733a','#07542c'], catiator:['#9b126d','#71104f'],
+    intarnet:['#075f91','#06466b'], larp:['#486d2c','#345020']
+  };
+
+  function formatProjectPanel(win,id){
+    const project=PROJECTS.find(item=>item.id===id);
+    if(!project || id==='agent-center') return;
+
+    win.classList.add('is-case-study');
+    win.dataset.panel=id;
+    const palette=CASE_PALETTES[id] || ['#000080','#00005d'];
+    win.style.setProperty('--case-accent',palette[0]);
+    win.style.setProperty('--case-bar',palette[1]);
+
+    const body=win.querySelector('.win-body');
+    const original=[...body.children];
+    const title=original.find(node=>node.tagName==='H2');
+    const media=original.find(node=>node.matches('.shot-vid,.shot-clip,.shot'));
+    const mediaAt=media ? original.indexOf(media) : original.length;
+    const sub=original.find((node,index)=>index<mediaAt && node.classList.contains('sub'));
+    const meta=original.find((node,index)=>index<mediaAt && node.classList.contains('meta'));
+    const tags=original.find(node=>node.classList.contains('tags'));
+    const consumed=new Set([title,sub,meta,media,tags].filter(Boolean));
+
+    const page=document.createElement('article');
+    page.className='case-page';
+    page.setAttribute('aria-label',project.name+' project');
+
+    const hero=document.createElement('header');
+    hero.className='case-hero';
+    const eyebrow=document.createElement('p');
+    eyebrow.className='case-eyebrow';
+    eyebrow.textContent=(meta && meta.textContent.trim()) || project.meta || 'Selected project';
+    hero.appendChild(eyebrow);
+    if(title) hero.appendChild(title);
+    if(sub){
+      sub.textContent=sub.textContent.replace(/^\s*★\s*|\s*★\s*$/g,'').trim();
+      sub.className='case-intro';
+      hero.appendChild(sub);
+    }
+    page.appendChild(hero);
+
+    if(tags){
+      tags.className='case-facts';
+      tags.setAttribute('aria-label','Project topics');
+      page.appendChild(tags);
+    }
+
+    if(media){
+      const figure=document.createElement('figure');
+      figure.className='case-figure';
+      figure.appendChild(media);
+      const caption=document.createElement('figcaption');
+      const isImage=media.matches('img');
+      caption.innerHTML='<span>01 — '+project.name+(isImage?' overview.':' in action.')+'</span><span>'+(isImage?'Project image':'Demo video')+'</span>';
+      figure.appendChild(caption);
+      page.appendChild(figure);
+    }
+
+    let section=null,sectionCount=0;
+    function beginSection(label,heading){
+      section=document.createElement('section');
+      section.className='case-section';
+      const number=document.createElement('div');
+      number.className='case-section-number';
+      number.textContent=String(++sectionCount).padStart(2,'0')+' / '+label;
+      section.appendChild(number);
+      if(heading) section.appendChild(heading);
+      page.appendChild(section);
+    }
+    original.forEach(node=>{
+      if(consumed.has(node)) return;
+      if(node.tagName==='H3'){
+        const label=node.textContent.replace(/★/g,'').trim() || 'Details';
+        node.textContent=label;
+        beginSection(label,node);
+        return;
+      }
+      if(!section) beginSection('Overview');
+      if(node.tagName==='P' && node.querySelector('a')) node.classList.add('case-actions');
+      section.appendChild(node);
+    });
+
+    const current=PROJECTS.findIndex(item=>item.id===id);
+    const next=PROJECTS[(current+1)%PROJECTS.length];
+    const footer=document.createElement('footer');
+    footer.className='case-footer';
+    footer.innerHTML='<span>Mitchell Kuppersmith / Selected work</span><a data-launch="'+next.id+'" role="button" tabindex="0">Next project: '+next.name+' →</a>';
+    page.appendChild(footer);
+    body.replaceChildren(page);
+  }
+
   const DIRECTORY = [
-    { type:'item', id:'overview', label:'Overview', icon:'computer' },
     { type:'item', id:'work', label:'My Work — all projects', icon:'folder' },
     { type:'sep' },
     { type:'cat', label:'Experience · Snap Inc.', icon:'briefcase', items:[
@@ -7700,7 +8695,6 @@ requestAnimationFrame(loop);
     { type:'item', id:'education', label:'Education', icon:'book' },
     { type:'sep' },
     { type:'item', id:'about', label:'About Me', icon:'user' },
-    { type:'item', id:'colophon', label:'Colophon — type & credits', icon:'floppy' },
     { type:'item', id:'contact', label:'Contact', icon:'mail', href:'https://www.linkedin.com/in/mitchell-kuppersmith' },
   ];
 
@@ -7996,24 +8990,44 @@ requestAnimationFrame(loop);
     cards.forEach(card=>{
       const copy=card.cloneNode(true);
       copy.dataset.loopCopy='';copy.tabIndex=-1;copy.setAttribute('aria-hidden','true');
-      copy.addEventListener('click',e=>{e.preventDefault();copy.blur();launchPanel(copy.dataset.launch);});
+      copy.addEventListener('click',e=>{e.preventDefault();copy.blur();
+        launchPanel(copy.dataset.launch,copy);resumeDrift(copy);});
       track.appendChild(copy);
     });
     initGallery(shelf);
+    /* Hoisted so the card handlers below can call it before the drift state it
+       clears has been declared. Opening a project is the one interaction that
+       is *finished* the moment it happens -- the card is blurred, focus has
+       moved into the new window and there is nothing left on the strip for the
+       drift to fight -- so it hands the conveyor straight back. */
+    function resumeDrift(card){
+      activePointers.clear();pauseUntil=0;
+      // Chrome can apply click focus after the handler has called blur(),
+      // putting a card straight back into :focus and pausing the conveyor for
+      // as long as the project window stays open. Clear that native focus on
+      // the following task, once click dispatch has completely settled.
+      setTimeout(()=>{
+        if(document.activeElement===card)card.blur();
+        activePointers.clear();pauseUntil=0;
+      },0);
+    }
     cards.forEach((card,i)=>{
       card.addEventListener('click', e=>{
         e.preventDefault();
         // Opening a panel must not leave the card focused — the conveyor
         // below reads focus-within-shelf as "someone's interacting, hold
-        // still", and with no button to resume it that hold would be forever.
+        // still", and the resume below cannot lift a hold that focus is
+        // still asserting.
         card.blur();
-        launchPanel(card.dataset.launch);
+        launchPanel(card.dataset.launch, card);
+        resumeDrift(card);
       });
       card.addEventListener('keydown', e=>{
         if(e.key==='Enter'||e.key===' '){
           e.preventDefault();e.stopPropagation();
           card.blur();
-          launchPanel(card.dataset.launch);
+          launchPanel(card.dataset.launch, card);
+          resumeDrift(card);
           return;
         }
         const step=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
@@ -8027,7 +9041,8 @@ requestAnimationFrame(loop);
       });
     });
     const reducedMotion=matchMedia('(prefers-reduced-motion:reduce)');
-    let touching=false,pauseUntil=0;
+    const activePointers=new Set();
+    let pauseUntil=0;
     let position=track.scrollLeft,lastFrame=0,cycleWidth=0;
     /* The strip is a conveyor: one constant, unbroken loop, with no pause
        button and no arrows. The only two things that stop it are the two that
@@ -8039,9 +9054,23 @@ requestAnimationFrame(loop);
        the track scrolls on one axis and a wheel offers the other. Over the
        world it sizes the brush. */
     const pauseForInteraction=()=>{pauseUntil=performance.now()+3500;};
-    shelf.addEventListener('pointerdown',()=>{touching=true;pauseForInteraction();});
-    window.addEventListener('pointerup',()=>{if(touching)pauseForInteraction();touching=false;});
-    window.addEventListener('pointercancel',()=>{touching=false;pauseForInteraction();});
+    const endPointerInteraction=e=>{
+      if(!activePointers.delete(e.pointerId))return;
+      pauseForInteraction();
+    };
+    shelf.addEventListener('pointerdown',e=>{
+      activePointers.add(e.pointerId);
+      pauseForInteraction();
+    });
+    // Releases continue to bubble to window after a drag leaves the strip.
+    // Do not capture on the shelf: capture would retarget the eventual click
+    // away from a project card and stop the project from opening.
+    window.addEventListener('pointerup',endPointerInteraction);
+    window.addEventListener('pointercancel',endPointerInteraction);
+    window.addEventListener('blur',()=>activePointers.clear());
+    document.addEventListener('visibilitychange',()=>{
+      if(document.hidden)activePointers.clear();
+    });
     shelf.addEventListener('focusout',pauseForInteraction);
     shelf.addEventListener('keydown',e=>{
       // The page's Space shortcut controls physics; cards retain their own keys.
@@ -8055,7 +9084,7 @@ requestAnimationFrame(loop);
     function advance(now){
       const elapsed=lastFrame?Math.min(now-lastFrame,80):0;
       lastFrame=now;
-      const waiting=reducedMotion.matches||touching||document.hidden||now<pauseUntil
+      const waiting=reducedMotion.matches||activePointers.size>0||document.hidden||now<pauseUntil
         ||shelf.contains(document.activeElement);
       if(waiting){position=track.scrollLeft;}
       else if(cycleWidth>0){
@@ -8122,7 +9151,290 @@ requestAnimationFrame(loop);
     } finally { routing = false; }
   });
 
-  function launchPanel(id){
+  /* ═════════════════════════════════════════════════════
+     WHERE A WINDOW GOES
+     Every window used to cascade from the same corner in steps of 32x16, so
+     the second one landed on top of the first and the third on top of that:
+     on a 1280px desktop that stacked three 420px windows into the left third
+     and left two thirds of the screen empty. This looks for a place the window
+     can sit without covering anything that is already open — its anchors are
+     the edges of what is open, which is what makes the result tile rather than
+     scatter — and only falls back to the old cascade when there is genuinely
+     nowhere left to put it.
+
+     Among the free places it prefers the highest, and among equally high ones
+     the one nearest the card that was clicked: the window then opens in the
+     column your eye is already in, and the drop that carries it there is a
+     short arc rather than a trip across the desktop.
+  ═════════════════════════════════════════════════════ */
+  function freeSlot(win, fromRect){
+    /* Tight on purpose. Three 420px windows and their margins come to 1276 on
+       a 1280px desktop: at the 8px and 10px this started with, the third one
+       missed the right edge by sixteen pixels and fell back to cascading on
+       top of the other two, which is the whole thing this is here to avoid. */
+    const GAP = 6, EDGE = 4;
+    const region = {
+      left: EDGE, top: topDockBottom() + 14,
+      right: innerWidth - EDGE, bottom: innerHeight - TASKBAR_H - 6
+    };
+    const w = win.offsetWidth, h = win.offsetHeight;
+    // The whole window has to fit, unclipped: a slot that needs the clamp to
+    // pull the window back into view is a slot that overlaps something.
+    if(w > region.right-region.left || h > region.bottom-region.top) return null;
+
+    const taken = [];
+    for(const info of openWindows.values()){
+      if(info.el === win || info.el.style.display === 'none') continue;
+      taken.push(info.el.getBoundingClientRect());
+    }
+    /* The palette is docked chrome that paints *over* windows, so a window
+       parked under it is a window with a corner missing — but it is fifty
+       pixels tall and it sits in the corner every first window has always
+       opened in. Ruling that corner out entirely pushed the very first window
+       of the session into the middle of the desktop, so chrome is priced
+       rather than forbidden: worth stepping around, not worth crossing the
+       screen to avoid. */
+    const chrome = [];
+    for(const id of ['matPicker','hud']){
+      const el = document.getElementById(id);
+      if(el && el.offsetParent !== null) chrome.push(el.getBoundingClientRect());
+    }
+
+    // Flush against the far edges too, or the last column of a desktop that is
+    // not an exact multiple of a window is left permanently unusable.
+    const xs = [region.left, region.right - w], ys = [region.top, region.bottom - h];
+    for(const r of taken.concat(chrome)){
+      xs.push(r.right + GAP, r.left - GAP - w);
+      ys.push(r.bottom + GAP, r.top - GAP - h);
+    }
+    const over = (x, y, r) => Math.max(0, Math.min(x+w, r.right) - Math.max(x, r.left))
+                            * Math.max(0, Math.min(y+h, r.bottom) - Math.max(y, r.top));
+    const wantX = fromRect ? fromRect.left + fromRect.width/2 : region.left + w/2;
+    let best = null;
+    for(const y of ys){
+      if(y < region.top - 0.5 || y + h > region.bottom + 0.5) continue;
+      for(const x of xs){
+        if(x < region.left - 0.5 || x + w > region.right + 0.5) continue;
+        if(taken.some(r => over(x, y, r) > 0)) continue;
+        // Height counts double: the desktop is wider than it is tall and a row
+        // further down costs more of what is left than a column further across.
+        let cost = (y - region.top)*2 + Math.abs(x + w/2 - wantX);
+        for(const r of chrome) cost += over(x, y, r)/(w*h) * 600;
+        if(!best || cost < best.cost) best = { x, y, cost };
+      }
+    }
+    return best;
+  }
+
+  /* ═════════════════════════════════════════════════════
+     THE DROP
+     Clicking a card on the top shelf used to swap one thing for another with
+     no motion between them: the strip stayed put and a window simply existed,
+     three hundred pixels away, with nothing connecting the two. Now the card
+     leaves the strip. It falls the whole height of the desktop, bounces off the
+     taskbar the way Solitaire's cards bounce off the bottom of the screen —
+     stamping a trail of solid copies of itself the whole way — and comes back
+     up to land on the slot the window is about to occupy, where it unfolds
+     into that window's chrome.
+
+     The trajectory is computed up front from three rects and handed to the Web
+     Animations API as sampled keyframes, rather than written as a CSS keyframe
+     set. Two reasons: the distances are different every time (the card is
+     wherever the conveyor left it, the window is wherever freeSlot found room
+     for it, the desktop is whatever height the browser is) and a fall whose
+     duration does not answer to its own height is the one thing that reads as
+     fake; and keeping it off requestAnimationFrame means the drop is not
+     queued behind the sand sim for a main-thread slot every frame.
+  ═════════════════════════════════════════════════════ */
+  const DROP = {
+    g: 0.012,              // px/ms². Tuned against the full-height fall: the
+                           // card crosses ~800px of desktop in about a third
+                           // of a second, which is roughly real gravity.
+    // How far past the slot the rebound carries before dropping back onto it,
+    // as a fraction of the climb, clamped either side. Without the overshoot
+    // the card arrives at the slot with no speed left and hangs there.
+    over: 0.10, overMin: 18, overMax: 52,
+    open: 180,             // the landed card unfolding into window chrome
+    /* How far into the unfold the real window surfaces under the flyer. Late,
+       because the flyer is the thing being crossfaded out and the two rects
+       want to be the same rect while that happens -- reveal it at two thirds
+       and the veil's own edges cut across the window's content. */
+    fade: 0.86,
+    step: 10,              // ms between sampled keyframes
+    /* The trail is stamped by distance, not by time: the card covers ground
+       fastest just before it hits the bar, and a fixed interval spent every
+       copy in the first two hundred pixels of an eight hundred pixel fall.
+       stampGap is that distance as a fraction of the card's own height, which
+       is the only measure that makes a trail read as a trail: at a flat 26px a
+       136px-tall card left eighteen copies overlapping by four fifths, and a
+       fall that is very nearly vertical stacked them into one grey ladder down
+       the middle of the desktop. Half a card apart is a fanned deck. */
+    stampPx: 26, stampGap: 0.5, stampMax: 10, stampLife: 480
+  };
+
+  function dropLayer(){
+    let el = document.getElementById('dropLayer');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'dropLayer';
+      el.setAttribute('aria-hidden', 'true');
+      document.getElementById('projectShelf').appendChild(el);
+    }
+    return el;
+  }
+
+  /* Returns true if it has taken the window over — the caller must leave the
+     reveal to it in that case. Every bail-out below leaves the window alone. */
+  function dropCardInto(card, win){
+    if(matchMedia('(prefers-reduced-motion:reduce)').matches) return false;
+    if(!card.animate) return false;            // no WAAPI, no drop
+    const from = card.getBoundingClientRect();
+    const to = win.getBoundingClientRect();
+    const bar = document.getElementById('taskbar').getBoundingClientRect();
+    const floor = bar.top - from.height;   // card top when its foot meets the bar
+    const slot = to.top;                   // and where the window will sit
+    /* A card half-scrolled out of the track would appear to fall from a point
+       nobody clicked; a desktop too short to hold the whole arc has nothing
+       worth watching in it. */
+    if(floor - from.top < 90 || slot > floor - 40 || from.width < 8 ||
+       from.left < -4 || from.right > innerWidth + 4) return false;
+
+    /* Three parabolas end to end: the card falls the whole height of the
+       desktop onto the taskbar, rebounds up past the slot the window will
+       occupy, and drops back onto it. The rebound is not a restitution
+       constant — it is however hard the card has to leave the bar to arrive at
+       that slot, which is what keeps a bounce off the bottom of the screen and
+       a window opening under the shelf in the same story. */
+    const g = DROP.g;
+    const climb = floor - slot;
+    const over = Math.max(DROP.overMin, Math.min(DROP.overMax, climb*DROP.over));
+    const t1 = Math.sqrt(2*(floor-from.top)/g);   // the fall
+    const t2 = Math.sqrt(2*(climb+over)/g);       // the rebound, to its apex
+    const t3 = Math.sqrt(2*over/g);               // the settle back onto the slot
+    const v2 = g*t2;                              // speed leaving the taskbar
+    const flight = t1 + t2 + t3;
+    const total = flight + DROP.open;
+    const ease = p => 1 - Math.pow(1-p, 3);
+
+    const yAt = t => {
+      if(t <= t1) return from.top + 0.5*g*t*t;
+      if(t <= t1+t2){ const e = t-t1; return floor - (v2*e - 0.5*g*e*e); }
+      const e = Math.min(t-t1-t2, t3);
+      return slot - over + 0.5*g*e*e;
+    };
+    // Nothing acts on the card sideways, so nothing about its sideways travel
+    // should ease: constant velocity across the whole arc, bar included.
+    const xAt = t => from.left + (to.left-from.left)*Math.min(1, t/flight);
+
+    const flyer = card.cloneNode(true);
+    flyer.classList.add('drop-card');
+    flyer.classList.remove('is-playing');
+    flyer.removeAttribute('data-launch');
+    flyer.removeAttribute('data-loop-copy');
+    flyer.tabIndex = -1;
+    flyer.setAttribute('aria-hidden', 'true');
+    // A second copy of the clip decoding through the fall buys nothing: the
+    // poster underneath it is what the card looked like when it was clicked.
+    flyer.querySelectorAll('video').forEach(v=>v.remove());
+    flyer.style.width = from.width+'px';
+    flyer.style.height = from.height+'px';
+    flyer.style.transform = `translate(${from.left}px,${from.top}px)`;
+    /* Read off the window rather than hard-coded, so a project window's own
+       title colour is the one the card's bar turns as it lands -- the themed
+       pages each carry a different --proj-bar. */
+    const winBar = win.querySelector('.win-title');
+    if(winBar){
+      const cs = getComputedStyle(winBar);
+      flyer.style.setProperty('--drop-bar',
+        cs.backgroundImage && cs.backgroundImage !== 'none'
+          ? cs.backgroundImage : cs.backgroundColor);
+    }
+    const winBody = win.querySelector('.win-body');
+    if(winBody) flyer.style.setProperty('--drop-body',
+      getComputedStyle(winBody).backgroundColor);
+
+    const run = document.createElement('div');   // one node to sweep up after
+
+    // The whole trail is laid down now, as static copies on staggered timers,
+    // rather than stamped frame by frame from a running loop: the same
+    // picture, and it cannot fall behind the card it is trailing.
+    /* Only the fall is stamped. The rebound climbs back up the same column it
+       just came down, so trailing it laid a second set of copies in the gaps of
+       the first and undid the spacing below; and a bounce with no wake behind
+       it is what tells you the card has been hit by something, rather than that
+       it is still falling. */
+    let sx = from.left, sy = from.top, made = 0, path = 0;
+    for(let t = 0; t <= t1; t += 16){          // how far the card actually travels
+      const x = xAt(t), y = yAt(t);
+      path += Math.hypot(x-sx, y-sy); sx = x; sy = y;
+    }
+    const gap = Math.max(DROP.stampPx, from.height*DROP.stampGap,
+                         path/DROP.stampMax);
+    sx = from.left; sy = from.top;
+    for(let t = 8; t < t1 && made < DROP.stampMax; t += 8){
+      const x = xAt(t), y = yAt(t);
+      if(Math.hypot(x-sx, y-sy) < gap) continue;
+      sx = x; sy = y; made++;
+      const stamp = flyer.cloneNode(true);
+      stamp.classList.remove('drop-card');
+      stamp.classList.add('drop-stamp');
+      stamp.style.transform = `translate(${x}px,${y}px)`;
+      /* step-end everywhere: the copy is not there, then it is there, then it
+         is not there again. No interval of this is a fade. */
+      stamp.animate(
+        [{opacity:0, easing:'step-end'},
+         {opacity:1, offset:0.0001, easing:'step-end'},
+         {opacity:0}],
+        /* Cut short so that the last copy blinks out as the card touches down.
+           At a flat 480ms the tail of the trail was still lying there in full
+           opacity while the window unfolded underneath it, and then went out a
+           card at a time on top of a window that had already opened. */
+        { duration: Math.min(DROP.stampLife, flight - t + 40), delay: t,
+          fill:'both' }
+      );
+      run.appendChild(stamp);
+    }
+    run.appendChild(flyer);                   // the card rides above its trail
+    dropLayer().appendChild(run);
+
+    const frameAt = t => {
+      const held = Math.min(t, flight);
+      const p = t <= flight ? 0 : ease((t-flight)/DROP.open);
+      return {
+        offset: Math.min(1, t/total),
+        transform: `translate(${xAt(held)}px,${yAt(held)}px)`,
+        width:  (from.width  + (to.width  - from.width )*p)+'px',
+        height: (from.height + (to.height - from.height)*p)+'px',
+        opacity: p <= DROP.fade ? 1 : 1 - (p-DROP.fade)/(1-DROP.fade)
+      };
+    };
+    const frames = [];
+    for(let t = 0; t <= total; t += DROP.step) frames.push(frameAt(t));
+    if(frames[frames.length-1].offset < 1) frames.push(frameAt(total));
+
+    win.classList.add('is-dropping');
+    let swept = false;
+    const sweep = ()=>{                  // idempotent: three things race for it
+      if(swept) return;
+      swept = true;
+      win.classList.remove('is-dropping');
+      run.remove();
+    };
+    flyer.animate(frames, { duration: total, easing:'linear', fill:'both' })
+         .onfinish = sweep;
+    // The window has to surface *under* the still-fading flyer, or the swap
+    // from grey card to navy title bar happens in a single frame.
+    setTimeout(()=>{ if(win.isConnected) win.classList.remove('is-dropping'); },
+               flight + DROP.open*(1 - Math.pow(1-DROP.fade, 1/3)));
+    setTimeout(()=>flyer.classList.add('is-opening'), flight);
+    setTimeout(sweep, total + 400);      // backstop: a timeline that never runs
+                                         // must not strand the window invisible
+    return true;
+  }
+
+  /* `from` is the element the launch came from, if it is one that can be
+     seen to fall — see dropCardInto. Everything else opens as before. */
+  function launchPanel(id, from){
     const panel = PANELS[id];
     if(!panel) return;
     pushRoute(id);
@@ -8150,23 +9462,41 @@ requestAnimationFrame(loop);
       </div>
       <div class="win-body">${panel.html}</div>
     `;
+    formatProjectPanel(win,id);
     winLayer.appendChild(win);
-    // Cascade as before, but only as far as the viewport allows — measured
-    // after append so the clamp sees the real, CSS-capped size.
-    const step = openWindows.size % 6;
-    const shelfBottom=topDockBottom();
-    let lx = 60 + step*32, ly = shelfBottom + 14 + step*16;
-    // Cascade within the reading area while keeping the title below the fixed panels.
-    ly=Math.min(ly,Math.max(shelfBottom+14,window.innerHeight-280));
-    win.style.maxHeight=`max(60px, calc(100dvh - ${ly+42}px))`;
-    // when the window all but fills the width there is no room to cascade
-    // sideways — centre it rather than shoving it against the right edge
-    const spareX = window.innerWidth - win.offsetWidth;
-    if(spareX < lx) lx = Math.round(spareX/2);
+    /* Measured after append so every read below sees the real, CSS-capped size.
+       The height cap is the one the window would get at the top of the reading
+       area: freeSlot has to know how tall it is before it can find it a home,
+       and a window that ends up lower is shortened afterwards — which can only
+       give back space it was already granted, never take more. */
+    const home = topDockBottom() + 14;
+    const fromRect = from ? from.getBoundingClientRect() : null;
+    win.style.maxHeight=`max(60px, calc(100dvh - ${home+42}px))`;
+    let lx, ly;
+    const slot = freeSlot(win, fromRect);
+    if(slot){
+      lx = slot.x; ly = slot.y;
+    } else {
+      // Nowhere clear: cascade from the corner as before, and let them overlap.
+      const step = openWindows.size % 6;
+      lx = 60 + step*32;
+      ly = Math.min(home + step*16, Math.max(home, window.innerHeight-280));
+      // when the window all but fills the width there is no room to cascade
+      // sideways — centre it rather than shoving it against the right edge
+      const spareX = window.innerWidth - win.offsetWidth;
+      if(spareX < lx) lx = Math.round(spareX/2);
+    }
+    if(ly > home) win.style.maxHeight=`max(60px, calc(100dvh - ${ly+42}px))`;
     [lx, ly] = clampWinPos(win, lx, ly);
     win.style.left = lx+'px'; win.style.top = ly+'px';
     if(id==='about' && typeof window.initRobot==='function') window.initRobot();
     if(id==='work') initGallery(win);
+    const panelVideos=[...win.querySelectorAll('video')];
+    if(panelVideos.length){
+      const pausePanelVideos=()=>panelVideos.forEach(video=>video.pause());
+      win.addEventListener('win-hide',pausePanelVideos);
+      win.addEventListener('win-destroy',pausePanelVideos);
+    }
     const titleBar = win.querySelector('.win-title');
     makeDraggable(win, titleBar);
     win.addEventListener('mousedown', ()=>focusWindow(win));
@@ -8176,6 +9506,9 @@ requestAnimationFrame(loop);
 
     const taskBtn = ensureTaskBtn(id, panel, win);
     openWindows.set(id, { el:win, taskBtn });
+    if(id==='agent-center') taskBtn.addEventListener('click',()=>{
+      if(win.dataset.minimized==='1') win.dispatchEvent(new CustomEvent('win-hide'));
+    });
 
     win.querySelector('[data-act="min"]').addEventListener('click', e=>{
       e.stopPropagation();
@@ -8228,6 +9561,7 @@ requestAnimationFrame(loop);
       }
     });
 
+    if(from) dropCardInto(from, win);
     focusWindow(win);
   }
 
@@ -8444,12 +9778,13 @@ function placeEvilChest(){
   for(let x=evilSX+2;x<=evilSX+EVIL_W-3;x++)gs.push(Math.min(VH-1,evilSoilY(x)));
   gs.sort((a,b)=>a-b);
   const gy=gs.length?gs[gs.length>>1]:VH-1;
-  // The near plane isn't sim particles at all — the shader lays a turf berm
-  // over the bottom of the frame, cresting a cell above the taskbar (uBar) and
-  // ragged from there. Down here that berm IS the ground you see, so the chest
-  // stands on its lowest crest line; on a rise the soil wins instead.
-  const bermTop=VH-Math.ceil(TASKBAR_PX/SCALE)-1;
-  evilSY=Math.min(gy-EVIL_FEET+2,bermTop-(EVIL_FEET-1));
+  /* The chest used to stand on the shader's foreground berm, because down here
+     that berm WAS the ground you could see. The berm is gone and the soil runs
+     to the bottom of the frame, so it stands on the soil — clamped so it never
+     sinks behind the docked chrome, which is the one thing the berm line was
+     really protecting it from. */
+  const floorY=VH-CHROME_ROWS-1;
+  evilSY=Math.min(gy-EVIL_FEET+2,floorY-(EVIL_FEET-1));
 }
 // invisible collision under the chest body so sand piles on the lid
 function stampEvilChestMask(){
@@ -8502,9 +9837,14 @@ const EVIL_RARE=new Set([3,30,6,28]); // fire/lava/acid/bomb — funnier when ra
 function evilRows(){
   return [...document.querySelectorAll('#matPicker .mat-opt')].filter(o=>+o.dataset.mat!==0);
 }
-function evilPickRow(){
+function evilPickRow(rare){
   const rows=evilRows();
   if(!rows.length)return null;
+  // the arsonist skips the roll entirely and goes straight for the nasty row
+  if(rare){
+    const bad=rows.filter(r=>EVIL_RARE.has(+r.dataset.mat));
+    if(bad.length)return bad[Math.random()*bad.length|0];
+  }
   for(let t=0;t<8;t++){
     const r=rows[Math.random()*rows.length|0];
     if(EVIL_RARE.has(+r.dataset.mat)&&Math.random()<0.75)continue;
@@ -8555,7 +9895,7 @@ function evilArrowCanvas(z){
   }
   return c;
 }
-function spawnEvilCursor(hold){
+function spawnEvilCursor(hold,rare){
   const cr=canvas.getBoundingClientRect();
   const originX=cr.left+(evilSX+15)*SCALE, originY=cr.top+(evilSY+6-camY)*SCALE;
   const el=document.createElement('div');
@@ -8570,7 +9910,7 @@ function spawnEvilCursor(hold){
     y:originY,
     vx:(Math.random()*2-1)*7, vy:-4-Math.random()*4,
     tx:0, ty:0, phase:'hold', t:0, hold:hold|0,
-    mat:1, brush:2+Math.random()*4|0,
+    mat:1, brush:2+Math.random()*4|0, rare:!!rare,
     row:null, opening:null, strokes:0, want:2+Math.random()*4|0,
     life:1200+Math.random()*800|0, lx:-1, ly:-1,
     wob:0.9+Math.random()*1.8, wobT:Math.random()*6.28, speed:5+Math.random()*4
@@ -8740,7 +10080,7 @@ function evilAimAtMenu(c){
     }
     return;
   }
-  const row=evilPickRow();
+  const row=evilPickRow(c.rare);
   const picker=document.getElementById('matPicker');
   const r=row?row.getBoundingClientRect():null;
   if(r&&r.width>2&&r.height>2){
@@ -8770,7 +10110,8 @@ function openEvilChest(){
     evilShakeT=0;evilBurstT=26;
     evilOpen=true;evilArming=false;
     const n=window.innerWidth<900?4:6;
-    for(let k=0;k<n;k++)spawnEvilCursor(k*7);
+    const arson=Math.random()*n|0;               // one of them always grabs fire/acid/lava/bomb
+    for(let k=0;k<n;k++)spawnEvilCursor(k*7,k===arson);
   },640);
 }
 function closeEvilChest(){evilOpen=false;}
