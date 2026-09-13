@@ -2106,6 +2106,8 @@ const BLAST_OFFSETS=(()=>{
 })();
 const blastMat=new Int16Array(BLAST_OFFSETS.length/3);
 const blastVariant=new Uint8Array(blastMat.length);
+// A bounded handoff to the visual layer; effects never consume physics RNG.
+const blastEvents=[];
 
 // movement target tests (exclude frozen so hover-freeze pins matter)
 function eFree(x,y){return x>=0&&x<W&&y>=0&&y<H&&grid[idx(x,y)]===EMPTY&&!frozen[idx(x,y)];}
@@ -2696,7 +2698,7 @@ function step(x,y){
       if(t===FUSE&&!(variant[ni]&0x80)&&Math.random()<0.45){
         variant[ni]|=0x80;cellChanged(nx,ny);updated[ni]=frameId;
       } else if(t===BOMB&&!(variant[ni]&0x80)){
-        variant[ni]=0x80|(7<<4);
+        variant[ni]=0x80|(7<<4)|3;
         cellChanged(nx,ny);updated[ni]=frameId;
       } else if(t===OIL&&Math.random()<0.35){setMat(nx,ny,FIRE);}
     }
@@ -2713,7 +2715,7 @@ function step(x,y){
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),t=grid[ni];
         if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
-          variant[i]=0x80|(7<<4);
+          variant[i]=0x80|(7<<4)|3;
           pixDirty(x,y);updated[i]=frameId;wake3(x,y);
           return;
         }
@@ -2721,7 +2723,8 @@ function step(x,y){
       return;
     }
     const ct=(variant[i]>>4)&7;
-    if(ct===0){
+    if(ct===0&&(variant[i]&15)===0){
+      if(blastEvents.length<24)blastEvents.push({x,y});
       // detonate: snapshot every destructible cell in the blast disc, clear
       // it, then re-emit. Inner core → FIRE; everything else gets FLUNG
       // radially outward (with an upward bias) keeping its original material —
@@ -2784,7 +2787,9 @@ function step(x,y){
       }
       return;
     }
-    variant[i]=0x80|((ct-1)<<4);
+    // Four ticks per countdown beat gives the fuse ~450ms of anticipation.
+    const sub=variant[i]&15;
+    variant[i]=0x80|(sub?(ct<<4)|(sub-1):((ct-1)<<4)|3);
     updated[i]=frameId;cellChanged(x,y);
     return;
   }
@@ -3370,32 +3375,34 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        sky+=vec3(1.0,1.0,0.92)*st*(night-0.5)*2.0*tw;
      }
      /* ── the aurora ──
-        A narrow green hem carries each curtain, with long pleats fading
-        upward into teal and violet. Color follows height ABOVE each hem,
-        so a fold stays green as it rises across the sky. Six light levels
-        preserve the pixel-art palette without flattening the rays into blobs. */
+        Broad sheets rise from a green hem into teal and violet. Shallow
+        pleats modulate a continuous body of light; they do not pinch the
+        curtain into separate oval rays. Color follows height above the hem,
+        and six light levels retain the pixel-art palette. */
      if(night>0.55){
        float au=smoothstep(0.55,0.80,night)*(0.88+0.12*sin(uT*0.10));
        for(int k=0;k<2;k++){
          float fk=float(k);
-         float xw=cuv.x*6.0+fk*2.4;
-         float fold=xw+0.22*sin(xw*2.1-uT*0.07)+uT*0.045;
-         float hem=0.55+0.145*fk+0.055*sin(fold+fk)+0.025*sin(fold*2.3);
+         float xw=cuv.x*4.2+fk*2.4;
+         float fold=xw+0.16*sin(xw*1.7-uT*0.07)+uT*0.045;
+         float hem=0.53+0.17*fk+0.065*sin(fold+fk)+0.018*sin(fold*1.7);
          float above=y-hem;
-         float rayCount=mix(12.0,24.0,smoothstep(130.0,320.0,uGrid.x));
+         float rayCount=mix(7.0,13.0,smoothstep(130.0,320.0,uGrid.x));
          float pleat=0.5+0.5*sin(fold*rayCount+0.6*sin(xw*7.0)+fk*3.0);
-         float height=0.13+0.065*pleat+0.025*sin(fold*3.0);
+         float height=0.29+0.035*sin(fold*1.4+fk);
          float rise=max(above,0.0)/height;
-         float curtain=smoothstep(-0.009,0.008,above)
-                       *(1.0-smoothstep(0.08,1.0,rise))*(0.28+0.72*pleat*pleat);
-         float edgeDistance=above/0.012;
-         float edge=exp(-edgeDistance*edgeDistance)*(0.65+0.35*pleat);
+         float curtain=smoothstep(-0.015,0.012,above)
+                       *(1.0-smoothstep(0.18,1.0,rise));
+         float edgeDistance=above/0.019;
+         float edge=exp(-edgeDistance*edgeDistance);
          float light=max(edge*0.8,curtain);
          light*=0.78+0.22*sin(cuv.x*3.8+fk*2.0);
          float q=floor(light*6.0+0.4)/6.0;
          vec3 auCol=mix(vec3(0.18,0.95,0.48),vec3(0.10,0.55,0.65),smoothstep(0.04,0.55,rise));
          auCol=mix(auCol,vec3(0.50,0.25,0.72),smoothstep(0.45,0.95,rise));
-         sky+=auCol*q*au*(0.82-0.22*fk);
+         // Shade pleats after the height bands, so they remain long folds
+         // instead of pushing each brightness contour into a rounded lobe.
+         sky+=auCol*q*au*(0.82-0.22*fk)*(0.78+0.22*pleat);
        }
      }
 
@@ -4403,9 +4410,9 @@ function matTexel(m,v,x,y,out,dst,s){
       break;
     case BOMB:
       if(v&0x80){
-        // pulse brightness with the countdown so it feels urgent
-        const ct=(v>>4)&7, pulse=(7-ct)*10;
-        r=200+pulse+j; g=48+j; b=40+j; a=255;
+        // Hot-white beats accelerate into a bright final fuse flare.
+        const ct=(v>>4)&7, hot=ct<2||((v&3)===0);
+        r=hot?255:210+j; g=hot?185+(7-ct)*8:52+j; b=hot?90+(7-ct)*14:35; a=255;
       } else {
         r=42+j; g=36+j; b=44+j; a=255;
       }
@@ -7961,6 +7968,68 @@ function scanBerries(){
 }
 const birdCanvas=document.getElementById('birdCanvas');
 const bctx=birdCanvas.getContext('2d');
+const blastFX=[];
+const blastReducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+function clearBlastFX(){blastEvents.length=0;blastFX.length=0;}
+document.getElementById('btnReset').addEventListener('click',clearBlastFX);
+window.addEventListener('resize',clearBlastFX);
+function drawBlastFX(ts){
+  // Offscreen explosions still simulate, but cannot accumulate visual work.
+  for(const e of blastEvents){
+    if(e.y<camY-50||e.y>camY+VH+50)continue;
+    if(blastFX.length>=16)blastFX.shift();
+    blastFX.push({...e,start:ts});
+  }
+  blastEvents.length=0;
+  if(!blastFX.length)return;
+  bctx.save();
+  for(let i=blastFX.length-1;i>=0;i--){
+    const e=blastFX[i],t=(ts-e.start)/1000;
+    if(t>0.85){blastFX.splice(i,1);continue;}
+    const reduced=blastReducedMotion.matches;
+    // A local warm bloom, never a full-screen flash. Reduced motion keeps
+    // just this soft, stationary glow and skips the traveling particles.
+    if(t<0.22){
+      const fade=1-t/0.22,r=reduced?12:7+18*(1-fade);
+      bctx.globalAlpha=fade*(reduced?0.25:0.65);
+      bctx.fillStyle='#ffca73';
+      bctx.beginPath();bctx.arc(e.x,e.y,r,0,Math.PI*2);bctx.fill();
+      if(!reduced){
+        bctx.fillStyle='#fff1c4';
+        bctx.fillRect(e.x-4*fade,e.y-4*fade,8*fade,8*fade);
+      }
+    }
+    if(reduced)continue;
+    // Fast pressure front with a slower, broken dust ring behind it.
+    if(t<0.38){
+      const p=t/0.38,r=4+34*(1-Math.pow(1-p,3));
+      bctx.globalAlpha=(1-p)*0.8;
+      bctx.fillStyle=p<0.3?'#ffe5a2':'#bd9576';
+      for(let k=0;k<72;k++){
+        if(p>0.45&&k%3===0)continue;
+        const a=k*Math.PI*2/72,size=p<0.25?2:1;
+        bctx.fillRect(Math.round(e.x+Math.cos(a)*r),Math.round(e.y+Math.sin(a)*r),size,size);
+      }
+    }
+    // Analytic arcs are frame-rate independent and keep the sim's random
+    // sequence intact. Hot flecks cool to orange embers as gravity wins.
+    for(let k=0;k<32;k++){
+      const life=0.4+(k%7)*0.065;if(t>life)continue;
+      const a=k*2.399963+e.x*0.17,speed=24+(k*17%43);
+      const vx=Math.cos(a)*speed,vy=Math.sin(a)*speed-20;
+      const px=e.x+vx*t,py=e.y+vy*t+48*t*t;
+      bctx.globalAlpha=Math.min(1,(life-t)*4);
+      bctx.fillStyle=t<0.12?'#fff0b5':t<0.35?'#ffb34f':'#cc693c';
+      const size=k%5===0&&t<0.3?2:1;
+      bctx.fillRect(Math.round(px),Math.round(py),size,size);
+      if(t<0.24){
+        bctx.globalAlpha*=0.35;
+        bctx.fillRect(Math.round(px-vx*0.035),Math.round(py-(vy+96*t)*0.035),1,1);
+      }
+    }
+  }
+  bctx.restore();
+}
 
 function spawnBird(x,y){
   if(birds.length>=BIRD_MAX)return;
@@ -8729,6 +8798,7 @@ function loop(ts){
   renderAll();
   drawBirds();
   drawCats();
+  drawBlastFX(ts);
   drawGhost();
   flickerCaveLava();
   updateEvil();
