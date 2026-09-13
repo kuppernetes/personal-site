@@ -1446,6 +1446,56 @@ html,body{
   .case-hero,.case-section{padding:11px}
   .case-figure figcaption span:last-child{display:none}
 }
+/* Compact tool strip using the taskbar's raised gray surfaces. */
+#matPicker{gap:8px;padding:4px 6px;background:#c0c0c0;
+  border:2px solid;border-color:#fff #000 #000 #fff;border-left-width:0;border-bottom-width:0;
+  box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px 0 0 #808080;max-width:100%;box-sizing:border-box}
+#matPicker .mat-current{order:2;display:flex;flex-direction:row;align-items:center}
+#matPicker .mat-cur-dot{display:none}
+#matPicker .mat-cur-name{width:70px;font-size:10px;color:#000;padding:5px 6px;
+  border:1px solid;border-color:#808080 #fff #fff #808080}
+#matPicker .mat-list{display:flex;gap:2px;padding:0;border:0;background:transparent;min-width:0}
+#matPicker .mat-opt{flex:0 0 34px;width:34px;height:36px;padding:0;background:#c0c0c0;
+  box-shadow:inset 1px 1px 0 #fff,inset -1px -1px 0 #808080}
+#matPicker .mat-dot{inset:2px auto auto 3px;width:28px;height:28px;outline:none!important;background:transparent!important}
+#matPicker .mat-lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+#matPicker .mat-opt::after{inset:auto 10px 1px;height:2px;box-shadow:none;background:transparent}
+#matPicker .mat-opt.active::after{background:transparent}
+#matPicker .mat-opt:hover{background:#cacaca}
+#matPicker .mat-opt.active,#matPicker .mat-opt:active{background:#dfdfdf;
+  box-shadow:inset 1px 1px 0 #000,inset 2px 2px 0 #808080,inset -1px -1px 0 #fff}
+#matPicker .mat-opt.active .mat-dot,#matPicker .mat-opt:active .mat-dot{transform:translate(1px,1px)}
+#matPicker .mat-opt:focus-visible{outline:1px dotted #000;outline-offset:-4px}
+#matPicker .mat-opt::before{bottom:calc(100% + 6px)}
+@media(max-width:700px){
+  body.mobile-playing #matPicker{padding:4px 6px;border:2px solid;border-color:#fff #000 #000 #fff;gap:6px}
+  body.mobile-playing #matPicker .mat-current{display:flex}
+  body.mobile-playing #matPicker .mat-list{gap:0;border:0}
+  body.mobile-playing #matPicker .mat-opt{flex:0 0 44px;width:44px;height:44px}
+  body.mobile-playing #matPicker .mat-dot{left:8px;top:6px}
+}
+/* Mobile stays a desktop playground: adapt the chrome, keep the world. */
+@media(max-width:600px){
+  :root{--top-height:clamp(190px,calc(var(--app-h) * .30),280px);--taskbar-bar:52px}
+  html,body{overflow:hidden}
+  #projectShelf .win95-title{min-height:26px;font-size:12px}
+  #projectShelf .win95-title .tbtns{display:none}
+  #projectShelf .gal-card{flex-basis:62vw}
+  #projectShelf .shelf-track{gap:8px;padding:5px 6px 7px}
+  .taskbar-start,.taskbar-btn{height:44px;font-size:12px}
+  .taskbar-clock{height:36px;font-size:10px;padding:2px 5px}
+  #matPicker{left:0;right:0;gap:4px;padding:4px 6px}
+  #matPicker .mat-current{flex-shrink:0}
+  #matPicker .mat-cur-name{width:58px;padding:5px 3px}
+  #matPicker .mat-list{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x}
+  #matPicker .mat-list::-webkit-scrollbar{display:none}
+  #matPicker .mat-opt{flex:0 0 44px;width:44px;height:44px}
+  #matPicker .mat-dot{left:8px;top:6px}
+  .win-app .win-title{min-height:40px;font-size:12px;flex-shrink:0}
+  .win-app .win-title .tbtn{width:36px;height:36px;font-size:15px}
+  .win-app .win-body{overscroll-behavior:contain}
+  .win-app.is-case-study .win-body,.win-app.is-case-study .case-intro{font-size:15px;line-height:1.5}
+}
 </style>
 </head>
 <body>
@@ -1657,7 +1707,7 @@ html,body{
     <div id="brushRing"></div>
 
     <div id="taskbar">
-      <div class="taskbar-start"><svg class="pxi pxi-xs ts-logo" aria-hidden="true"><use href="#ico-cat"/></svg>Mitchell Kuppersmith</div>
+      <button class="taskbar-start" aria-label="Open start menu"><svg class="pxi pxi-xs ts-logo" aria-hidden="true"><use href="#ico-cat"/></svg><span class="start-name">Mitchell Kuppersmith</span></button>
       <div class="taskbar-sep"></div>
       <div class="taskbar-tasks" id="taskbarTasks"></div>
       <div class="taskbar-clock" id="taskbarClock">--:--</div>
@@ -1817,7 +1867,7 @@ function computeDims(){
   // is also the floor — it reads as deliberate pixel-art chunk size, and going
   // finer would make the sprites too small to read.
   const TARGET_SPAN=346;
-  let s=Math.max(4,Math.round(Math.sqrt(vw*vh)/TARGET_SPAN));
+  let s=vw<=600?3:Math.max(4,Math.round(Math.sqrt(vw*vh)/TARGET_SPAN));
   while((vw/s)*(vh/s)>CELL_BUDGET&&s<9)s++;
   const nW=Math.floor(vw/s),nVH=Math.floor(vh/s);
   const layout=worldBands(vw,vh);
@@ -3242,8 +3292,24 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
       Three parallax layers at different scales and drift speeds, max-combined,
       so the shapes overlap into clusters rather than reading as a grid. */
    float puffField(vec2 c){
+     // Portrait clouds are small, wide clusters in the lower sky. Author their
+     // proportions separately so the tall viewport cannot turn them into balls.
+     if(uGrid.x<201.0 && uGrid.x<uCam.y){
+       float mobileCloud=0.0;
+       for(int i=0;i<3;i++){
+         float fi=float(i);
+         vec2 d=c-vec2(fract(0.16+fi*0.39+uT*0.006),0.46+0.035*sin(fi*2.7));
+         d.x=mod(d.x+0.5,1.0)-0.5;
+         float base=length(d/vec2(0.095,0.012));
+         float left=length((d-vec2(-0.028,0.006))/vec2(0.045,0.012));
+         float right=length((d-vec2(0.023,0.009))/vec2(0.040,0.015));
+         mobileCloud=max(mobileCloud,smoothstep(1.0,0.55,min(base,min(left,right))));
+       }
+       return mobileCloud;
+     }
      float v=0.0;
      for(int k=0;k<3;k++){
+       if(uGrid.x<201.0 && uGrid.x<uCam.y && k>0)break;
        float fk=float(k);
        float speed=0.020+0.012*fk;
        float scale=3.2+1.6*fk;
@@ -3304,34 +3370,33 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        sky+=vec3(1.0,1.0,0.92)*st*(night-0.5)*2.0*tw;
      }
      /* ── the aurora ──
-        Two curtains hung across the upper sky on the deep-night side of the
-        clock, drifting slowly. Each is a ridge in y whose centre wanders
-        along x: a soft fall-off above the ridge and a hard hem below it,
-        because a real curtain is a bright lower edge with light bleeding
-        upward. The rays are a fast sine along x beating against a slow one,
-        so the curtain reads as pleated rather than as a smooth band. The
-        whole thing is snapped to three flat steps before it is added, for
-        the same reason the clouds are: this sky is bands, not gradients.
-        Green at the hem, violet at the top, like the real thing. It sits
-        behind the ridges and behind the name, in the band the stars share,
-        and it breathes on a half-minute cycle so no two looks are alike. */
+        A narrow green hem carries each curtain, with long pleats fading
+        upward into teal and violet. Color follows height ABOVE each hem,
+        so a fold stays green as it rises across the sky. Six light levels
+        preserve the pixel-art palette without flattening the rays into blobs. */
      if(night>0.55){
-       float au=smoothstep(0.55,0.80,night)*(0.7+0.3*sin(uT*0.03));
-       float band=0.0;
+       float au=smoothstep(0.55,0.80,night)*(0.88+0.12*sin(uT*0.10));
        for(int k=0;k<2;k++){
          float fk=float(k);
-         float xw=cuv.x*2.4+fk*1.9;
-         float c=0.62+0.14*fk+0.07*sin(xw*2.7+uT*0.09+fk*2.1)+0.04*sin(xw*6.1-uT*0.06);
-         float w=0.07+0.025*sin(xw*4.3+uT*0.04+fk);
-         float d=(y-c)/w;
-         float rib=exp(-d*d*((d>0.0)?0.5:1.6));
-         float ray=0.5+0.5*sin(xw*37.0+uT*0.25+fk*7.0)*sin(xw*11.0-uT*0.11);
-         band=max(band,rib*(0.55+0.45*ray));
+         float xw=cuv.x*6.0+fk*2.4;
+         float fold=xw+0.22*sin(xw*2.1-uT*0.07)+uT*0.045;
+         float hem=0.55+0.145*fk+0.055*sin(fold+fk)+0.025*sin(fold*2.3);
+         float above=y-hem;
+         float rayCount=mix(12.0,24.0,smoothstep(130.0,320.0,uGrid.x));
+         float pleat=0.5+0.5*sin(fold*rayCount+0.6*sin(xw*7.0)+fk*3.0);
+         float height=0.13+0.065*pleat+0.025*sin(fold*3.0);
+         float rise=max(above,0.0)/height;
+         float curtain=smoothstep(-0.009,0.008,above)
+                       *(1.0-smoothstep(0.08,1.0,rise))*(0.28+0.72*pleat*pleat);
+         float edgeDistance=above/0.012;
+         float edge=exp(-edgeDistance*edgeDistance)*(0.65+0.35*pleat);
+         float light=max(edge*0.8,curtain);
+         light*=0.78+0.22*sin(cuv.x*3.8+fk*2.0);
+         float q=floor(light*6.0+0.4)/6.0;
+         vec3 auCol=mix(vec3(0.18,0.95,0.48),vec3(0.10,0.55,0.65),smoothstep(0.04,0.55,rise));
+         auCol=mix(auCol,vec3(0.50,0.25,0.72),smoothstep(0.45,0.95,rise));
+         sky+=auCol*q*au*(0.82-0.22*fk);
        }
-       band*=smoothstep(0.42,0.56,y);
-       float q=floor(band*3.0+0.35)/3.0;
-       vec3 auCol=mix(vec3(0.16,0.80,0.50),vec3(0.50,0.30,0.80),smoothstep(0.62,0.88,y));
-       sky+=auCol*q*0.75*au;
      }
 
      /* ── clouds ──
@@ -3348,13 +3413,19 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
         raises the threshold, so a cloud approaching the edge of its band gets
         SMALLER and then stops existing, with hard edges the whole way. */
      float cBand=smoothstep(0.40,0.56,y)*smoothstep(0.92,0.70,y);
-     float cT=0.55+(1.0-cBand)*0.80;
+     if(uGrid.x<201.0 && uGrid.x<uCam.y)cBand=1.0;
+     // Clear the upper night sky as the aurora arrives, leaving small low puffs.
+     float clearNight=smoothstep(0.30,0.78,night);
+     float lowClouds=smoothstep(0.40,0.45,y)*(1.0-smoothstep(0.48,0.54,y));
+     cBand=mix(cBand,lowClouds,clearNight);
+     float cT=0.55+(1.0-cBand)*0.80+0.22*clearNight;
      float cx=cuv.x+floor(uPar.x*0.12+0.5)/uGrid.x;   // clouds: far, so barely
      float pC=puffField(vec2(cx,y));
      // Six cells up. Below a full puff-height it started shading the crowns of
      // the small puffs too; much above it and the shadow peels away from the
      // bottom edge of the big ones and floats.
-     float pU=puffField(vec2(cx,y+6.0*cpx));
+     float cloudShadeOffset=(uGrid.x<201.0 && uGrid.x<uCam.y)?2.0:6.0;
+     float pU=puffField(vec2(cx,y+cloudShadeOffset*cpx));
      float inCloud=step(cT,pC);
      float cShaded=step(cT,pU);             // cloud above me ⇒ I am in the belly
      /* The keyline. The puff field ramps across roughly thirteen cells between
@@ -3380,7 +3451,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
         rather than as cloud at altitude. */
      float ci=fbm(vec2(cuv.x*2.0 - uT*0.008, y*26.0));
      float ciBand=smoothstep(0.82,0.90,y)*smoothstep(1.04,0.94,y);
-     float inCirrus=step(0.60+(1.0-ciBand)*0.60,ci);
+     float inCirrus=step(0.60+(1.0-ciBand)*0.60+0.45*clearNight,ci);
      sky=mix(sky,mix(vec3(0.075,0.095,0.175),vec3(0.455,0.630,0.860),uDay),inCirrus);
 
      /* ── background hills: three flat layers, far to near ──
@@ -6597,6 +6668,8 @@ function spawnNaturalLandscape(){
      position matters to something outside the grid, like the warning board
      beside the chest. */
   function place(name,cx,opts){
+    // A phone gets a small homestead, rather than every desktop landmark.
+    if(W*SCALE<=600&&!['cottage','oak','smallpine','flower','cattail'].includes(name))return false;
     opts=opts||{};
     const w=spriteW(name),h=spriteH(name);
     if(!w||!h)return false;
@@ -7724,45 +7797,45 @@ canvas.addEventListener('wheel',e=>{
 /* ═══════════════════════════════════════════════════════
    MATERIAL PICKER + KEYS
 ═══════════════════════════════════════════════════════ */
-/* ═══ PALETTE SWATCHES ═══
-   Every swatch is a 14x14 tile of the material itself: matColor() run one
-   pixel at a time with the same variant jitter the renderer uses, scaled to
-   the cell with image-rendering:pixelated. A flat hex cannot show that sand is
-   grainy, that water dithers, or that a bomb is a dark charge rather than a
-   black square — and it would be a second opinion about a colour the renderer
-   already owns, free to drift out of agreement with it.
-   Two of the fourteen are not grid materials and so have no matColor to ask:
-   birds are agents that flock above the meadow, drawn here as the specks they
-   read as against the sky they fly in, and erase is the absence of material,
-   drawn the way every paint program has ever drawn nothing at all. */
-const SWATCH_PX=14;
+/* Material icons share the same artwork in the palette and current tool well. */
 function matSwatchURL(m){
-  const c=document.createElement('canvas');c.width=c.height=SWATCH_PX;
+  return materialIconURL(m);
+}
+/* Small silhouettes stay recognizable even when two materials share a colour.
+   The icons are deliberately pixel art to match the world and desktop. */
+function materialIconURL(m){
+  const icons={
+    [SAND]:['..........','..........','.....o....','...o......','......o...','....oo....','...oooo...','..oooooo..','.oooooooo.','..........'],
+    [WATER]:['..........','....o.....','....oo....','...ooo....','..ooooo...','..ohoooo..','.ohooooo..','.ooooooo..','..ooooo...','..........'],
+    [OIL]:['..........','...oooo...','..oooooo..','..ohhooo..','..oooooo..','..ohhooo..','..oooooo..','..oooooo..','...oooo...','..........'],
+    [ACID]:['...oooo...','....oo....','....oo....','...o..o...','...o..o...','..oooooo..','..ohoooo..','.ooooohoo.','.oooooooo.','..........'],
+    [FIRE]:['.....o....','....oo....','....ooo...','..o.ooo...','..oooooo..','.ooooooo..','.oohoooo..','.oohhooo..','..ohhoo...','...ooo....'],
+    [LAVA]:['..........','....oo....','...ohho...','..oohooo..','..ohhooo..','.ohooohoo.','.ooohoooo.','ooooohoooo','..........','..........'],
+    [FUSE]:['..........','.......h..','......hhh.','.......h..','......o...','..ooooo...','.oo.......','.oooooo...','......oo..','..........'],
+    [BOMB]:['.......h..','.....hh...','....o.....','...oooo...','..oooooo..','.ohoooooo.','.ohoooooo.','.oooooooo.','..oooooo..','...oooo...'],
+    [STONE]:['..........','..........','...oooo...','..ohhooo..','.ohhooooo.','.ooooohoo.','.ooooooho.','..oooooo..','..........','..........'],
+    [WOOD]:['..........','..oooooo..','.ohhhhhho.','.ohooohoo.','.ohohohoo.','.ohooohoo.','.ohhhhhho.','..oooooo..','..........','..........'],
+    [PLANT]:['..........','....o.....','.oo.o.....','.oooo..oo.','...oo.ooo.','....oooo..','....o.....','....o.....','...ooo....','..........'],
+    [SEED]:['..........','..........','.....oo...','...ooooo..','..ohoooo..','..ohoooo..','..ooooo...','...oo.....','..........','..........'],
+    [BIRD]:['..........','.o.....o..','..o...o...','...ooo....','....o.....','..........','......o..o','.......oo.','..........','..........'],
+    [EMPTY]:['..........','.....ooo..','....ohhho.','...ohhhho.','..ohhhho..','.oooooo...','.ohhoo....','..ooo.....','.......oo.','..........']
+  };
+  const colors={
+    [SAND]:['#a77a26','#ffe5a0'],[WATER]:['#2164bd','#a2e5ff'],
+    [OIL]:['#403327','#ae975d'],[ACID]:['#638119','#d8ff79'],
+    [FIRE]:['#d74513','#ffdf70'],[LAVA]:['#574042','#ff8330'],
+    [FUSE]:['#77542e','#ffba3c'],[BOMB]:['#292632','#a7a3b5'],
+    [STONE]:['#64636c','#bcbac5'],[WOOD]:['#694129','#ba8650'],
+    [PLANT]:['#287435','#80bb54'],[SEED]:['#795132','#d4ac6a'],
+    [BIRD]:['#292632','#ddd'],[EMPTY]:['#695963','#efbad0']
+  };
+  const c=document.createElement('canvas');c.width=c.height=14;
   const x=c.getContext('2d');
-  if(m===EMPTY){                                   // the transparency checker
-    for(let i=0;i<SWATCH_PX;i++)for(let j=0;j<SWATCH_PX;j++){
-      x.fillStyle=((i>>1)+(j>>1))&1?'#ffffff':'#a8a8a8';
-      x.fillRect(i,j,1,1);
-    }
-    return c.toDataURL();
-  }
-  if(m===BIRD){                                    // a flock, not a cell
-    x.fillStyle='#9fc8ea';x.fillRect(0,0,SWATCH_PX,SWATCH_PX);
-    x.fillStyle='#1c1a22';
-    for(const [bx,by] of [[3,4],[7,3],[10,7],[6,9],[2,10]]){x.fillRect(bx,by,1,1);x.fillRect(bx+1,by,1,1);}
-    return c.toDataURL();
-  }
-  const img=x.createImageData(SWATCH_PX,SWATCH_PX);
-  let painted=false;
-  for(let i=0;i<SWATCH_PX*SWATCH_PX;i++){
-    // Variants stay under 0x80: that bit means "lit" to fuse and bomb, and a
-    // palette shows what you get when you place it, which is unlit.
-    const [r,g,b,a]=matColor(m,(Math.random()*128)|0);
-    if(a)painted=true;
-    img.data[i*4]=r;img.data[i*4+1]=g;img.data[i*4+2]=b;img.data[i*4+3]=a;
-  }
-  if(!painted)return null;        // nothing to draw: the flat colour stands
-  x.putImageData(img,0,0);
+  const palette=colors[m]||colors[STONE];
+  (icons[m]||icons[STONE]).forEach((row,y)=>[...row].forEach((p,i)=>{
+    if(p==='.')return;
+    x.fillStyle=palette[p==='h'?1:0];x.fillRect(i+2,y+2,1,1);
+  }));
   return c.toDataURL();
 }
 function paintMatSwatches(){
@@ -7786,12 +7859,13 @@ function refreshMatCurrent(){
 }
 function selectMat(m){
   curMat=m;
-  document.querySelectorAll('.mat-opt').forEach(o=>o.classList.remove('active'));
-  const t=document.querySelector(`.mat-opt[data-mat="${m}"]`);if(t)t.classList.add('active');
+  document.querySelectorAll('.mat-opt').forEach(o=>{o.classList.remove('active');o.setAttribute('aria-pressed','false');});
+  const t=document.querySelector(`.mat-opt[data-mat="${m}"]`);if(t){t.classList.add('active');t.setAttribute('aria-pressed','true');}
   refreshMatCurrent();
   refreshMatTag();   // the tag trailing your cursor names the loaded material
 }
 document.querySelectorAll('.mat-opt').forEach(el=>{
+  el.setAttribute('aria-pressed',el.classList.contains('active')?'true':'false');
   el.addEventListener('click',()=>selectMat(+el.dataset.mat));
   el.addEventListener('keydown',e=>{
     if(e.key!=='Enter'&&e.key!==' ')return;
@@ -8678,6 +8752,8 @@ requestAnimationFrame(loop);
      30 would tuck its bottom edge underneath that strip. */
   const taskbarH = () =>
     tasksEl ? Math.round(tasksEl.closest('#taskbar').getBoundingClientRect().height) || 30 : 30;
+  // Mobile's palette spans the whole screen, so it is a hard reading boundary.
+  const windowBottomGap = () => taskbarH() + (vpW()<=600 ? document.getElementById('matPicker').offsetHeight : 0);
 
   /* Where a window's top-left corner is allowed to sit.
      The old clamp let a window's LEFT edge roam to innerWidth-40, which on a
@@ -8689,7 +8765,7 @@ requestAnimationFrame(loop);
   function clampWinPos(win, x, y){
     const w = win.offsetWidth, h = win.offsetHeight;
     const spareX = vpW() - w;
-    const spareY = vpH() - taskbarH() - h;
+    const spareY = vpH() - windowBottomGap() - h;
     const minTop=win.classList.contains('win-app')
       ? topDockBottom()+8 : Math.min(0,spareY);
     return [
@@ -9690,7 +9766,7 @@ requestAnimationFrame(loop);
     const top=topDockBottom()+8;
     win.style.left='4px'; win.style.top=top+'px';
     win.style.width=(vpW()-12)+'px';
-    win.style.height=Math.max(60,vpH()-taskbarH()-top-6)+'px';
+    win.style.height=Math.max(60,vpH()-windowBottomGap()-top-6)+'px';
   }
 
   window.addEventListener('dock-resize', ()=>{
@@ -9704,6 +9780,10 @@ requestAnimationFrame(loop);
     openWindows.forEach(info=>{
       const win = info.el;
       if(win.dataset.maxed==='1'){ fitMaximized(win); return; }
+      if(vpW()<=600){
+        win.style.top=(topDockBottom()+14)+'px';
+        win.style.maxHeight=`max(60px, calc(var(--app-h) - ${topDockBottom()+14+windowBottomGap()+6}px))`;
+      }
       const [nx, ny] = clampWinPos(win, parseFloat(win.style.left)||0, parseFloat(win.style.top)||0);
       win.style.left=nx+'px'; win.style.top=ny+'px';
     });
@@ -10011,7 +10091,7 @@ requestAnimationFrame(loop);
     const GAP = 6, EDGE = 4;
     const region = {
       left: EDGE, top: topDockBottom() + 14,
-      right: vpW() - EDGE, bottom: vpH() - taskbarH() - 6
+      right: vpW() - EDGE, bottom: vpH() - windowBottomGap() - 6
     };
     const w = win.offsetWidth, h = win.offsetHeight;
     // The whole window has to fit, unclipped: a slot that needs the clamp to
@@ -10291,9 +10371,9 @@ requestAnimationFrame(loop);
       <div class="win-title">
         <span class="wt-name">${ico(panel.icon,'pxi-xs')}${panel.title}</span>
         <div class="tbtns">
-          <div class="tbtn" data-act="min">_</div>
-          <div class="tbtn" data-act="max">□</div>
-          <div class="tbtn" data-act="close">✕</div>
+          <button class="tbtn" data-act="min" aria-label="Minimize">_</button>
+          <button class="tbtn" data-act="max" aria-label="Maximize">□</button>
+          <button class="tbtn" data-act="close" aria-label="Close project">✕</button>
         </div>
       </div>
       <div class="win-body">${panel.html}</div>
@@ -10307,7 +10387,8 @@ requestAnimationFrame(loop);
        give back space it was already granted, never take more. */
     const home = topDockBottom() + 14;
     const fromRect = from ? from.getBoundingClientRect() : null;
-    win.style.maxHeight=`max(60px, calc(var(--app-h) - ${home+42}px))`;
+    const bottomGap=vpW()<=600?windowBottomGap()+6:42;
+    win.style.maxHeight=`max(60px, calc(var(--app-h) - ${home+bottomGap}px))`;
     let lx, ly;
     const slot = freeSlot(win, fromRect);
     if(slot){
@@ -10322,7 +10403,7 @@ requestAnimationFrame(loop);
       const spareX = window.innerWidth - win.offsetWidth;
       if(spareX < lx) lx = Math.round(spareX/2);
     }
-    if(ly > home) win.style.maxHeight=`max(60px, calc(var(--app-h) - ${ly+42}px))`;
+    if(ly > home) win.style.maxHeight=`max(60px, calc(var(--app-h) - ${ly+bottomGap}px))`;
     [lx, ly] = clampWinPos(win, lx, ly);
     win.style.left = lx+'px'; win.style.top = ly+'px';
     if(id==='about' && typeof window.initRobot==='function') window.initRobot();
@@ -10383,6 +10464,7 @@ requestAnimationFrame(loop);
         win.style.left=win.dataset.preL; win.style.top=win.dataset.preT;
         win.style.width=win.dataset.preW; win.style.height='';
         win.style.maxHeight='';   // fall back to the stylesheet's 70% of --app-h
+        if(vpW()<=600)win.style.maxHeight=`max(60px, calc(var(--app-h) - ${(parseFloat(win.style.top)||0)+windowBottomGap()+6}px))`;
         win.style.maxWidth='';
         win.dataset.maxed='';
       } else {
@@ -10397,7 +10479,7 @@ requestAnimationFrame(loop);
       }
     });
 
-    if(from) dropCardInto(from, win);
+    if(from&&vpW()>600) dropCardInto(from, win);
     focusWindow(win);
   }
 

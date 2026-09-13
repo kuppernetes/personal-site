@@ -1,0 +1,61 @@
+const {chromium}=require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch({headless:true,channel:'msedge'});
+ try{
+ const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('http://127.0.0.1:4173/');
+ await page.waitForSelector('#projectShelf .gal-card');
+ const shelfPosition=await page.locator('#projectTrack').evaluate(el=>el.scrollLeft);
+ await page.waitForTimeout(650);
+ assert((await page.locator('#projectTrack').evaluate(el=>el.scrollLeft))>shelfPosition,'Gallery should auto-scroll');
+ assert.equal(await page.locator('.start-name').isVisible(),true);
+ assert(await page.locator('#projectShelf .gal-card').evaluateAll(cards=>cards.some(card=>{const r=card.getBoundingClientRect();return r.left<390&&r.right>390;})),'Next card should peek into view');
+ await page.locator('.taskbar-start').click();
+ assert.equal(await page.locator('#startMenu').isVisible(),true);
+ await page.locator('.taskbar-start').click();
+ await page.screenshot({path:'tools/mobile-home.png'});
+ for(const id of ['projectShelf','matPicker','taskbar'])assert.equal(await page.locator('#'+id).isVisible(),true);
+ assert.equal(await page.locator('#mobileNav').count(),0);
+ assert.equal(await page.evaluate(()=>SCALE),3);
+ await page.locator('#projectShelf .gal-card').first().click();
+ await page.waitForSelector('.win-app.is-focus');
+ const win=page.locator('.win-app.is-focus');
+ const rect=await win.boundingBox();
+ const palette=await page.locator('#matPicker').boundingBox();
+ assert(rect.y+rect.height<=palette.y,'Project must clear the materials toolbar');
+ assert(rect.width<390&&rect.x>=0&&rect.x+rect.width<=390);
+ await page.screenshot({path:'tools/mobile-detail.png'});
+ await win.locator('[data-act="min"]').click();
+ assert.equal(await win.isVisible(),false);
+ await page.locator('#taskbarTasks .taskbar-btn').last().click();
+ assert.equal(await win.isVisible(),true);
+ await win.locator('[data-act="max"]').click();
+ let fitted=await win.boundingBox();
+ assert(fitted.y+fitted.height<=palette.y,'Maximized project must clear the toolbar');
+ await win.locator('[data-act="max"]').click();
+ fitted=await win.boundingBox();
+ assert(fitted.y+fitted.height<=palette.y,'Restored project must clear the toolbar');
+ await page.setViewportSize({width:320,height:700});await page.waitForTimeout(400);
+ fitted=await win.boundingBox();
+ assert(fitted.y+fitted.height<=(await page.locator('#matPicker').boundingBox()).y,'Resized project must clear the toolbar');
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(400);
+ await win.locator('[data-act="close"]').click();
+ const cdp=await page.context().newCDPSession(page);
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:195,y:350}]});
+ assert.equal(await page.evaluate(()=>painting),true,'Canvas paints directly');
+ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ const strip=page.locator('#matPicker .mat-list');
+ await strip.evaluate(el=>el.scrollLeft=el.scrollWidth);
+ await page.locator('#matPicker [data-mat="0"]').click();
+ assert.equal(await page.evaluate(()=>curMat),0);
+ for(const width of [320,600,1280]){
+  await page.setViewportSize({width,height:800});await page.waitForTimeout(350);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`overflow at ${width}`);
+  const bar=await page.locator('#taskbar').boundingBox();assert(bar.y+bar.height<=801);
+ }
+ assert.deepEqual(errors,[]);
+ console.log('Shelf, floating windows, minimize/restore/maximize, direct touch painting, material scrolling, and responsive bounds passed.');
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exit(1)});
