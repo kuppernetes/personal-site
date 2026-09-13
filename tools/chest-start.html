@@ -2810,24 +2810,6 @@ const SAND_T=[
   [ 20, 17, 11],  // bright quartz
   [ -4, -6,-10],  // dull warm
 ];
-/* ═══ SOIL TONES ═══
-   What the meadow's topsoil is made of, once it stopped being one brown.
-   Bit 3 of a DIRT variant marks STRUCTURED soil, and bits 4-5 then pick a
-   tone; a variant without bit 3 (dug, painted, the worn path) is loose dirt
-   and keeps the old ±3 jitter. The tones are assigned at spawn from a noise
-   FIELD, never per cell — see soilVariant in spawnNaturalLandscape — so a
-   clod is a connected blotch a few cells across and a dry lens is a streak,
-   and the cutting reads as ground with things in it rather than as static.
-   Carried in the variant rather than hashed from position so that dug soil
-   keeps its tone as it falls instead of crawling through a pattern pinned
-   to the world. Each is one to two posterize levels off the loam — at one
-   level the clods were there in the numbers and not on the screen. */
-const DIRT_T=[
-  [  0,  0,  0],  // loam
-  [-19,-16,-13],  // clod, packed and damp
-  [ 12,  9,  5],  // dry lens
-  [-11, -8, -6],  // humus, the dark hand's-breadth under the turf
-];
 /* ═══ SURFACE MASK ═══
    In a one-cell-per-pixel sim there is nothing INSIDE a particle to draw, so
    the unit of texture cannot be the cell -- it has to be the cluster. What a
@@ -2900,18 +2882,6 @@ RELIEF[STONE]=17; RELIEF[SAND]=15; RELIEF[DIRT]=14; RELIEF[WATER]=22;
    posterized and snapped to the cell grid everywhere else anyway. */
 const SUN_STEPS=8;
 let sunStep=-99, sunX=0, sunK=1;
-/* ═══ LOOKING AROUND ═══
-   The far scenery — ridges, their woods, the turbines on them, a little of
-   the clouds — slides against the meadow as the pointer crosses the page, in
-   the direction the world would slide if you leaned that way: move right and
-   the near ridge moves left. PAR_MAX is the near ridge's full travel in
-   cells; the shader hands each layer its fraction and snaps to whole cells,
-   so nothing shimmers. parX eases toward the target at a rate that settles
-   in about half a second — the point is that the scenery has depth, not that
-   it follows the cursor, and a lag is what makes it read as far away. Touch
-   has no hover, so on a phone the target simply never moves. */
-const PAR_MAX=5;
-let parX=0, parTarget=0;   // the listener that moves parTarget sits with the other pointer handlers
 function updateSun(){
   const st=Math.round(Math.sin(dayPhase)*SUN_STEPS);
   if(st===sunStep)return;
@@ -2949,27 +2919,6 @@ const TONE=[[0,0,0],[-30,-29,-25],[32,31,27],[-52,-50,-43]];
    "dark stone" and "light stone" and have always rendered identically, because
    the light one asked for JITTER[7] — which is zero. */
 const STONE_SHADE=[[0,0,0],[-34,-32,-28],[38,37,33],[-56,-54,-47]];
-/* ═══ WATER FACES ═══
-   Water used to be one blue with a stripe every fourth row, which read as a
-   flat blue with stripes. A pool seen from the side is three things: a skin
-   that mirrors the sky and is the palest part of it, a lit band just under
-   the skin where light still reaches, and a body that sinks toward the bed.
-   The face of a cell is which of those it is, read straight from the grid:
-   no water above it and it is the skin, water one above and it is the band,
-   deeper and it is the body. A sparkle sits on one skin cell in six, by a
-   position hash, so it holds still on a still pond and moves with the water
-   when the water moves. Underground water and sprite water keep the flat
-   tone: they have no sky to mirror.
-     0 skin · 1 band · 2 body · 3 skin with a sparkle
-   fillTexel folds the face into its colour-cache key, so the cache stays
-   exact and the parity check still holds. */
-function waterFace(x,y){
-  if(y<=0)return 0;
-  const i=y*W+x;
-  if(grid[i-W]!==WATER)return (hash2i(x,y)%6===0)?3:0;
-  if(y<=1||grid[i-2*W]!==WATER)return 1;
-  return 2;
-}
 function matColor(m,v){
   const j=JITTER[v&7];
   switch(m){
@@ -2984,14 +2933,11 @@ function matColor(m,v){
     case SMOKE: return[60+j,60+j,68+j,105];
     case STEAM: return[206+j,214+j,222+j,120];          // pale, barely-there vapour
     case LAVA:  return[236+j,96+j,26,255];              // molten orange
-    case ASH:   return(v&0x08)?[50,44,42,255]:[96+j,88+j,82+j,255];
+    case ASH:   return[96+j,88+j,82+j,255];
     case POLLEN:return[238+(j>0?j:0),205+j,96+j,210];  // glowing warm motes
     case MOSS:  return[78+j,124+j,58+j,255];            // soft reclaiming green
     case SEED:  return[126+j,92+j,44+j,255];            // amber seed
-    case DIRT:  {                                          // warm topsoil
-      if(v&0x08){const t=DIRT_T[(v>>4)&3];return[98+t[0],72+t[1],46+t[2],255];}
-      return[98+j,72+j,46+j,255];
-    }
+    case DIRT:  return[98+j,72+j,46+j,255];              // warm topsoil
     case GRASS: return [...GRASS_RAMP[v&3],255];
     case TITLE: return[238,235,228,255];   // bright — name
     case ACCENT:return[184,224,0,255];     // lime — section labels
@@ -3032,15 +2978,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
    // WORLD height, so uv (screen space) and the particle texture (world space)
    // are no longer the same thing — see tuv below.
    uniform vec2 uCam;
-   /* uSun is where the sun is, -1 (dawn, low on the left) through 0 (noon)
-      to +1 (dusk, low on the right), in the same eighth-steps the particle
-      relief sees — so a hill's shaded flank and a dune's shaded face agree
-      about where the light is coming from. uPar is a horizontal parallax
-      offset in SCREEN CELLS, eased toward the pointer: each layer behind the
-      meadow takes a fraction of it, so the scenery slides against the ground
-      when the visitor looks around, the way it would if they leaned. */
-   uniform float uSun;
-   uniform vec2 uPar;
    // ── zone backdrop ──
    // The colour of the empty cell BETWEEN particles, which underground is most
    // of what you see — so this, not the rock, is what makes a room feel like a
@@ -3178,54 +3115,17 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
               +0.020*exp(-pow((x-0.87)*2.7,2.0))
               +0.010*fbm(vec2(x*6.0+31.0,5.5));
    }
-   /* The wood along the near ridge. Clumps on a three-cell column pitch,
-      returned in CELLS and added to the ridge so it keeps its weight whatever
-      the window does. Two kinds of tree, because one kind on a ruled pitch
-      read as a comb: a conifer is a cell or two with the middle cell a cell
-      taller so it comes to a point, and a broadleaf is a two-cell dome that
-      is flat on top and drops a cell at its right shoulder. Anything more
-      detailed at this size is just noise on an edge. */
+   /* The treeline along the near ridge. One or two cells of canopy on a
+      three-cell column pitch, with the middle cell of each clump a cell taller
+      so it comes to a point — a conifer at this distance is three pixels and a
+      tip, and anything more detailed at this size is just noise on an edge.
+      Returned in CELLS, added to the ridge, so it keeps its weight whatever
+      the window does. */
    float treeAt(float cx){
      float col=floor(cx/3.0), sub=cx-col*3.0;
      float h=hash(vec2(col,4.4));
-     if(h<0.34)return 0.0;                                   // gaps in the wood
-     if(h<0.72)return 1.0+step(0.58,h)+step(0.5,sub)*step(sub,1.5);   // conifer
-     return 2.0+step(0.90,h)-step(2.5,sub);                  // broadleaf dome
-   }
-   /* A thinner wood on the middle ridge: one cell on a two-cell pitch and
-      nearly half of them missing, so at that distance it reads as a ragged
-      edge rather than as a second row of trees. */
-   float treeMid(float cx){
-     float col=floor(cx/2.0);
-     float h=hash(vec2(col,9.1));
-     return step(0.55,h)*(1.0+step(0.93,h));
-   }
-   /* A hamlet over the hill. Three gables standing on the middle ridge, where
-      it clears the near ridge's wood well and nothing tall stands in front of
-      it — the stretch between the oak and the well, where the meadow has only
-      a bush and a boulder (the first spot tried, by the greenhouse, put the
-      middle house behind the lantern's head).
-      hx is the cell's distance from the hamlet's left edge, ry its height
-      in cells above the ridge under the hamlet's MIDDLE column — one flat
-      base for all three, so the houses stand level on a sloping crest rather
-      than each sinking a different amount into it. Returns 1 for wall, 2 for
-      a lit window after dusk, 0 for air. Three cells tall in all, which is
-      what keeps its ridgeline under the far ridge and the far ridge under the
-      name (see SKY_CREST). */
-   float hamlet(float hx,float ry){
-     if(ry<0.0||ry>=3.0||hx<0.0||hx>=13.0)return 0.0;
-     // house 0: cells 0-2, house 1: cells 4-7, house 2: cells 9-11
-     float o=0.0, w=3.0;
-     if(hx>=4.0&&hx<8.0){o=4.0;w=4.0;}
-     else if(hx>=9.0&&hx<12.0){o=9.0;w=3.0;}
-     else if(hx>=3.0)return 0.0;
-     float lx=hx-o;
-     if(ry>=2.0){                                            // the gable row
-       return (lx>=1.0&&lx<w-1.0)?1.0:0.0;
-     }
-     // one window per house, on the ground row, off centre
-     if(ry<1.0&&lx==1.0)return 2.0;
-     return 1.0;
+     if(h<0.38)return 0.0;                                   // gaps in the wood
+     return 1.0+step(0.74,h)+step(0.5,sub)*step(sub,1.5);
    }
    /* ═══ CUMULUS FIELD ═══
       A jittered grid of soft circles, evaluated as a FUNCTION rather than
@@ -3303,36 +3203,6 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
        float tw=0.6+0.4*sin(uT*2.1+hash(cell.yx)*31.0);
        sky+=vec3(1.0,1.0,0.92)*st*(night-0.5)*2.0*tw;
      }
-     /* ── the aurora ──
-        Two curtains hung across the upper sky on the deep-night side of the
-        clock, drifting slowly. Each is a ridge in y whose centre wanders
-        along x: a soft fall-off above the ridge and a hard hem below it,
-        because a real curtain is a bright lower edge with light bleeding
-        upward. The rays are a fast sine along x beating against a slow one,
-        so the curtain reads as pleated rather than as a smooth band. The
-        whole thing is snapped to three flat steps before it is added, for
-        the same reason the clouds are: this sky is bands, not gradients.
-        Green at the hem, violet at the top, like the real thing. It sits
-        behind the ridges and behind the name, in the band the stars share,
-        and it breathes on a half-minute cycle so no two looks are alike. */
-     if(night>0.55){
-       float au=smoothstep(0.55,0.80,night)*(0.7+0.3*sin(uT*0.03));
-       float band=0.0;
-       for(int k=0;k<2;k++){
-         float fk=float(k);
-         float xw=cuv.x*2.4+fk*1.9;
-         float c=0.62+0.14*fk+0.07*sin(xw*2.7+uT*0.09+fk*2.1)+0.04*sin(xw*6.1-uT*0.06);
-         float w=0.07+0.025*sin(xw*4.3+uT*0.04+fk);
-         float d=(y-c)/w;
-         float rib=exp(-d*d*((d>0.0)?0.5:1.6));
-         float ray=0.5+0.5*sin(xw*37.0+uT*0.25+fk*7.0)*sin(xw*11.0-uT*0.11);
-         band=max(band,rib*(0.55+0.45*ray));
-       }
-       band*=smoothstep(0.42,0.56,y);
-       float q=floor(band*3.0+0.35)/3.0;
-       vec3 auCol=mix(vec3(0.16,0.80,0.50),vec3(0.50,0.30,0.80),smoothstep(0.62,0.88,y));
-       sky+=auCol*q*0.75*au;
-     }
 
      /* ── clouds ──
         These used to be two fbm layers laid across the whole width with a soft
@@ -3349,12 +3219,11 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
         SMALLER and then stops existing, with hard edges the whole way. */
      float cBand=smoothstep(0.40,0.56,y)*smoothstep(0.92,0.70,y);
      float cT=0.55+(1.0-cBand)*0.80;
-     float cx=cuv.x+floor(uPar.x*0.12+0.5)/uGrid.x;   // clouds: far, so barely
-     float pC=puffField(vec2(cx,y));
+     float pC=puffField(vec2(cuv.x,y));
      // Six cells up. Below a full puff-height it started shading the crowns of
      // the small puffs too; much above it and the shadow peels away from the
      // bottom edge of the big ones and floats.
-     float pU=puffField(vec2(cx,y+6.0*cpx));
+     float pU=puffField(vec2(cuv.x,y+6.0*cpx));
      float inCloud=step(cT,pC);
      float cShaded=step(cT,pU);             // cloud above me ⇒ I am in the belly
      /* The keyline. The puff field ramps across roughly thirteen cells between
@@ -3400,69 +3269,25 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
         dusk the horizon is orange and at night it is nearly black and the
         hills follow it either way.
 
-        No lit rim, no haze band, no gradient of any kind inside a layer. The
-        EDGE is the drawing — with one flat exception, the lee flank below.
-
-        ── parallax ──
-        Each ridge samples its curve at the screen column plus a fraction of
-        uPar, whole cells only: the near ridge takes all of it, the middle
-        about half, the far a quarter, and the clouds above barely any. That
-        ordering is what makes the offset read as depth rather than as the
-        picture sliding. The meadow, being matter in the grid, does not move
-        at all, and the near ridge dips under its turf line in places — so
-        where the join is hidden it stays hidden whichever way you lean. */
+        No lit rim, no haze band, no shading of any kind inside a layer. The
+        EDGE is the drawing. */
      const float TURF_Y=0.26;               // baseLine's fraction; the two move together
-     float parFar=floor(uPar.x*0.25+0.5), parMid=floor(uPar.x*0.55+0.5), parNear=floor(uPar.x+0.5);
-     float x0=cuv.x+parFar/uGrid.x, x1=cuv.x+parMid/uGrid.x, x2=cuv.x+parNear/uGrid.x;
-     float c0=crestK(x0,0), c1=crestK(x1,1), c2=crestK(x2,2);
-     float r1=c1, r2=c2;                    // the bare ridges, before anything stands on them
-     c1+=treeMid(cell.x+parMid)/uCam.y;     // the thin wood on the middle ridge
-     c2+=treeAt(cell.x+parNear)/uCam.y;     // the wood standing on the near ridge
-     vec3 hFar =mix(vec3(0.126,0.148,0.226),vec3(0.465,0.575,0.545),uDay);
+     float c0=crestK(cuv.x,0), c1=crestK(cuv.x,1), c2=crestK(cuv.x,2);
+     c2+=treeAt(cell.x)/uCam.y;             // the wood standing on the near ridge
+     vec3 hFar =mix(vec3(0.126,0.148,0.226),vec3(0.455,0.565,0.520),uDay);
      vec3 hMid =mix(vec3(0.082,0.100,0.166),vec3(0.330,0.470,0.375),uDay);
      vec3 hNear=mix(vec3(0.046,0.058,0.102),vec3(0.170,0.315,0.205),uDay);
-     /* ── the lee flank ──
-        The one thing painted inside a layer, and it is a shape, not a ramp:
-        the ridge's own curve sampled off further along, and the region
-        between that copy and the ridge filled one flat step darker. On the
-        flank facing away from the sun the copy sits lower than the ridge and
-        the band has thickness — more where the slope is steeper, none at all
-        at a crest or in a trough — and on the flank facing the sun the copy
-        sits higher and there is nothing to fill. That is a terminator drawn
-        the way a hand would draw it, and it is what turns three cut-outs into
-        three hills. It follows uSun, so at noon (light overhead, as the
-        particle relief also has it) there is no band and the layers go back
-        to being flat cut-outs; by mid-morning it is one or two cells and by
-        dusk it has swapped sides. */
-     float off=-0.14*sign(uSun)*step(0.1,abs(uSun));
-     float s0=step(crestK(x0+off,0),y)*step(y,c0);
-     float s1=step(crestK(x1+off,1),y)*step(y,r1);
-     float s2=step(crestK(x2+off,2),y)*step(y,r2);
-     vec3 hFarS =hFar *0.90;
-     vec3 hMidS =hMid *0.84;
-     vec3 hNearS=hNear*0.78;
      /* The haze mix is per layer and it is the depth cue doing the most work:
         the far ridge takes nearly a quarter of the horizon's colour, the near
         one almost none. Held back from 0.30/0.15/0.05 — at 0.30 the far ridge
         came out the same value as the mid one once the horizon had bleached
-        it, and two layers you cannot tell apart are one layer. The shaded
-        tones take the same mix, so a lee flank hazes with its own ridge. */
-     hFar =mix(hFar ,horizon,0.22); hFarS =mix(hFarS ,horizon,0.22);
-     hMid =mix(hMid ,horizon,0.11); hMidS =mix(hMidS ,horizon,0.11);
-     hNear=mix(hNear,horizon,0.04); hNearS=mix(hNearS,horizon,0.04);
-     if(y<c0)sky=mix(hFar,hFarS,s0);
-     if(y<c1)sky=mix(hMid,hMidS,s1);
-     /* The hamlet stands on the middle ridge and is painted before the near
-        ridge, so the wood in front of it can hide its feet. Its walls are the
-        middle ridge's own shade tone: a silhouette, which is all a house is
-        at that distance, and the same value as the flank it stands against
-        so it reads as part of the hill rather than as a sticker on it. */
-     float hamX0=floor(uGrid.x*0.48);
-     float hamBase=floor(crestK((hamX0+6.5)/uGrid.x,1)*uCam.y);
-     float hm=hamlet(cell.x+parMid-hamX0, cell.y-hamBase);
-     if(hm>0.0&&y>=c2)sky=hMidS;
-     if(hm>1.5&&night>0.5)sky=mix(sky,vec3(0.98,0.80,0.42),(night-0.5)*2.0);
-     if(y<c2)sky=mix(hNear,hNearS,s2);
+        it, and two layers you cannot tell apart are one layer. */
+     hFar =mix(hFar ,horizon,0.22);
+     hMid =mix(hMid ,horizon,0.11);
+     hNear=mix(hNear,horizon,0.04);
+     if(y<c0)sky=hFar;
+     if(y<c1)sky=hMid;
+     if(y<c2)sky=hNear;
      /* Below the turf line nothing that belongs to the sky may be painted, and
         that includes the hills. It sounds obvious and it was not happening:
         the hill branch ran to the bottom of the frame, so every row of the
@@ -3525,9 +3350,7 @@ gl.attachShader(prog,mkSh(gl.FRAGMENT_SHADER,
      const float RSTEP=6.2831853/12.0;
      for(int k=0;k<3;k++){
        vec3 tp=TURB[k];
-       // planted on a ridge, so it slides with that ridge's share of uPar
-       float tsh=(k==2?parMid:parFar)/uGrid.x;
-       vec2 base=vec2((tp.x-tsh)*asp,crestK(tp.x,k==2?1:0)-0.006);
+       vec2 base=vec2(tp.x*asp,crestK(tp.x,k==2?1:0)-0.006);
        vec2 hub=base+vec2(0.0,tp.y);
        float ang=floor((uT*(0.42+0.06*float(k))+tp.z)/RSTEP)*RSTEP;
        float m=0.0,mo=0.0;
@@ -3798,8 +3621,6 @@ const uZoneTopLoc=gl.getUniformLocation(prog,'uZoneTop');
 const uZoneFadeLoc=gl.getUniformLocation(prog,'uZoneFade');
 const uZoneNLoc=gl.getUniformLocation(prog,'uZoneN');
 const uZoneStyleLoc=gl.getUniformLocation(prog,'uZoneStyle');
-const uSunLoc=gl.getUniformLocation(prog,'uSun');
-const uParLoc=gl.getUniformLocation(prog,'uPar');
 /* Zone uniforms are constant for the life of a grid size — they only move when
    VH changes — so they are packed once here and re-packed on resize rather than
    rebuilt every frame. The arrays are sized to the shader's ZMAX and padded
@@ -4139,7 +3960,7 @@ function fillTexel(x,y){
   if(m===EMPTY){texWords[dst]=0;return;}
   if(m===SAND||m===WATER){
     const s=surf(x,y,gi),v=variant[gi]&7,art=depthArt[y]?1:0;
-    const pattern=m===WATER?(art?0:waterFace(x,y)):(!art&&!(s&S_UP)&&((((x>>1)*7)^((y>>1)*11))%5===0)?1:0);
+    const pattern=m===WATER?(y&3):(!art&&!(s&S_UP)&&((((x>>1)*7)^((y>>1)*11))%5===0)?1:0);
     const key=((m===WATER?2:0)+art)*1024+v*128+s*4+pattern;
     if(!particleColorValid[key]){
       matTexel(m,v,x,y,particleColorBytes,0,s);
@@ -4171,17 +3992,7 @@ function matTexel(m,v,x,y,out,dst,s){
       else{const t=SAND_T[v&7]; r=205+t[0]; g=170+t[1]; b=82+t[2];}
       a=255; break;
     }
-    case WATER: {
-      if((s&S_SPRITE)||art){r=40+j;g=132+j;b=168+j;}
-      else{
-        const f=waterFace(x,y);
-        if(f===0){r=112+j;g=178+j;b=196+j;}        // the skin: the horizon sky, mirrored
-        else if(f===3){r=196;g=228;b=236;}          // a sparkle on it
-        else if(f===1){r=52+j;g=146+j;b=180+j;}     // the lit band under the skin
-        else{r=36+j;g=118+j;b=156+j;}               // the body
-      }
-      a=205; break;
-    }
+    case WATER: r=40+j;  g=132+j; b=168+j; a=205; break;
     case FIRE: {
       const f=Math.random();
       const rr=235+j+(f>0.6?40:0);
@@ -4240,19 +4051,12 @@ function matTexel(m,v,x,y,out,dst,s){
       const gg=96+j+(f>0.85?34:-16);
       r=rr>255?255:rr; g=gg>255?255:(gg<0?0:gg); b=26; a=255; break;
     }
-    case ASH:
-      /* Bit 3 is soot: the near-black the wordmark draws its rim in. Plain
-         ash is a warm mid grey, and as an outline round pale sand against a
-         pale sky it read as a smudge rather than as a line. */
-      if(v&0x08){r=50;g=44;b=42;}
-      else{r=96+j;g=88+j;b=82+j;}
-      a=255; break;
+    case ASH:   r=96+j;  g=88+j;  b=82+j;  a=255; break;
     case POLLEN:r=238+(j>0?j:0); g=205+j; b=96+j; a=210; break;
     case MOSS:  r=78+j;  g=124+j; b=58+j;  a=255; break;
     case SEED:  r=126+j; g=92+j;  b=44+j;  a=255; break;
     case DIRT:
       if(art){r=art.earth[0];g=art.earth[1];b=art.earth[2];}
-      else if(v&0x08){const t=DIRT_T[(v>>4)&3];r=98+t[0];g=72+t[1];b=46+t[2];}
       else{r=98+j;g=72+j;b=46+j;}
       a=255;break;
     case GRASS: {
@@ -4370,19 +4174,16 @@ function matTexel(m,v,x,y,out,dst,s){
       // Connected turf patches leave quiet faces between individual blades.
       tj=((hash2i(x>>2,y>>1)&3)-1)*2;
     } else if(m===WATER){
-      if(s&S_DEEP)tj-=6;               // the middle of a pool, away from every edge
+      const r4=y%4;
+      if(r4===0)tj=12; else if(r4===2)tj=-8;
+      if(s&S_DEEP)tj-=8;               // the body of a pool sinks under its skin
     } else if(m===DIRT){
       if(art){
         tj=((hash2i(x>>3,y>>2)%3)-1)*2;
       }else{
         tj=((hash2i(x>>2,y>>1)&3)-1)*2;
-        // Loose dirt keeps a fleck of grain; structured soil carries its
-        // texture in the variant and a per-cell speck on top of a clod is
-        // exactly the static the tones were introduced to replace.
-        if(!(v&0x08)){
-          const h=hash2i(x,y)%31;
-          if(h===0)tj-=9; else if(h===5)tj+=5;
-        }
+        const h=hash2i(x,y)%31;
+        if(h===0)tj-=9; else if(h===5)tj+=5;
       }
       if(s&S_DEEP)tj-=6;               // subsoil, out of the light
     } else if(m===SAND){
@@ -4482,8 +4283,6 @@ function render(){
   gl.uniform1f(uDayLoc,dayFactor());
   gl.uniform2f(uGridLoc,W,H);
   gl.uniform2f(uCamLoc,camY,VH);
-  gl.uniform1f(uSunLoc,sunX);
-  gl.uniform2f(uParLoc,parX,0);
   gl.uniform3fv(uZoneColLoc,zoneColBuf);
   gl.uniform3fv(uZoneCol2Loc,zoneCol2Buf);
   gl.uniform1fv(uZoneTopLoc,zoneTopBuf);
@@ -4874,7 +4673,6 @@ const SPRITE_MATS={
   R:{m:THATCH,v:0}, r:{m:THATCH,v:1}, Y:{m:THATCH,v:2},                  // thatch: base, shadow, highlight
   K:{m:BRICK,v:0},  k:{m:BRICK,v:1},  C:{m:BRICK,v:2},  c:{m:BRICK,v:3}, // brick: base, mortar, highlight, deep
   B:{m:BERRY,v:0},  b:{m:BERRY,v:1},  A:{m:BERRY,v:2},                   // berry: base, shadow, highlight
-  '#':{m:BERRY,v:3},                                                    // berry: deep — the ink on the warning board
   G:{m:GLASS,v:0},  g:{m:GLASS,v:1},  '*':{m:GLASS,v:2},                 // glass: base, shade, sparkle
   // Tinted glazing reflects sky; cottage windows and lanterns emit light.
   O:{m:GLASS,v:0x10},o:{m:GLASS,v:0x11},'@':{m:GLASS,v:0x12},
@@ -5098,25 +4896,6 @@ const SPRITES={
     ".DDDEDDDDDEDDDDX.",
     "..SSDDDDDDDDDXX..",
   ],
-  // Two posts of the fence, for a garden that has no room for four.
-  fenceShort:[
-    "..^.....^..",
-    "..T.....T..",
-    "^TTTTTTTTt.",
-    "..Tt....Tt.",
-    "..T.t...T..",
-    "..t..t..T..",
-    "tTTTTTTTTt.",
-  ],
-  // The solar panel, on the cottage roof instead of in the yard. Three rows
-  // that step right as they go down, so it lies along the right-hand slope
-  // of the living roof; written straight over the roof cells rather than
-  // placed, because a sprite never overwrites another and this one has to.
-  solarroof:[
-    "EEEEEEE..",
-    ".E@o!Oo!.",
-    "..Eo!Oo!X",
-  ],
   // a wooden signpost with a shaded post — landmark / fence-end accent
   signpost:[
     "^TTTTTTT...",
@@ -5129,46 +4908,6 @@ const SPRITES={
     "....^Tt....",
     "....!Tt....",
     "...ttTtt...",
-  ],
-  // The warning, staked beside the chest. It used to be painted across the
-  // chest's own front, where it hid the planks and the lock; as a board on a
-  // post it is a prop in the meadow like the signpost by the cottage —
-  // timber, thatch and berry ink, so it burns like anything else here.
-  // Three lines of the 3x5 face rather than two because the gap between the
-  // pond's kerb and the chest is nineteen cells on a desktop and "DO NOT" set
-  // on one line is twenty-three. Two nail heads, a chipped corner. The bottom
-  // rail is WOOD, not a darker thatch: thatch and berry are debris that need
-  // a frozen cell under each of them, and a board wider than its post would
-  // shed everything outboard of the post within a few hundred ticks. Wood
-  // holds as one connected chunk grounded through the post, and every straw
-  // and ink cell above it then has something frozen underneath.
-  warnsign:[
-    ".......^Tt.......",
-    "YYYYYYYYYYYYYYYYr",
-    "YRXRR##RR###RRXRr",
-    "YRRRR#R#R#R#RRRRr",
-    "YRRRR#R#R#R#RRRRr",
-    "YRRRR#R#R#R#RRRRr",
-    "YRRRR##RR###RRRRr",
-    "YRRRRRRRRRRRRRRRr",
-    "YRR#R#R###R###RRr",
-    "YRR###R#R#RR#RRRr",
-    "YRR###R#R#RR#RRRr",
-    "YRR###R#R#RR#RRRr",
-    "YRR#R#R###RR#RRRr",
-    "YRRRRRRRRRRRRRRRr",
-    "Y###R###R###R#R#r",
-    "Y#R#R#R#R#RRR###r",
-    "Y#R#R###R##RR###r",
-    "Y#R#R#RRR#RRR###r",
-    "Y###R#RRR###R#R#.",
-    "ttttttttttttttt..",
-    ".......^Tt.......",
-    ".......^Tt.......",
-    ".......^Tt.......",
-    ".......^Tt.......",
-    ".......^Tt.......",
-    "......ttTtt......",
   ],
   // A boulder that reads as a boulder. The old one was eight rows of
   // shadow-and-base grey that the posterize crushed to a black lump; this
@@ -5471,9 +5210,7 @@ function stampSprite(name,gx,gyBottom){
 
    The masthead is not HTML floating over the canvas: it is matter in the grid,
    on the same first screen as the meadow, so the sim's own rules apply to it.
-   Sand for the letterface, turf on every top face, soot for the rim — and,
-   because it is ground, a little of what ground carries: blades on the turf,
-   a bloom or two, roots out of the undersides, a tarn in the valley of the M.
+   Sand for the letterface, ash for the rim.
 
    Those two materials and not the prettier sprite set, because a frozen cell
    only reaches tryDecompose() if isDebris() claims it — and WOOD, BRICK and
@@ -5516,80 +5253,65 @@ const WM_LINES=['MITCHELL','KUPPERSMITH'];
    of them what sand in mid-air means. */
 let WORDMARK_BOX=null;
 const inWordmark=(x,y)=>!!WORDMARK_BOX&&x>=WORDMARK_BOX.x0&&x<=WORDMARK_BOX.x1&&y>=WORDMARK_BOX.y0&&y<=WORDMARK_BOX.y1;
-/* Where a bird can land on it: every open cell whose floor is the top of a
-   stroke — turf, a blade, a bloom, or the soot rim that wraps them — with two
-   more cells of air above so the bird is not sitting in a counter. Flat
-   x,y pairs; wmPerchTaken is the reservation list (see updateBoids). */
-let wmPerches=[],wmPerchTaken=null;
 function wmGlyphW(ch){const g=WM_GLYPHS[ch];return g?g[0].length:0;}
 function wmLineW(str,track){
   let w=0;
   for(let i=0;i<str.length;i++){w+=wmGlyphW(str[i]);if(i)w+=track;}
   return w;
 }
-/* ─── THE NAME AS GROUND ───
+/* ─── THE NAME AS A CUT BANK ───
    One material per letter was the first try and it read as a ransom note:
    nineteen hues at nineteen different weights, each letter arguing for itself
-   instead of the word. The second try banded the materials HORIZONTALLY
-   across the lockup — turf over sand, the way the shaft cuts the meadow — so
-   every letter shared one section. It made the two lines one object, and it
-   also put the seam through the middle of the given name, where a green top
-   half over a khaki bottom half read as a misprint rather than as a core
-   sample. A band is a rule the letters cross; it is not a thing the letters
-   are made of.
+   instead of the word. So the materials band HORIZONTALLY across the whole
+   lockup instead, and every letter shares the same section — which makes the
+   two lines read as one object that happens to be made of layered ground.
 
-   So the name is made the way the meadow is: sand with turf grown on top of
-   it. Every cell within WM_CAP cells of open air ABOVE it is grass — the top
-   row lit, the bottom row the dark root line, the same three-line sod the
-   meadow's turf is drawn as — and everything below that is sand, bevelled
-   like a cut face: one bright column down the left of every stroke, one dark
-   column down the right, one dark row along the underside. The rule is the
-   same at every cell, so the word still reads as one object; and because it
-   follows the SHAPE of the letters rather than a line drawn across them, the
-   crossbar of the T and the arms of the E each carry their own strip of
-   grass, and the name reads as ground that happens to spell something.
+   The order is the world's own: turf over sand, cut the way the shaft cuts it.
+   The seam falls inside the given name, so MITCHELL carries the turf line and
+   the surname below it is all sand — the masthead is a core sample of the
+   place it is hanging over.
 
-   Sand and grass and not the prettier sprite set, because a frozen cell only
-   reaches tryDecompose() if isDebris() claims it — and WOOD, BRICK and LEAF
-   all do. Hung in mid-air with nothing under them they lose support on the
-   first tick and the name rains onto the meadow before anyone reads it. SAND
-   and GRASS are not debris, so step() returns on them immediately and the
-   letters hold.
+   Two bands, down from the six it started with. Topsoil, the vaults' brick,
+   bedrock and a seam of the core's lava were the others, and they are why the
+   early versions read as busy: every material carries its own micro-texture in
+   matTexel, and brick's mortar courses stacked on dirt's speckle stacked on
+   stone's flecks put three competing patterns inside a letter twenty-seven
+   cells tall — with the lava seam glowing under all of it. Sand's 2x2 bedding
+   is the quietest thing in the palette, so it takes the bulk of the name.
 
-   Held is not the same as safe. Acid eats sand, a bomb flings it, fire takes
-   the turf off the top and fuses the sand into GLASS — so burning the name
-   does not erase it, it scorches it down to the one material that lights
-   itself after dusk.
+   The cost of dropping lava is that nothing in the name emits any more, so
+   after dusk it goes to silhouette along with the meadow. That is the honest
+   behaviour for turf and sand, and the rim keeps the shape readable against a
+   night sky; the alternative — a glass seam, the world's other emitter — buys
+   the night back but renders at alpha 200, so it spends the day as a pale
+   scratch under the surname.
 
-   The cap is as deep as the scale, and never under two: a lit row over a
-   root row at k=1 on a phone, and lit, body, root at k=3 on a desktop. It
-   was k+1, and at k=3 four rows of turf on a six-row crossbar left the arms
-   of the E more lawn than letter. The side bevels need a stroke at least
-   four cells wide to leave any face between them, so they only appear from
-   k=2 up; at k=1 the top cap and the dark underside do the whole job.
+   `at` is where the band starts as a fraction of the block's height. `hi` is
+   the variant that reads as that material's lit face — 6 is sand's bright
+   quartz, 2 is the grass/leaf palette's highlight, 3 is +3 on the shared
+   jitter ramp everything else uses — so every band gets the same one-cell lit
+   top edge even though only SAND, STONE and DIRT carry RELIEF and would have
+   earned one for free.
 
-   ── WHAT GROWS ON IT ──
-   Ground has things on it and things hanging out of it, and a name made of
-   ground that had neither still read as a logo. So, sparingly:
-     · a blade of PLANT on one top-face column in eight, two cells tall from
-       k=2 where the hash says so, with a BERRY bloom on a third of the tall
-       ones. Stamped FROZEN: a frozen PLANT never runs its step, so the name
-       does not grow a beard over the afternoon, and a frozen BERRY on a
-       frozen blade counts as supported. Fire still takes them.
-     · from k=2, humus root threads out of one underside column in six, two
-       to four cells long, stopping two cells short of anything below — the
-       strokes are floating islands, and an island has roots.
-     · only on faces that look at open sky or open air (nothing of the
-       letter within 3k cells): the inside of an E or a K carries nothing,
-       or the counters filled with clutter and the word got harder to read.
-     · the valley of the first M is a basin — the V closes on the crown of
-       the middle stroke — and its faces are turf, so it holds a tarn: live
-       WATER from a brim's depth down. Live, not frozen, so it sloshes when
-       something lands in it and boils off if the M burns.
-   The rim wraps the blades and blooms as if they were part of the letter
-   (they are its silhouette now), and stays off the water: a soot line along
-   a water surface reads as a stroke, not a shore. */
-const WM_CAP=k=>Math.max(2,k);
+   Glass is deliberately absent. It is the prettiest material down there and
+   the only other emitter, but it renders at alpha 200 over a pale sky, so by
+   daylight a glass band is a hole through the middle of someone's name. */
+const WM_BANDS=[
+  {at:0.00, m:GRASS, hi:2},   // turf
+  {at:0.34, m:SAND,  hi:6},   // the site's own material, and the bulk of the name
+];
+/* The seams waver across the width for the same reason the shaft's walls do:
+   a ruled horizontal line reads as a mistake in a world where nothing else is
+   ruled. Under a cell of travel now rather than two — at this letter size a
+   fuller wave broke the bands into separate incidents per letter instead of
+   one section running through all of them. Two incommensurate sines, no
+   random, so the same wordmark comes back identical on every reset. */
+function wmBandAt(x,t){
+  const w=t+(Math.sin(x*0.13)*0.9+Math.sin(x*0.041+1.7)*0.7)*0.006;
+  let b=WM_BANDS[0];
+  for(const band of WM_BANDS)if(w>=band.at)b=band;
+  return b;
+}
 /* ── THE DOCKED SHELF, AS THE REST OF THE PAGE SEES IT ──
    Two answers to "how tall is the top chrome", and both are needed.
    dockFullHeight is the height it takes when OPEN, remembered while it is
@@ -5652,19 +5374,17 @@ function stampWordmark(){
   const baseW=Math.max(wmLineW(L1,T1),base2);
   const gapY=3*k;
   const blockW=baseW*k, blockH=WM_ROWS*2*k+gapY;
-  const pad=4;                                  // room for the rim, and the roots, to grow into
+  const pad=3;                                  // room for the rim to grow into
   const bw=blockW+pad*2, bh=blockH+pad*2;
   // rasterise both lines into a local bitmap first: the rim, the lit top edge
   // and the footing are all neighbourhood tests, and they want the finished
   // shape of the whole lockup to read from rather than one glyph at a time
   const bm=new Uint8Array(bw*bh);
-  let mOrigin=null;                             // the first M's top-left, for the tarn
   function draw(str,track,oy){
     let cx=pad+(((blockW-wmLineW(str,track)*k)/2)|0);
     for(const ch of str){
       const g=WM_GLYPHS[ch];
       if(!g){cx+=track*k;continue;}
-      if(ch==='M'&&!mOrigin)mOrigin={x:cx,y:oy};
       for(let ry=0;ry<WM_ROWS;ry++){
         const row=g[ry];
         for(let rx=0;rx<row.length;rx++){
@@ -5682,53 +5402,6 @@ function stampWordmark(){
   draw(L2,T2,pad+WM_ROWS*k+gapY);
 
   const B=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:bm[y*bw+x];
-  /* What grows on it (see WHAT GROWS ON IT): a second bitmap over the
-     letters, so the rim can read the finished silhouette. 1 blade, 2 bloom,
-     3 tarn, 4 root. */
-  const deco=new Uint8Array(bw*bh);
-  const D=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:deco[y*bw+x];
-  if(mOrigin){
-    // the V of the M: air from column 2 to 6 on its top row, a column
-    // narrower each row, closed by the crown of the middle stroke below
-    const brim=Math.max(1,Math.round(k*0.66));
-    for(let ry=0;ry<3;ry++)for(let sy=0;sy<k;sy++){
-      if(ry*k+sy<brim)continue;
-      const by=mOrigin.y+ry*k+sy;
-      for(let bx=mOrigin.x+(2+ry)*k;bx<mOrigin.x+(7-ry)*k;bx++)if(!B(bx,by))deco[by*bw+bx]=3;
-    }
-  }
-  // open air: nothing of the letter within 3k cells — the counters of the E
-  // and the K stay clean, and only faces under the sky (or the tarn's shore)
-  // carry anything
-  const openAbove=(x,y)=>{for(let d=1;d<=3*k;d++)if(B(x,y-d))return false;return true;};
-  const openBelow=(x,y)=>{for(let d=1;d<=3*k;d++)if(B(x,y+d))return false;return true;};
-  for(let y=1;y<bh;y++)for(let x=0;x<bw;x++){
-    if(!B(x,y)||B(x,y-1)||D(x,y-1)||!openAbove(x,y))continue;   // a top face under the sky
-    if((x&1)||hash2i(x,y+11)%4)continue;        // one column in eight, never adjacent
-    const tall=(k>=2&&(hash2i(x+5,y)&1))?2:1;
-    let grew=0;
-    for(let dd=1;dd<=tall;dd++){
-      if(y-dd<0||B(x,y-dd)||D(x,y-dd))break;
-      deco[(y-dd)*bw+x]=1;grew=dd;
-    }
-    if(grew===2&&hash2i(x,y+3)%3===0)deco[(y-2)*bw+x]=2;
-  }
-  if(k>=2)for(let y=0;y<bh-1;y++)for(let x=0;x<bw;x++){
-    if(!B(x,y)||B(x,y+1)||!openBelow(x,y))continue;   // an underside over open air
-    if((x&1)||hash2i(x,y+23)%3)continue;        // one column in six
-    const len=2+hash2i(x+9,y)%3;
-    for(let dd=1;dd<=len;dd++){
-      const yy=y+dd;
-      // two cells of air between a root tip and anything under it — the
-      // blades on the line below included, or the lines would knit together
-      let clear=yy<bh;
-      for(let d=0;d<=2&&clear;d++)if(B(x,yy+d)||D(x,yy+d))clear=false;
-      if(!clear)break;
-      deco[yy*bw+x]=4;
-    }
-  }
-  // the silhouette the rim wraps: letters, blades and blooms — not the water
-  const S=(x,y)=>{const d=D(x,y);return B(x,y)||d===1||d===2;};
   const gx0=(((W-blockW)>>1))-pad;
   const gy0=Math.max(0,clearTop-pad);
   for(let y=0;y<bh;y++)for(let x=0;x<bw;x++){
@@ -5737,77 +5410,43 @@ function stampWordmark(){
     const gi=idx(wx,wy);
     if(grid[gi]!==EMPTY)continue;
     if(B(x,y)){
-      /* THE UNDERSIDE — one row of dark sand along the bottom of every stroke.
+      /* THE FOOTING — a one-cell ash sole under every stroke.
 
          Turf and sand both hold on their own (neither is debris, so step()
          returns on them the moment it sees frozen), so this is not holding the
-         name up: it is the letter's shaded underside, sitting between the face
-         and the soot rim below it so the stroke has an edge to end on rather
-         than running straight into its own shadow. It is also a frozen
-         non-debris cell under every stroke, which is what would keep a wood
-         or brick letter from detaching on its first tick if the palette ever
-         grew one. Variant 2 is SAND_T's dark heavy grain. */
-      if(!B(x,y+1)){grid[gi]=SAND;variant[gi]=2;frozen[gi]=1;continue;}
-      // THE CAP — how many cells of turf sit on this cell, if any
-      const cap=WM_CAP(k);
-      let up=0;
-      for(let dd=1;dd<=cap;dd++)if(!B(x,y-dd)){up=dd;break;}
-      if(up){
-        grid[gi]=GRASS;
-        // lit crust, patchy body, dark root line — the meadow's own sod
-        variant[gi]=up===1?2:(up===cap?3:(hash2i(x>>2,y>>1)&1));
-      }else{
-        grid[gi]=SAND;
-        // the bevel: bright quartz down the lit side, dark heavy down the
-        // shaded side, pale quartz across the face between them — the pale
-        // tone rather than the base grain because the base grain sits at
-        // the daytime sky's own luminance and the face needs to be lighter
-        // than what it hangs in front of, not just outlined against it
-        variant[gi]=(k>=2&&!B(x-1,y))?6:((k>=2&&!B(x+1,y))?2:1);
-      }
+         name up today: it is the letter's dark underside, sitting between the
+         sand and its own drop shadow so the stroke has an edge to end on
+         rather than fading into the rim.
+
+         It is also what makes the palette safe to change. Add wood, brick or
+         leaf to WM_BANDS and every cell of that band is debris hung in mid-air
+         — tryDecompose is satisfied by any frozen cell below, and this is it.
+         Without the sole, a brick band would detach on its first tick. */
+      if(!B(x,y+1)){grid[gi]=ASH;variant[gi]=1;frozen[gi]=1;continue;}
+      const band=wmBandAt(x,(y-pad)/blockH);
+      grid[gi]=band.m;
+      // one lit cell along the top of every stroke, so six materials with six
+      // different ideas of shading still share one light source
+      variant[gi]=B(x,y-1)?0:band.hi;
       frozen[gi]=1;
       continue;
     }
-    const dv=D(x,y);
-    if(dv){
-      if(dv===3){grid[gi]=WATER;variant[gi]=hash2i(x,y)&7;}                // the tarn, live
-      else if(dv===1){grid[gi]=PLANT;variant[gi]=hash2i(x,y)&7;frozen[gi]=1;}
-      else if(dv===2){grid[gi]=BERRY;variant[gi]=(hash2i(x,y)&1)?2:0;frozen[gi]=1;}
-      else{grid[gi]=DIRT;variant[gi]=0x08|(3<<4);frozen[gi]=1;}           // a root, in humus
-      continue;
-    }
-    /* The rim is what stops a pale face from dissolving into a cloud. At k>=2
+    /* The rim is what stops a pale band from dissolving into a cloud. At k>=2
        it is a keyline: one cell all round, two below and to the right, so the
        letters read as standing slightly in front of the sky. At k=1 there is
        no room for that — the counter of an H is three cells wide and a keyline
        down both sides closes it — so it drops to the bottom-right half only,
-       which is a plain drop shadow.
-
-       Drawn in SOOT (ash with bit 3 set), not plain ash. Sand and the daytime
-       sky behind it sit at nearly the same luminance — 170 against about 172
-       — so the name never had value contrast with its background, only hue,
-       and a warm mid-grey rim did not supply any. A near-black line does:
-       it is the same body-and-outline every authored thing in this world is
-       drawn with, at the same weight. */
+       which is a plain drop shadow. */
     let rim=false;
     if(k===1){
-      rim=!!(S(x-1,y)||S(x,y-1)||S(x-1,y-1));
+      rim=!!(B(x-1,y)||B(x,y-1)||B(x-1,y-1));
     }else{
-      for(let dy=-1;dy<=1&&!rim;dy++)for(let dx=-1;dx<=1;dx++)if(S(x+dx,y+dy)){rim=true;break;}
-      if(!rim)rim=!!(S(x-2,y)||S(x,y-2)||S(x-1,y-2)||S(x-2,y-1)||S(x-2,y-2));
+      for(let dy=-1;dy<=1&&!rim;dy++)for(let dx=-1;dx<=1;dx++)if(B(x+dx,y+dy)){rim=true;break;}
+      if(!rim)rim=!!(B(x-2,y)||B(x,y-2)||B(x-1,y-2)||B(x-2,y-1)||B(x-2,y-2));
     }
-    if(rim){grid[gi]=ASH;variant[gi]=0x08|1;frozen[gi]=1;}
+    if(rim){grid[gi]=ASH;variant[gi]=1;frozen[gi]=1;}
   }
   WORDMARK_BOX={x0:gx0,y0:gy0,x1:gx0+bw-1,y1:gy0+bh-1};
-  wmPerches=[];
-  for(let y=gy0+2;y<gy0+bh;y++)for(let x=gx0;x<gx0+bw;x++){
-    if(x<0||x>=W||y<2||y+1>=H)continue;
-    const gi=idx(x,y),below=grid[gi+W];
-    if(grid[gi]!==EMPTY||grid[gi-W]!==EMPTY||grid[gi-2*W]!==EMPTY)continue;
-    if(!frozen[gi+W]||!(below===GRASS||below===PLANT||below===BERRY||below===ASH))continue;
-    wmPerches.push(x,y);
-  }
-  wmPerchTaken=new Uint8Array(Math.max(1,wmPerches.length>>1));
 }
 
 /* ═══ DEPTH STRATA ═══
@@ -6356,65 +5995,18 @@ function spawnNaturalLandscape(){
     return dx*dx+dy*dy;
   }
 
-  /* ── what the topsoil is made of ──
-     One brown from the turf down to the stone beds, with a per-cell speck on
-     it, and thirty cells of that on screen: it read as static. Soil in
-     section has a profile and it has things in it, and both come from fields
-     rather than coin flips (see GROUND NOISE):
-       · a dark hand's-breadth of humus directly under the turf, with a few
-         root threads hanging out of it into the loam
-       · clods — connected dark blotches, wider than they are tall, because
-         soil is laid down and compressed in that direction
-       · dry lenses, the same field's low side, one step paler
-     `dd` is cells below the turf. The tones are DIRT_T's, packed into the
-     variant's structured bits so the cell keeps its tone if it is dug out. */
-  const soilVariant=(x,y,dd,rootLen)=>{
-    if(dd<2||dd<2+rootLen)return 0x08|(3<<4);            // humus, and its roots
-    const n=fbm2(x*0.085,y*0.17,3);                       // anisotropic: clods lie flat
-    if(n>0.60)return 0x08|(1<<4);                          // a clod
-    if(n<0.40)return 0x08|(2<<4);                          // a dry lens
-    return 0x08;                                           // loam
-  };
   // pass 1 — turf, topsoil, then the full depth column beneath them
   for(let x=0;x<W;x++){
-    /* The turf's underside wavers, for the same reason the wordmark's rim
-       does not run ruled: a straight horizontal line reads as a mistake in a
-       world where nothing else is ruled. Two incommensurate sines and no
-       random, so the same meadow comes back identical on every reset. */
+    /* The turf's underside wavers, for the same reason the wordmark's material
+       seams do: a ruled horizontal line reads as a mistake in a world where
+       nothing else is ruled. Two incommensurate sines and no random, so the
+       same meadow comes back identical on every reset. */
     const td=Math.max(1,Math.round(turfDepth+Math.sin(x*0.21)*0.9+Math.sin(x*0.071+2.1)*0.7));
-    // one column in four carries a root two to five cells down out of the humus
-    const rh=hash2i(x,3);
-    const rootLen=((rh&7)<2)?2+((rh>>3)&3):0;
     for(let y=surf[x];y<H;y++){
       const d=y-surf[x];
-      /* The turf band is drawn as a band, not as a stack of identical cells:
-         its top row is the lit crust, its bottom row the dark root line where
-         it meets the soil, and only the body between them takes the patchy
-         two-tone. Three flat lines are what make three cells of green read
-         as a sod with a top and an underside instead of as a stripe. */
-      if(d<td)putCell(x,y,GRASS,d===0?2:(d===td-1?3:(hash2i(x>>2,y>>1)&1)));
-      else if(d<soilDepth)putCell(x,y,DIRT,soilVariant(x,y,d-td,rootLen));
+      if(d<td)putCell(x,y,GRASS,hash2i(x>>2,y>>1)&1);
+      else if(d<soilDepth)putCell(x,y,DIRT);
       else putCell(x,y,strataMat(d,y,x));
-    }
-  }
-  /* ── stones in the soil ──
-     Sparse, two cells wide, laid flat, from a lattice so no two crowd each
-     other: one lattice cell in four holds a pebble, at a hashed spot inside
-     it. Real STONE rather than a dark dirt tone, because the value gap
-     between raw rock and loam is what makes a stone read as a stone and not
-     as a dark clod, and because a pebble should stay a pebble when the soil
-     round it is dug away. Kept out of the humus, where it would break the
-     one clean dark line under the turf. */
-  for(let x=1;x<W-1;x++){
-    const sx=surf[x];
-    for(let y=sx+turfDepth+3;y<sx+soilDepth-1&&y<H;y++){
-      const lx=(x/9)|0, ly=(y/6)|0, h=hash2i(lx,ly);
-      if((h&7)>=2)continue;
-      const px=lx*9+1+((h>>3)%7), py=ly*6+1+((h>>6)%4);
-      if(y!==py||(x!==px&&x!==px+1))continue;
-      const gi=idx(x,y);
-      if(grid[gi]!==DIRT||!(variant[gi]&0x08))continue;
-      grid[gi]=STONE;variant[gi]=hash2i(x,y)&3;
     }
   }
   // Weathering last: it is the only rule that needs the voids — the pond bowl,
@@ -6496,24 +6088,6 @@ function spawnNaturalLandscape(){
     if(Math.random()<0.05)putCell(x,sy,STONE,Math.random()*4|0); // a worn pebble
   }
 
-  // ── a patch worn bare in front of the chest: something heavy was dragged
-  // to it, and people have stood there reading the board. From the board's
-  // post to the chest's far foot, ragged at both ends, hashed rather than
-  // rolled so it costs the seeded preview nothing. The turf pass below
-  // leaves bare earth alone, so no blades grow on it.
-  if(W>=160){
-    const chestL=Math.max(4,Math.min(W-31,Math.round(W*0.90)-15));
-    for(let x=chestL-9;x<chestL+29;x++){
-      if(x<1||x>=W-1)continue;
-      const sy=surf[x];
-      if(Math.sqrt(pondEl(x,sy))<1.15)continue;
-      const edge=x<chestL-6||x>=chestL+26;
-      if(edge&&(hash2i(x,1)&1))continue;
-      putCell(x,sy,DIRT,hash2i(x,7)%5);
-      if(hash2i(x,9)%17===0)putCell(x,sy,STONE,hash2i(x,11)&3);
-    }
-  }
-
   /* pass 3 — the grass fringe. The authored sprites carry the visual rhythm, so
      the meadow surface stays mostly clean and only pokes a blade or two above
      the turf. Raised from 6% to 14% when the shader's foreground berm was
@@ -6580,35 +6154,12 @@ function spawnNaturalLandscape(){
   // grass. The scene reads left-to-right: cottage village on the left,
   // a fence path leading to a focal oak on the rise, the pond on the
   // right with its well, and a pine grove on the far right edge.
-  /* A prop whose silhouette lands on an earlier sprite is walked sideways,
-     a cell at a time and alternating sides, up to `slack` cells before it is
-     given up on. Refusing outright was the rule, and at a 320-cell desktop it
-     refused most of the small things — the signpost against the log stack,
-     the fence and the panel against the greenhouse, the rock and the pebbles
-     against the well, both mushrooms and the bush against the oak, the fern
-     against the small pine — because the fractions they are placed at were
-     set for a wider world. The anchors go down first and never move; the
-     dressing finds the nearest clear ground. slack:0 pins a prop whose
-     position matters to something outside the grid, like the warning board
-     beside the chest. */
   function place(name,cx,opts){
     opts=opts||{};
     const w=spriteW(name),h=spriteH(name);
     if(!w||!h)return false;
-    const slack=opts.slack===undefined?8:opts.slack;
-    for(let n=0;n<=slack*2;n++){
-      const off=(n+1)>>1;
-      const r=placeAt(name,cx+((n&1)?-off:off),opts,w,h);
-      if(r)return r;                        // {gx,top,gyBottom}: where it went
-    }
-    return false;
-  }
-  function placeAt(name,cx,opts,w,h){
     const gx=cx-(w>>1);
     if(gx<1||gx+w>=W-1)return false;
-    // opts.shadow: the turf under the footing darkens to the sod's root
-    // tone, one cell either side — the contact shadow that seats a thing on
-    // the ground instead of leaving it laid on top of the grass
     // Trees stand on their roots; a canopy can extend over a pond bank.
     const foot=opts.rooted?Math.min(w,5):w,footX=gx+((w-foot)>>1);
     // sample surface across the footprint
@@ -6634,21 +6185,10 @@ function spawnNaturalLandscape(){
     for(let i=0;i<w;i++){
       const sx=Math.max(0,Math.min(W-1,gx+i));
       const sy=surf[sx];
-      if(sy>=0&&sy<H&&grid[idx(sx,sy)]===PLANT){grid[idx(sx,sy)]=GRASS;variant[idx(sx,sy)]=2;}
+      if(sy>=0&&sy<H&&grid[idx(sx,sy)]===PLANT)grid[idx(sx,sy)]=GRASS;
     }
     stampSprite(name,gx,gyBottom);
     const top=gyBottom-h+1;
-    if(opts.shadow){
-      const bottom=art[h-1];
-      for(let dx=-1;dx<=bottom.length;dx++){
-        const x=gx+dx;
-        if(x<0||x>=W)continue;
-        const near=(dx>=0&&dx<bottom.length&&bottom[dx]!=='.')||(dx>0&&bottom[dx-1]!=='.')||(dx+1<bottom.length&&bottom[dx+1]!=='.');
-        if(!near)continue;
-        const y=surf[x];
-        if(y>=0&&y<H&&grid[idx(x,y)]===GRASS)variant[idx(x,y)]=3;
-      }
-    }
     if(name==='cottage')sceneAccents.push({kind:'chimney',x:gx+19,y:top+1,m:BRICK});
     if(name==='oak')sceneAccents.push({kind:'leaf',x:gx,y:top+6,m:LEAF});
     /* A building gets a footing. The sprite sits one cell above the LOWEST
@@ -6678,17 +6218,12 @@ function spawnNaturalLandscape(){
         const x=gx+dx;
         for(let y=gyBottom+1;y<=surf[x]&&y<H;y++){
           const i=idx(x,y);
-          /* A reed stalk from the rim pass is not footing. It is a loose
-             PLANT cell, and stopping on it left the sprite standing on a
-             stalk with no root under it — the leaves lost support on the
-             first tick whenever the rim's random happened to put a reed in
-             the cattail's column. Root through it. */
-          if(grid[i]!==EMPTY&&grid[i]!==WATER&&grid[i]!==PLANT)break;
+          if(grid[i]!==EMPTY&&grid[i]!==WATER)break;
           grid[i]=WOOD;variant[i]=3;frozen[i]=1;
         }
       }
     }
-    return {gx,top,gyBottom};
+    return true;
   }
   /* Order is draw order. stampSprite never overwrites a frozen cell, so the
      first sprite stamped on a spot owns it and anything later slips behind.
@@ -6698,30 +6233,7 @@ function spawnNaturalLandscape(){
   // ── solarpunk homestead on the left: turbine on the horizon, cottage with
   // its living roof and a solar panel in the yard, greenhouse in the garden,
   // a picket fence running from the garden to the arch that frames the path
-  /* ── how much meadow there is ──
-     The fractions below were set for a 480-cell world (a 1920px screen).
-     At 320 cells the same fractions put the cottage against the greenhouse,
-     the greenhouse against the arch and the arch against the oak, with no
-     yard between any of them, and a prop that could not be walked clear of
-     its neighbours (see place) was dropped. Below 400 cells the dressing
-     answers the space it has: the solar panel goes up on the cottage roof,
-     the fence keeps two of its four posts, the lantern moves to the far side
-     of the arch, one mushroom grows under the oak on the side the trunk
-     leaves room, and the bush and the oak's fern sit out. */
-  const roomy=W>=400;
-  const cot=place('cottage',meadowCottageX(),{plinth:true});
-  if(cot&&!roomy){
-    // rows 8-10 of the roof, from column 16, stepping right — inside the
-    // roof's edge on every row, and clear of the chimney and the skylight
-    const art=SPRITES.solarroof;
-    for(let r=0;r<art.length;r++)for(let c=0;c<art[r].length;c++){
-      const spec=SPRITE_MATS[art[r][c]];
-      if(!spec)continue;
-      const x=cot.gx+16+c,y=cot.top+8+r;
-      if(x<0||x>=W||y<0||y>=H)continue;
-      const gi=idx(x,y);grid[gi]=spec.m;variant[gi]=spec.v;frozen[gi]=1;
-    }
-  }
+  place('cottage',meadowCottageX(),{plinth:true});
   // Keep both focal silhouettes whole even on a 320px-wide phone.
   place('oak',meadowOakX(),{rooted:true});
   if(W>=260)place('logstack',Math.round(meadowCottageX()-spriteW('cottage')/2-8));
@@ -6730,31 +6242,19 @@ function spawnNaturalLandscape(){
   const greenhouseX=Math.max((W*0.25)|0,meadowCottageX()+(spriteW('cottage')>>1)+(spriteW('greenhouse')>>1)+3);
   place('greenhouse',greenhouseX,{plinth:true});
   place('archway',(W*0.36)|0);
-  if(roomy)place('solarpanel',(W*0.205)|0);
-  place('fence',(W*0.31)|0)||place('fenceShort',(W*0.31)|0);
+  place('solarpanel',(W*0.205)|0);
+  place('fence',(W*0.31)|0);
 
   // ── the well on the pond's near bank — the far bank belongs to the chest
   // (EVIL_CHEST_AT), which is drawn in front of anything standing there —
-  // and a pine grove sweeping along the far-right horizon past the pond.
-  // The warning board stands at the chest's left foot, between the pond's
-  // kerb and the chest, facing anyone who walks up from the pond. Its
-  // position mirrors placeEvilChest (EVIL_CHEST_AT=0.90, EVIL_W=30, and the
-  // chest's own clamp) rather than reading those constants, because this
-  // function runs in the offline tools before that code exists. Rooted, so
-  // only the post's footing is tested against the pond rim — the board may
-  // hang over the kerb. It replaces the small pine that stood there, which
-  // was mostly behind the chest anyway.
+  // and a pine grove sweeping along the far-right horizon past the pond
   place('well',(W*0.56)|0,{plinth:true});
-  if(W<160){
+  if(W<150){
     place('smallpine',W-7,{rooted:true,allowPond:true});
   }else{
+    place('smallpine',(W*0.85)|0,{rooted:true});
     place('pine',(W*0.91)|0,{rooted:true});
     place('pine',Math.min(W-10,(W*0.97)|0),{rooted:true});
-    const chestL=Math.max(4,Math.min(W-31,Math.round(W*0.90)-15));
-    // On a tablet the gap between pond and chest is narrower than the board,
-    // so the post is allowed onto the pond's bank and roots down it the way
-    // the cattails do; the board hangs over the water's edge.
-    place('warnsign',chestL-10,W<260?{rooted:true,slack:0,shadow:true,allowPond:true,bank:true}:{rooted:true,slack:0,shadow:true});
   }
 
   // ── boulders, mushrooms, bushes tucked between the anchors. The
@@ -6762,14 +6262,12 @@ function spawnNaturalLandscape(){
   place('rock',(W*0.52)|0);
   place('cattail',Math.max(6,Math.round(pondCX-pondRX)),{allowPond:true,bank:true});
   place('cattail',Math.min(W-7,Math.round(pondCX+pondRX)),{allowPond:true,bank:true});
-  if(W>=170&&roomy)place('fern',meadowOakX()+16,{rooted:true});
-  if(roomy){for(const f of [0.395,0.455]){ place('mushroom',(W*f)|0); }}
-  else place('mushroom',meadowOakX()-(spriteW('oak')>>1)+21);   // right of the trunk, under the canopy
-  if(roomy)place('bush',(W*0.485)|0);
+  if(W>=170)place('fern',meadowOakX()+16,{rooted:true});
+  for(const f of [0.395,0.455]){ place('mushroom',(W*f)|0); }
+  place('bush',(W*0.485)|0);
   if(W>=170){
     place('fern',(W*0.83)|0,{rooted:true});
-    if(roomy)place('lantern',Math.round(W*0.36)-12);
-    else place('lantern',((W*0.36)|0)+(spriteW('archway')>>1)+4);
+    place('lantern',Math.round(W*0.36)-12);
     place('wildflower',greenhouseX-18);
     place('wildflower',(W*0.075)|0);
     place('pebbles',(W*0.585)|0,{allowPond:true});
@@ -6803,14 +6301,9 @@ function spawnNaturalLandscape(){
 // This runs on simulation ticks, so Pause also pauses smoke and leaf fall.
 function doSceneAmbient(){
   sceneAmbientTick++;
-  // The chimney smokes from dusk until dawn — a fire is lit when it gets
-  // cold and dark, and a house smoking at noon in summer read as on fire.
-  // The offline tools slice this function without the clock, so the test
-  // is guarded rather than assumed.
-  const evening=(typeof dayFactor==='function')?dayFactor()<0.5:false;
   for(const a of sceneAccents){
     if(mat(a.x,a.y)!==a.m||!frozen[idx(a.x,a.y)])continue;
-    if(a.kind==='chimney'&&evening&&sceneAmbientTick%240===0&&eFree(a.x,a.y-1)){
+    if(a.kind==='chimney'&&sceneAmbientTick%240===0&&eFree(a.x,a.y-1)){
       setMat(a.x,a.y-1,SMOKE,3);
       if(eFree(a.x+1,a.y-1))setMat(a.x+1,a.y-1,SMOKE,2);
     }
@@ -6991,14 +6484,6 @@ function spawnContent(){
   spawnNaturalLandscape();
   // the name, in the sky over it, out of the same grid
   stampWordmark();
-  // A starter flock. Birds used to exist only once someone painted them,
-  // which meant the perching (see updateBoids) happened for nobody who had
-  // not found the bird brush. A handful over the pond end of the meadow is
-  // enough for the sky to move and for the name to get its first visitors.
-  {
-    const n=W>=200?10:5;
-    for(let i=0;i<n;i++)spawnBird(W*0.55+Math.random()*W*0.35,VH*0.10+Math.random()*VH*0.18);
-  }
 
   // a small black cat patrolling the village (signpost → fence)
   {
@@ -7456,12 +6941,6 @@ canvas.addEventListener('mouseleave',()=>{
   brushRing.style.opacity='0';
   releaseHover();
 });
-// Looking around — see PAR_MAX. On the document, not the canvas, so the far
-// scenery keeps answering while the pointer is over a window or the shelf.
-document.addEventListener('mousemove',e=>{
-  const w=vpW();
-  if(w>0)parTarget=(e.clientX/w-0.5)*2*PAR_MAX;
-});
 function releaseHover(){
   if(!hoverCells.length)return;
   let x0=BIG,y0=BIG,x1=-1,y1=-1;
@@ -7886,25 +7365,7 @@ const bctx=birdCanvas.getContext('2d');
 function spawnBird(x,y){
   if(birds.length>=BIRD_MAX)return;
   const a=Math.random()*Math.PI*2;
-  // tgt: the perch (index into wmPerches) a bird is flying to, -1 for none;
-  // sit: ticks left on the perch, 0 in the air; face: which way it sits
-  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0,fed:0,tgt:-1,tgtT:0,sit:0,face:1});
-}
-/* ── PERCHING ──
-   The flock is the one thing in the sky that moves, and the name is the one
-   thing in the sky that stands still, and until now they ignored each other.
-   A few birds at a time now peel off, glide down onto the letters and sit
-   there: on the crossbar of the T, the rim of the M, a blade on the K. They
-   sit for six to twenty seconds, then go, and they go at once if the pointer
-   comes within twelve cells or the letter under them is no longer there.
-   PERCH_MAX scales with how much name there is to sit on, so a phone gets a
-   pair and a desktop half a dozen; a perched bird leaves the flock's
-   neighbour hash so nobody tries to fly in formation with a bird on a roof. */
-function perchMax(){return Math.min(8,Math.max(2,wmPerches.length>>5));}
-function leavePerch(b){
-  if(b.tgt>=0&&wmPerchTaken)wmPerchTaken[b.tgt]=0;
-  b.tgt=-1;b.sit=0;b.tgtT=0;
-  b.vx=b.face*0.8;b.vy=-0.9;b.flap=0;
+  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0,fed:0});
 }
 
 // terrain birds avoid colliding with — any solid stamp counts
@@ -7930,27 +7391,16 @@ function updateBoids(){
   if(!boidHead||boidGW!==gw||boidGH!==gh){boidHead=new Int32Array(gw*gh);boidGW=gw;boidGH=gh;}
   if(!boidNext||boidNext.length<n)boidNext=new Int32Array(Math.max(n*2,64));
   boidHead.fill(-1);
-  let perched=0;
   for(let i=0;i<n;i++){
     const b=birds[i];
-    if(b.tgt>=0)perched++;                 // sitting or on final approach
-    if(b.sit>0)continue;                   // a perched bird is not a flockmate
     let cx=(b.x/BOID_CELL)|0,cy=(b.y/BOID_CELL)|0;
     if(cx<0)cx=0;else if(cx>=gw)cx=gw-1;
     if(cy<0)cy=0;else if(cy>=gh)cy=gh-1;
     const c=cy*gw+cx;
     boidNext[i]=boidHead[c];boidHead[c]=i;
   }
-  const PERCH_MAX=perchMax();
   for(let i=0;i<n;i++){
     const b=birds[i];
-    if(b.sit>0){
-      b.sit--;
-      const dpx=b.x-mouseSimX,dpy=b.y-mouseSimY;
-      const gone=grid[idx(b.x|0,(b.y|0)+1)]===EMPTY;
-      if(b.sit>0&&!gone&&dpx*dpx+dpy*dpy>144)continue;
-      leavePerch(b);                        // and fall through into flight
-    }
     let alX=0,alY=0,coX=0,coY=0,sepX=0,sepY=0,nA=0,nS=0;
     const cx0=Math.max(0,((b.x-perc)/BOID_CELL)|0),cx1=Math.min(gw-1,((b.x+perc)/BOID_CELL)|0);
     const cy0=Math.max(0,((b.y-perc)/BOID_CELL)|0),cy1=Math.min(gh-1,((b.y+perc)/BOID_CELL)|0);
@@ -8002,36 +7452,10 @@ function updateBoids(){
         ay+=(bty/bm*maxSpeed-b.vy)*0.65;
       }
     }
-    // landing: a bird with a perch flies at it, slowing as it closes, and
-    // sets down when it is within a cell and a half. Terrain avoidance is
-    // off for it, because the letters are terrain.
-    if(b.tgt>=0){
-      const px=wmPerches[b.tgt*2]+0.5,py=wmPerches[b.tgt*2+1]+0.5;
-      const dx=px-b.x,dy=py-b.y,d=Math.hypot(dx,dy);
-      if(d<1.5){
-        b.x=px;b.y=py;b.vx=0;b.vy=0;b.flap=0;
-        b.sit=360+(Math.random()*840|0);
-        b.face=dx>=0?1:-1;
-        continue;
-      }
-      const sp=Math.min(maxSpeed,0.35+d*0.08);
-      ax+=(dx/d*sp-b.vx)*1.4;ay+=(dy/d*sp-b.vy)*1.4;
-      if(++b.tgtT>700)leavePerch(b);        // could not get there: give the perch up
-    }else{
-      if(b.fed===0&&perched<PERCH_MAX&&wmPerches.length&&Math.random()<0.003){
-        const np=wmPerches.length>>1;
-        for(let tries=0;tries<6;tries++){
-          const k=Math.random()*np|0;
-          if(wmPerchTaken[k])continue;
-          const dx=wmPerches[k*2]-b.x,dy=wmPerches[k*2+1]-b.y;
-          if(dx*dx+dy*dy<2500){wmPerchTaken[k]=1;b.tgt=k;b.tgtT=0;perched++;break;}
-        }
-      }
-      // terrain avoidance: look ahead, pull away from solid + bias upward
-      const lookX=(b.x+b.vx*8)|0,lookY=(b.y+b.vy*8)|0;
-      if(isSolidForBird(lookX,lookY)){
-        ax-=b.vx*0.4;ay-=b.vy*0.4;ay-=0.35;
-      }
+    // terrain avoidance: look ahead, pull away from solid + bias upward
+    const lookX=(b.x+b.vx*8)|0,lookY=(b.y+b.vy*8)|0;
+    if(isSolidForBird(lookX,lookY)){
+      ax-=b.vx*0.4;ay-=b.vy*0.4;ay-=0.35;
     }
     // also avoid fire and open melt below
     {
@@ -8095,16 +7519,6 @@ function drawBirds(){
   bctx.fillStyle='#1c1a22';
   for(const b of birds){
     const x=b.x|0,y=b.y|0;
-    if(b.sit>0){
-      // sitting: a plump body, the head forward and up, the tail behind. The
-      // head dips every so often, which is all the idle a five-pixel bird
-      // needs to read as alive rather than as a mark on the letter.
-      const f=b.face,dip=((b.sit>>5)&3)===0?1:0;
-      bctx.fillRect(x-1,y,3,1);
-      bctx.fillRect(x+f,y-1+dip,1,1);
-      bctx.fillRect(x-2*f,y-1,1,1);
-      continue;
-    }
     // pick a shape based on flight direction + flap phase
     const dirRight=b.vx>=0;
     const up=((b.flap>>2)&1)===0;
@@ -8645,7 +8059,6 @@ function loop(ts){
     applyHoverFreeze();
   }
   lastSim=ts;
-  parX+=(parTarget-parX)*0.08;   // the far scenery settling after a lean
   updateBurns(ts); // push fresh burn holes into the DOM even while paused
   renderAll();
   drawBirds();
@@ -10441,8 +9854,8 @@ const evilCursorLayer=document.getElementById('evilCursors');
 // standing in the pine grove, clear of the pond (which ends at 0.795W) and
 // placed so a pine still shows either side of it
 const EVIL_CHEST_AT=0.90;
-// The buffer includes breathing room above a 26x22-cell chest; its feet keep
-// the established position in the grove while the lower lid reveals more trees.
+// sized against the scenery — the cottage is 26x24 cells and the pines 15x22,
+// so 30x27 reads as the biggest thing in the clearing without being absurd
 const EVIL_W=30,EVIL_H=27;
 const EVIL_FEET=26;         // sprite row that sits on the ground
 const EVIL_PAD=8;           // headroom above row 0 for the lid to swing into
@@ -10458,202 +9871,132 @@ let evilShakeT=0,evilTwitchT=200,evilBurstT=0;
    The chest is drawn as MATERIALS, not colours: every cell picks a sim
    material + variant, and the sprite is coloured through matTexel — the same
    palette, jitter and micro-texture the world is painted with. So its planks
-   are the timber the cottage is built from, its bands use hand-shaded iron,
-   and its brass fittings and warning tag share the warm thatch ramp. */
-// Nine rows of curved timber. The crown starts four cells below the origin.
+   are the timber the cottage is built from, its bands are stone, its warning
+   board is thatch and its eyes are fire. */
+const EC={
+  wood:WOOD, woodLit:2, woodShade:1, woodDeep:3,    // variant = shade index
+  iron:STONE, ironLit:ASH, ironDark:BODY,
+  board:THATCH, ink:BERRY,
+  glow:FIRE, ember:LAVA, dark:BODY, bone:SAND, moss:MOSS
+};
+// 3x5 pixel glyphs — only the letters "DO NOT OPEN" needs
+const EVIL_FONT={
+  D:[0b110,0b101,0b101,0b101,0b110],
+  O:[0b111,0b101,0b101,0b101,0b111],
+  N:[0b101,0b111,0b111,0b111,0b101],
+  T:[0b111,0b010,0b010,0b010,0b010],
+  P:[0b111,0b101,0b111,0b100,0b100],
+  E:[0b111,0b100,0b110,0b100,0b111],
+  ' ':[0,0,0,0,0]
+};
+// lid silhouette (rows 0-9): the arch narrows toward the crown
 function evilLidSpan(r){
-  const spans=[[9,20],[6,23],[4,25],[3,26]];
-  return spans[r]||[2,27];
+  const s=[[10,19],[7,22],[5,24],[3,26],[2,27]];
+  return r<s.length?s[r]:[1,28];
 }
 // the sprite is rendered once into an offscreen buffer and blitted onto the
 // bird canvas every frame, so a redraw only happens when the chest changes
 let evilCtx=null,evilImg=null;
 const evilMat=new Uint8Array(EVIL_W*EVIL_BH);
 const evilVar=new Uint8Array(EVIL_W*EVIL_BH);
-const evilLightCore=new Float32Array(4),evilLightWide=new Float32Array(4);
-function evilChestWidth(){return W<160?20:EVIL_W;}
-// Match the world's bilinear, clamped light textures, including their flipped Y.
-function evilSampleLight(buf,w,h,u,v,out){
-  out.fill(0);
-  if(!buf||!w||!h)return;
-  const x=Math.max(0,Math.min(w-1,u*w-0.5)),y=Math.max(0,Math.min(h-1,v*h-0.5));
-  const x0=Math.floor(x),y0=Math.floor(y),x1=Math.min(w-1,x0+1),y1=Math.min(h-1,y0+1);
-  const fx=x-x0,fy=y-y0;
-  for(let k=0;k<4;k++){
-    const a=buf[(y0*w+x0)*4+k]*(1-fx)+buf[(y0*w+x1)*4+k]*fx;
-    const b=buf[(y1*w+x0)*4+k]*(1-fx)+buf[(y1*w+x1)*4+k]*fx;
-    out[k]=(a*(1-fy)+b*fy)/255;
-  }
-}
 function drawEvilChest(){
   const g=evilCtx;
   if(!g)return;
   evilMat.fill(0);evilVar.fill(0);
-  const o=Math.max(0,Math.min(1,evilOpenT));
-  const lift=Math.round(o*7),lidY=r=>4+Math.round(r*(1-0.18*o))-lift;
-  const lip=lidY(8);
+  const o=evilOpenT;                       // 0 = latched, 1 = wide open
+  // Hinging the lid back = squash it toward its own top edge and lift it clear.
+  // Both are whole-cell, so every row still lands on the grid — shearing it
+  // into a parallelogram read as a broken sprite.
+  const lift=Math.round(o*3), sq=1-0.35*o;
+  const lidY=r=>Math.round(r*sq)-lift;
+  // sprite rows are chest-relative; the buffer carries EVIL_PAD rows of sky
+  // above row 0 so the lid has somewhere to go
   const px=(x,y,m,v)=>{
     if(x<0||x>=EVIL_W||y<-EVIL_PAD||y>=EVIL_H)return;
     const i=(y+EVIL_PAD)*EVIL_W+x;evilMat[i]=m;evilVar[i]=v||0;
   };
   const row=(x0,x1,y,m,v)=>{for(let x=x0;x<=x1;x++)px(x,y,m,v);};
   const box=(x0,y0,x1,y1,m,v)=>{for(let y=y0;y<=y1;y++)row(x0,x1,y,m,v);};
-  const iron=(x,y,shade=0)=>px(x,y,STONE,0x40|shade);
-  const band=(x,y,shade=0)=>{iron(x,y,shade);iron(x+1,y,1);};
+  // chain + lock dissolve pixel by pixel as the lid comes up
+  const held=(x,y)=>o<=0||(hash2i(x+31,y*7)%997)/997>o;
+  // one 2-wide iron band, flat — the scenery sprites don't shade finer than this
+  const strap=(x0,y,dx)=>{px(x0+dx,y,EC.iron);px(x0+1+dx,y,EC.ironDark);};
+  // 2-row run of links: light/dark alternating pairs read as interlocking rings
+  const chain=(x0,x1,y,dx)=>{
+    for(let x=x0;x<=x1;x++){
+      if(!held(x,y))continue;
+      const a=((x-x0)&3)<2;
+      px(x+dx,y,a?EC.ironLit:EC.iron);
+      px(x+dx,y+1,a?EC.iron:EC.ironLit);
+    }
+  };
 
-  if(W<160){
-    // A separately drawn 18x16 silhouette fits the narrow pond bank. Keeping
-    // whole pixels preserves the lock and rivets that resampling would erase.
-    const top=10-Math.round(o*6),smallY=r=>top+Math.round(r*(1-0.18*o)),rim=smallY(6);
-    if(rim<16){
-      box(2,rim+1,17,16,BODY);
-      if(o>0.55){px(6,15,LAVA);px(12,15,LAVA);if(o>0.85){px(7,14,FIRE);px(13,14,FIRE);}}
-    }
-    box(1,17,18,24,WOOD);
-    for(let y=17;y<=24;y++){
-      px(1,y,WOOD,3);px(17,y,WOOD,1);px(18,y,BODY);
-      band(3,y);band(15,y,1);
-    }
-    for(const y of [18,22])row(5,14,y,WOOD,2);
-    row(5,14,21,WOOD,3);row(6,8,20,WOOD,1);
-    for(const y of [18,23]){iron(3,y,2);iron(15,y,2);}
-    row(2,17,24,WOOD,3);row(2,4,25,BODY);row(15,17,25,BODY);
-    for(let r=0;r<=6;r++){
-      const a=r===0?6:r===1?3:r===2?2:1,b=19-a,y=smallY(r);
-      row(a,b,y,WOOD,r<2?2:r<4?0:1);px(a,y,WOOD,3);px(b,y,WOOD,3);
-      if(r>0&&r<6){const bx=r===1?4:3;band(bx,y,r<3?2:0);band(18-bx,y,1);}
-      if(r===4)row(5,14,y,WOOD,3);
-      if(r===6)row(a,b,y,STONE,0x43);
-    }
-    row(8,11,smallY(1),WOOD,2);iron(3,smallY(4),2);iron(15,smallY(4),2);
-    for(let n=0;n<5;n++){
-      const y=16+Math.round(n*.3+o*n*.6),pull=Math.round(o*n*.6);
-      iron(4+n-pull,y,n%2?0:2);iron(15-n+pull,y,1);
-    }
-    const drop=Math.round(o*3);
-    iron(8,14+drop,2);iron(11,14+drop);
-    if(o<0.3)row(9,10,13+drop,STONE,0x42);
-    box(7,15+drop,12,19+drop,WOOD,3);
-    box(8,15+drop,11,18+drop,THATCH);
-    row(8,11,15+drop,THATCH,2);px(8,16+drop,THATCH,2);
-    px(9,16+drop,BODY);px(10,16+drop,BODY);px(9,17+drop,BODY);
-    box(13,19,15,23,THATCH,2);px(14,19,WOOD,3);
-    px(14,20,BERRY,3);px(14,21,BERRY,3);px(14,23,BERRY,3);
-    px(2,24,LEAF,1);px(16,24,MOSS,1);
-  }else{
-  // Recessed interior, framed by the lid's hinges and the front rim.
-  if(lip<12){
-    box(3,lip+1,26,13,BODY);
-    for(let y=lip+1;y<14;y++){px(2,y,WOOD,3);px(27,y,WOOD,3);}
-    row(4,25,13,WOOD,3);
-    if(o>0.45){
-      // Two low embers blink together; sparse sparks rise inside the opening.
-      const blink=(((-evilTick%240)+240)%240)>228;
-      for(const x of [10,19]){
-        px(x,11,LAVA);px(x+1,11,LAVA);
-        if(!blink&&o>0.75){px(x,10,FIRE);px(x+1,10,THATCH,2);}
-      }
-      for(let n=0;n<3;n++){
-        const age=(((-evilTick+n*17)%48)+48)%48;
-        const y=12-Math.floor(age/8),x=7+n*7+(age>24?1:0);
-        if(y>lip+1&&age<36)px(x,y,age<16?LAVA:FIRE);
-      }
-    }
+  /* ── the maw: the gap between the hinged lid and the body ── */
+  if(o>0){
+    box(2,lidY(9)+1,27,10,EC.dark);
+    for(let x=4;x<26;x+=2)if(Math.random()>0.35)px(x,10,EC.ember);
   }
 
-  // Three broad front planks, a shaded right return, and small raised feet.
-  box(2,14,27,23,WOOD);
-  for(let y=14;y<=23;y++){
-    px(2,y,WOOD,3);px(3,y,WOOD,2);
-    px(25,y,WOOD,1);px(26,y,WOOD,3);px(27,y,BODY);
+  /* ── lid (rows 0-9) ── */
+  for(let r=0;r<=9;r++){
+    const [x0,x1]=evilLidSpan(r);
+    const y=lidY(r);
+    if(r===0||r===9){row(x0,x1,y,WOOD,EC.woodDeep);continue;}
+    row(x0,x1,y,WOOD,r<=2?EC.woodLit:0);                 // one lit band, then base
+    px(x0,y,WOOD,EC.woodDeep);px(x1,y,WOOD,EC.woodDeep);
+    if(r>=2){strap(4,y,0);strap(24,y,0);}                // straps arc over the lid
   }
-  for(const y of [14,18,22])row(4,24,y,WOOD,2);
-  for(const y of [17,21])row(4,25,y,WOOD,3);
-  for(const [x,y,len] of [[8,16,3],[18,15,4],[9,20,2],[17,23,3]])row(x,x+len-1,y,WOOD,1);
-  px(10,15,WOOD,2);px(9,16,WOOD,3);px(10,16,WOOD,1); // one timber knot
-  row(2,27,24,WOOD,3);
-  for(const x of [3,22]){row(x,x+4,25,BODY);row(x,x+4,24,STONE,0x41);iron(x,24,2);}
-  for(let y=14;y<=23;y++){band(5,y);band(23,y,1);}
-  for(const y of [15,22]){iron(5,y,2);iron(23,y,2);}
-  row(3,26,13,STONE,0x43);row(4,25,14,WOOD,2);
 
-  // The lid stays pixel-aligned as it tips back. Broad curved highlights,
-  // interrupted plank seams and bent metal bands describe its volume.
-  for(let r=0;r<=8;r++){
-    const [a,b]=evilLidSpan(r),y=lidY(r);
-    row(a,b,y,WOOD,r<3?2:r<6?0:1);
-    px(a,y,WOOD,r===0?2:3);px(b,y,WOOD,3);
-    if(r===0)row(a+1,b-1,y,WOOD,2);
-    if(r===3||r===6)row(a+2,b-2,y,WOOD,r===3?0:3);
-    if(r>0&&r<8){
-      const bx=r===1?7:r===2?6:5;
-      band(bx,y,r<4?2:0);band(28-bx-1,y,r<3?0:1);
+  /* ── body (rows 10-24) ── */
+  row(1,28,10,WOOD,EC.woodDeep);
+  box(1,11,28,24,WOOD,0);
+  for(let y=11;y<=24;y++){px(1,y,WOOD,EC.woodDeep);px(28,y,WOOD,EC.woodDeep);}
+  for(let y=11;y<=24;y++){strap(4,y,0);strap(24,y,0);}
+  row(1,28,25,WOOD,EC.woodDeep);                         // foot rail
+
+  /* ── warning board nailed across the front ── */
+  box(2,12,27,24,EC.board);
+  row(2,27,12,EC.board,3);row(2,27,24,EC.board,3);
+  for(let y=12;y<=24;y++){px(2,y,EC.board,3);px(27,y,EC.board,3);}
+  const word=(s,sx,sy)=>{
+    for(let i=0;i<s.length;i++){
+      const gl=EVIL_FONT[s[i]];
+      if(!gl)continue;
+      for(let r=0;r<5;r++)for(let c=0;c<3;c++)
+        if(gl[r]&(4>>c))px(sx+i*4+c,sy+r,EC.ink,3);
     }
-    if(r===8){row(a,b,y,STONE,0x43);row(a+2,b-2,y,WOOD,3);}
-  }
-  row(11,15,lidY(2),WOOD,0);row(16,19,lidY(5),WOOD,1);
-  px(12,lidY(1),WOOD,2);px(19,lidY(4),WOOD,2);
-  iron(5,lidY(6),2);iron(23,lidY(6),2);
-  row(13,16,lidY(7),THATCH,3);row(14,15,lidY(7),THATCH);
+  };
+  word('DO NOT',3,14);       // 6 glyphs -> 23 wide, centred in the board
+  word('OPEN',7,20);         // 4 glyphs -> 15 wide
 
-  // A pair of chains sags from the bands to the lock, then falls to the sides.
-  for(let n=0;n<9;n++){
-    const y=11+Math.round(n*.35+o*n*.65),pull=Math.round(o*n*.65);
-    iron(5+n-pull,y,n%3===0?2:0);
-    iron(24-n+pull,y,n%3===0?0:1);
-    if(n%3===1){iron(5+n-pull,y+1,1);iron(24-n+pull,y+1,3);}
-  }
-
-  // Brass escutcheon and keyhole: the unlatched lock hangs on the front.
-  const drop=Math.round(o*4),lk=(x,y,m,v)=>px(x,y+drop,m,v);
-  for(let y=10;y<=12;y++){lk(13,y,STONE,0x42);lk(16,y,STONE,0x40);}
-  if(o<0.3){lk(14,9,STONE,0x42);lk(15,9,STONE,0x40);}
-  box(12,12+drop,17,16+drop,WOOD,3);
-  for(let y=12;y<=15;y++)for(let x=13;x<=16;x++)lk(x,y,THATCH,x===13||y===12?2:x===16?3:0);
-  lk(14,13,BODY);lk(15,13,BODY);lk(14,14,BODY);
-  lk(13,16,THATCH,3);lk(16,16,THATCH,3);
-
-  // A small torn warning tag leaves the timber visible. The warning itself
-  // is spelled out on the board staked beside the chest (SPRITES.warnsign,
-  // stamped into the meadow with the other props) and by the pointer label.
-  const sway=evilShakeT>0?(((evilShakeT/4)|0)&1):0;
-  px(21,15,WOOD,3);px(21+sway,16,THATCH,3);
-  box(19+sway,17,23+sway,22,THATCH,3);
-  box(19+sway,17,22+sway,21,THATCH,2);
-  px(21+sway,17,WOOD,3);
-  px(21+sway,18,BERRY,3);px(21+sway,19,BERRY,3);px(21+sway,21,BERRY,3);
-  px(19+sway,22,WOOD,2);iron(23+sway,22,sway?1:2);
-  // Only a few moss pixels touch the damp lower corners.
-  px(3,23,LEAF,1);px(4,24,MOSS,1);px(25,24,LEAF,3);
+  /* ── chain + padlock ── */
+  chain(2,27,10,0);
+  if(o<1){
+    const drop=Math.round(o*o*18);                       // the lock falls away
+    const lk=(x,y,m,v)=>{if(held(x,y))px(x,y+drop,m,v);};
+    // the lock straddles the lid seam and stops clear of the warning board
+    for(let x=14;x<=15;x++)lk(x,lidY(4),EC.iron);        // shackle rides the lid
+    for(const x of [13,16])for(let y=5;y<=7;y++)lk(x,lidY(y),EC.iron);
+    for(let y=7;y<=11;y++)for(let x=12;x<=17;x++)
+      lk(x,y,(y===7||y===11||x===12||x===17)?EC.ironDark:EC.iron);
+    lk(14,9,EC.dark);lk(15,9,EC.dark);                   // keyhole
   }
 
-  // Same moon tint, local light field and hue-preserving 32-level quantiser
-  // as the material shader. The old eight-channel levels erased the wood grain.
+  /* ── colour it through the world's palette, under the world's light ──
+     matTexel gives the raw material colour; the shader then multiplies every
+     particle by the ambient day factor and posterizes it to 8 levels. Doing
+     the same here is what keeps the chest from glowing on a night meadow. */
   if(!evilImg)evilImg=g.createImageData(EVIL_W,EVIL_BH);
   const d=evilImg.data;
-  const day=dayFactor(),ambient=0.42+0.58*day;
-  const tint=[0.78+0.22*day,0.86+0.14*day,1.08-0.08*day];
+  const amb=0.16+0.84*dayFactor();
   for(let y=0;y<EVIL_BH;y++)for(let x=0;x<EVIL_W;x++){
     const i=y*EVIL_W+x, o4=i*4;
     matTexel(evilMat[i],evilVar[i],evilSX+x,evilSY+y-EVIL_PAD,d,o4,S_SPRITE);
     if(!d[o4+3])continue;
-    const u=(evilSX+x+0.5)/W,v=1-(evilSY+y-EVIL_PAD-camY+0.5)/VH;
-    evilSampleLight(coreBuf,LW,LH,u,v,evilLightCore);
-    evilSampleLight(wideBuf,WW,WH,u,v,evilLightWide);
-    const amb=ambient*(1-0.22*evilLightCore[3]);
-    const compact=W<160;
-    const inside=o*Math.max(0,1-Math.hypot((x-(compact?10:15))/(compact?10:16),(y-EVIL_PAD-(compact?16:12))/7));
-    const emissive=evilMat[i]===FIRE||evilMat[i]===LAVA;
-    let r=0,gg=0,b=0;
     for(let k=0;k<3;k++){
-      const light=(evilLightCore[k]+evilLightWide[k])*1.82;
-      const warmth=inside*(k===0?0.7:k===1?0.24:0.04);
-      const value=d[o4+k]*Math.max(emissive?1:0,amb*tint[k]+light*1.35+warmth);
-      if(k===0)r=value;else if(k===1)gg=value;else b=value;
+      const lv=Math.floor((d[o4+k]/255)*amb*7.99)/7;
+      d[o4+k]=Math.min(255,Math.round(lv*255));
     }
-    const lum=(r*0.299+gg*0.587+b*0.114)/255;
-    const q=(Math.floor(lum*31+0.5)/31)/Math.max(lum,0.0001);
-    d[o4]=Math.min(255,Math.round(r*q));d[o4+1]=Math.min(255,Math.round(gg*q));d[o4+2]=Math.min(255,Math.round(b*q));
   }
   g.putImageData(evilImg,0,0);
   evilDirty=false;
@@ -10673,11 +10016,10 @@ function evilSoilY(x){
 }
 function placeEvilChest(){
   if(!W||!H)return;
-  const w=evilChestWidth();
-  evilSX=Math.max(4,Math.min(W-w-1,Math.round(W*EVIL_CHEST_AT)-(w>>1)));
+  evilSX=Math.max(4,Math.min(W-EVIL_W-1,Math.round(W*EVIL_CHEST_AT)-(EVIL_W>>1)));
   // median soil height across the footprint: a lone dip or mound doesn't tip it
   const gs=[];
-  for(let x=evilSX+2;x<=evilSX+w-3;x++)gs.push(Math.min(VH-1,evilSoilY(x)));
+  for(let x=evilSX+2;x<=evilSX+EVIL_W-3;x++)gs.push(Math.min(VH-1,evilSoilY(x)));
   gs.sort((a,b)=>a-b);
   const gy=gs.length?gs[gs.length>>1]:VH-1;
   /* The chest used to stand on the shader's foreground berm, because down here
@@ -10691,40 +10033,23 @@ function placeEvilChest(){
 // invisible collision under the chest body so sand piles on the lid
 function stampEvilChestMask(){
   if(!W||!H||evilSX<0)return;
-  const compact=W<160;
-  for(let y=evilSY+(compact?10:4);y<=evilSY+EVIL_FEET-1;y++)for(let x=evilSX+(compact?1:2);x<=evilSX+(compact?18:27);x++){
+  for(let y=evilSY;y<=evilSY+EVIL_FEET-1;y++)for(let x=evilSX+1;x<=evilSX+28;x++){
     if(x<0||x>=W||y<0||y>=H)continue;
-    if(compact&&y<evilSY+17){
-      const r=y-evilSY-10,a=r===0?6:r===1?3:r===2?2:1;
-      if(x<evilSX+a||x>evilSX+19-a)continue;
-    }else if(!compact&&y<evilSY+13){ // the closed arch: skip sky beside the crown
-      const [lx0,lx1]=evilLidSpan(y-evilSY-4);
+    if(y<evilSY+10){                // the arched lid: skip the sky either side
+      const [lx0,lx1]=evilLidSpan(y-evilSY);
       if(x<evilSX+lx0||x>evilSX+lx1)continue;
-    }
-    if(y===evilSY+25){
-      const left=compact?2:3,right=compact?15:22,foot=compact?3:5;
-      if(!((x>=evilSX+left&&x<evilSX+left+foot)||(x>=evilSX+right&&x<evilSX+right+foot)))continue;
     }
     const i=idx(x,y);
     if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
-  }
-  // its contact shadow: the turf the chest stands on, between and beside the
-  // feet, darkens to the sod's root tone — the same cue the warning board
-  // and every planted thing gets, so the chest is set down and not laid on
-  for(let x=evilSX+(compact?1:1);x<=evilSX+(compact?18:28);x++){
-    if(x<0||x>=W)continue;
-    const y=evilSoilY(x);
-    if(y>=H)continue;
-    const i=idx(x,y);
-    if(grid[i]===GRASS&&variant[i]!==3){variant[i]=3;pixDirty(x,y);}
   }
 }
 // is this sim cell on the chest? (used for click + hover)
 function evilChestHit(sx,sy){
   if(evilSX<0)return false;
-  const x=Math.floor(sx-evilSX),y=Math.floor(sy-evilSY)+EVIL_PAD;
-  if(x<0||x>=EVIL_W||y<0||y>=EVIL_BH)return false;
-  return evilMat[y*EVIL_W+x]!==EMPTY;
+  const x=sx-evilSX,y=sy-evilSY;
+  if(x<1||x>28||y<0||y>EVIL_FEET)return false;
+  if(y<10){const [a,b]=evilLidSpan(y);return x>=a&&x<=b;}
+  return true;
 }
 /* ── blit onto the world's sprite layer ───────────────── */
 function drawEvilChestSprite(){
@@ -10741,7 +10066,7 @@ function drawEvilChestSprite(){
   }
   bctx.drawImage(evilCtx.canvas,evilSX+jx,evilSY-EVIL_PAD+jy);
   if(evilBurstT>0){                              // pixel shockwave off the lid
-    const cx=evilSX+(evilChestWidth()>>1),cy=evilSY+(W<160?12:6),r=(26-evilBurstT)*1.0;
+    const cx=evilSX+15,cy=evilSY+6,r=(26-evilBurstT)*1.0;
     const col=matColor(evilBurstT>16?LAVA:FIRE,0);
     bctx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
     for(let a=0;a<38;a++){
@@ -10816,7 +10141,7 @@ function evilArrowCanvas(z){
 }
 function spawnEvilCursor(hold,rare){
   const cr=canvas.getBoundingClientRect();
-  const originX=cr.left+(evilSX+(evilChestWidth()>>1))*SCALE, originY=cr.top+(evilSY+(W<160?12:6)-camY)*SCALE;
+  const originX=cr.left+(evilSX+15)*SCALE, originY=cr.top+(evilSY+6-camY)*SCALE;
   const el=document.createElement('div');
   el.className='evil-cursor';
   el.style.opacity='0';
@@ -11024,18 +10349,16 @@ function evilFleeTarget(c){
 function openEvilChest(){
   if(evilOpen||evilArming)return;
   evilArming=true;
-  if(hasFinePointer)refreshMatTag();
   evilShakeT=38;                                 // rattle, then burst
   setTimeout(()=>{
     evilShakeT=0;evilBurstT=26;
     evilOpen=true;evilArming=false;
-    if(hasFinePointer)refreshMatTag();
     const n=window.innerWidth<900?4:6;
     const arson=Math.random()*n|0;               // one of them always grabs fire/acid/lava/bomb
     for(let k=0;k<n;k++)spawnEvilCursor(k*7,k===arson);
   },640);
 }
-function closeEvilChest(){evilOpen=false;if(hasFinePointer)refreshMatTag();}
+function closeEvilChest(){evilOpen=false;}
 function toggleEvilChest(){
   if(evilOpen||evilCursors.length)banishEvilCursors();
   else openEvilChest();
@@ -11051,9 +10374,11 @@ function updateEvil(){
   if(evilShakeT>0)evilShakeT--;
   if(evilBurstT>0)evilBurstT--;
   if(--evilTwitchT<0)evilTwitchT=340+(Math.random()*160|0);
-  // A modest cadence follows nearby firelight as well as the day/night cycle.
-  // The lid itself redraws every moving frame; all positions remain whole cells.
-  if((--evilTick&7)===0||(evilShakeT>0&&(evilTick&3)===0))evilDirty=true;
+  // the only live pixels are the embers in its throat, so it only needs
+  // re-rendering while it is open — plus a slow tick to follow the day/night
+  // light the rest of the world is shaded by
+  if(--evilTick&7){}else if(evilOpenT>0)evilDirty=true;
+  if((evilTick&31)===0)evilDirty=true;
   if(evilDirty)drawEvilChest();
   drawEvilChestSprite();
   updateEvilCursors();
@@ -11086,15 +10411,9 @@ function banishEvilCursors(){
    tooltip the rogue cursors carry — it just reads the live material instead
    of a stolen one. */
 const userTag=document.getElementById('userTag');
-let evilTagHover=false;
 const USER_CURSOR=`url(${evilArrowCanvas().toDataURL()}) 1 1, crosshair`;
 function refreshMatTag(){
   if(!userTag)return;
-  if(evilTagHover){
-    userTag.querySelector('i').style.background='#cda955';
-    userTag.querySelector('b').textContent=evilOpen?'click to recall cursors':evilArming?'something is stirring…':'DO NOT OPEN';
-    return;
-  }
   const rowEl=document.querySelector(`#matPicker .mat-opt[data-mat="${curMat}"]`);
   const info=rowEl?evilRowInfo(rowEl):{name:'erase',color:'#111'};
   userTag.querySelector('i').style.background=info.color;
@@ -11108,9 +10427,7 @@ if(hasFinePointer){
   refreshMatTag();
   canvas.style.cursor=USER_CURSOR;
   canvas.addEventListener('mousemove',e=>{
-    const overChest=evilChestHit(...simXY(e));
-    canvas.style.cursor=overChest?'pointer':USER_CURSOR;
-    if(evilTagHover!==overChest){evilTagHover=overChest;refreshMatTag();}
+    canvas.style.cursor=evilChestHit(...simXY(e))?'pointer':USER_CURSOR;
   },true);
   // tracked on the document, not the canvas: the canvas covers the whole stage,
   // so hovering a window never fires its mouseleave and the tag would hang there
@@ -11124,7 +10441,7 @@ if(hasFinePointer){
   userTag.style.display='none';
 }
 // place it once the world exists, and again whenever the world is rebuilt
-function refreshEvilChest(){placeEvilChest();drawEvilChest();stampEvilChestMask();}
+function refreshEvilChest(){placeEvilChest();stampEvilChestMask();}
 requestAnimationFrame(()=>requestAnimationFrame(refreshEvilChest));
 document.getElementById('btnReset').addEventListener('click',()=>requestAnimationFrame(refreshEvilChest));
 let evilResizeTimer=null;

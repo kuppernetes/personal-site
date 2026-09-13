@@ -93,7 +93,7 @@ const renderContext=vm.createContext({W,H,VH,ncx,BIG,rcMinX,rcMinY,rcMaxX,rcMaxY
   camY:0,updateSun(){},prepareTexelCache(){},dayFactor(){return 1;},
   fillTexel(x,y){const d=((H-1-y)*W+x)*4;texData.set([generation,x,y,255],d);fills++;},
   prog:0,vbuf:0,aloc:0,tex:0,uTimeLoc:0,gTime:0,uDayLoc:0,uGridLoc:0,
-  TASKBAR_PX:30,SCALE:4,uCamLoc:0,uZoneColLoc:0,zoneColBuf:[],
+  TASKBAR_PX:30,SCALE:4,uCamLoc:0,uSunLoc:0,sunX:0,uParLoc:0,parX:0,uZoneColLoc:0,zoneColBuf:[],
   uZoneCol2Loc:0,zoneCol2Buf:[],uZoneTopLoc:0,zoneTopBuf:[],uZoneStyleLoc:0,
   zoneStyleBuf:[],uZoneFadeLoc:0,uZoneNLoc:0,ZMAX_JS:8,ZONES:[0],
   edX0:BIG,edY0:BIG,edX1:-1,edY1:-1});

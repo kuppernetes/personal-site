@@ -67,7 +67,7 @@ assert(!/dither\(cell\)/.test(source), 'No ordered dither anywhere in the fragme
 // Every sprite the meadow actually stands up, in the order it is placed.
 const names = ['cottage', 'turbine', 'signpost', 'greenhouse', 'archway', 'solarpanel',
   'oak', 'pine', 'smallpine', 'rock', 'cattail', 'mushroom', 'bush', 'flower',
-  'fence', 'well'];
+  'fence', 'well', 'logstack', 'fern', 'wildflower', 'pebbles', 'lantern', 'pier'];
 // Exercise the actual emitter scan with an isolated glass pixel. The GPU
 // upload and blur are stubbed; the source selection and day logic are real.
 vm.runInContext(`
@@ -86,10 +86,10 @@ vm.runInContext(`
   function occRebuild(){return false;}
   function blurL(){}
   ${fn('buildLight')}
-  globalThis.scanGlass=(day,cellRow=30)=>{
-    grid.fill(0);frozen.fill(0);coreBuf.fill(0);wideBuf.fill(0);
+  globalThis.scanGlass=(day,cellRow=30,glassVariant=0)=>{
+    grid.fill(0);variant.fill(0);frozen.fill(0);coreBuf.fill(0);wideBuf.fill(0);
     testDay=day;camDirty=true;lightScanAll=1;lightHadEmitters=false;
-    const i=cellRow*W+30;grid[i]=GLASS;frozen[i]=1;
+    const i=cellRow*W+30;grid[i]=GLASS;variant[i]=glassVariant;frozen[i]=1;
     buildLight();
     const rgb=[0,0,0];for(let i=0;i<coreBuf.length;i+=4)for(let c=0;c<3;c++)rgb[c]+=coreBuf[i+c];
     return rgb;
@@ -102,10 +102,11 @@ vm.runInContext(`
    which is what these two lines assert between them. */
 assert.deepEqual(Array.from(ctx.scanGlass(1)), [0, 0, 0], 'Glass stays unlit at noon');
 assert(ctx.scanGlass(0).some(c => c > 0), 'Glass lights at night');
+assert.deepEqual(Array.from(ctx.scanGlass(0,30,0x10)),[0,0,0],'Tinted greenhouse glazing stays unlit at night');
 assert.deepEqual(Array.from(ctx.scanGlass(1, Math.round(VH * 0.97))), [0, 0, 0],
   'Glass buried in the berm is still surface glass');
 
-const width = 990, height = 560, scale = 3, pixels = Buffer.alloc(width * height * 4);
+const width = 990, height = 720, scale = 3, pixels = Buffer.alloc(width * height * 4);
 function pixel(x, y, c) {
   if (x < 0 || y < 0 || x >= width || y >= height) return;
   const i = (y * width + x) * 4; pixels[i] = c[0]; pixels[i + 1] = c[1]; pixels[i + 2] = c[2]; pixels[i + 3] = 255;
@@ -131,7 +132,7 @@ names.forEach((name, i) => {
   for (let y = 0; y < 52; y++) for (let x = 0; x < 60; x++) {
     const m = y < 30 ? a.STONE : a.DIRT;
     a.matTexel(m, (x + y) % 4, x, worldY + y, rgba, 0, a.S_DEEP);
-    cell(8 + i * 64 + x, 128 + y, rgba);
+    cell(8 + i * 64 + x, 176 + y, rgba);
   }
 });
 function crc(buf) { let c = 0xffffffff; for (const b of buf) { c ^= b; for (let k = 0; k < 8; k++) c = (c >>> 1) ^ ((c & 1) ? 0xedb88320 : 0); } return (c ^ 0xffffffff) >>> 0; }
