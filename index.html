@@ -4874,7 +4874,12 @@ const SPRITE_MATS={
   R:{m:THATCH,v:0}, r:{m:THATCH,v:1}, Y:{m:THATCH,v:2},                  // thatch: base, shadow, highlight
   K:{m:BRICK,v:0},  k:{m:BRICK,v:1},  C:{m:BRICK,v:2},  c:{m:BRICK,v:3}, // brick: base, mortar, highlight, deep
   B:{m:BERRY,v:0},  b:{m:BERRY,v:1},  A:{m:BERRY,v:2},                   // berry: base, shadow, highlight
-  '#':{m:BERRY,v:3},                                                    // berry: deep — the ink on the warning board
+  // The ink on the warning board. It used to be BERRY deep, which hung a few
+  // hundred ripe cells at beak height in the middle of the meadow: scanBerries()
+  // filled its target list with the lettering, the flock steered at it, and
+  // forage() ate the warning one letter at a time. Deep WOOD is the same step
+  // down the shade ramp on a material no bird forages, and it still burns.
+  '#':{m:WOOD,v:3},                                                     // wood: deep — the ink on the warning board
   G:{m:GLASS,v:0},  g:{m:GLASS,v:1},  '*':{m:GLASS,v:2},                 // glass: base, shade, sparkle
   // Tinted glazing reflects sky; cottage windows and lanterns emit light.
   O:{m:GLASS,v:0x10},o:{m:GLASS,v:0x11},'@':{m:GLASS,v:0x12},
@@ -5133,11 +5138,11 @@ const SPRITES={
   // The warning, staked beside the chest. It used to be painted across the
   // chest's own front, where it hid the planks and the lock; as a board on a
   // post it is a prop in the meadow like the signpost by the cottage —
-  // timber, thatch and berry ink, so it burns like anything else here.
+  // timber, thatch and dark-timber ink, so it burns like anything else here.
   // Three lines of the 3x5 face rather than two because the gap between the
   // pond's kerb and the chest is nineteen cells on a desktop and "DO NOT" set
   // on one line is twenty-three. Two nail heads, a chipped corner. The bottom
-  // rail is WOOD, not a darker thatch: thatch and berry are debris that need
+  // rail is WOOD, not a darker thatch: thatch and the ink are debris that need
   // a frozen cell under each of them, and a board wider than its post would
   // shed everything outboard of the post within a few hundred ticks. Wood
   // holds as one connected chunk grounded through the post, and every straw
