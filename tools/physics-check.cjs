@@ -57,6 +57,13 @@ const actual=world(source);
 actual.changedCheck();
 const reference=process.argv[2]?world(fs.readFileSync(process.argv[2],'utf8')):null;
 // Golden snapshots come from the pre-optimization rules, not this implementation.
+// The two blast entries below were re-taken when PLANT grew VIGOUR — that scene
+// is the only one of the three that seeds PLANT cells, and the growth rule no
+// longer spends the same draws on the same ticks (a pond-deep drink no longer
+// swallows the cell, and a spent cell no longer calls setMat at all). sand and
+// acid are untouched and still hold their original hashes, which is the check
+// that the edit stayed inside the plant path. blast/839 landed on the same
+// hash as before.
 const expected={
   'sand/1/20':'8023733624cd8f773ecb3b28046048e78e928ef8c19dca6cd2a5b8ba4a5ce6eb',
   'sand/17/20':'0adf4d46861a3ef994d85b2ca92972d0c2e39cbf214fdd4e73cece1c268717ff',
@@ -64,8 +71,8 @@ const expected={
   'acid/1/20':'aa395079328cfc3ae9229df727b35905b5c3101b313b404036cb5e07dcdd7d95',
   'acid/17/20':'f7e99b6b1d35b2d280b756ccfa30c5485f4e08f56cacf5074628e1c6d3aba829',
   'acid/839/20':'734acee96cdc632700fb88f39638964681b3f76c947316d67f8657face4fde10',
-  'blast/1/20':'e3002f482931891c4ae8e1e2b6dd0bfe4f833926c323f45c1d2f6406cad24540',
-  'blast/17/20':'d5c824a11dc5144facec4eaedef155ba1d5d279cf1921c453a764e77b5b26149',
+  'blast/1/20':'89fb30d923252ed16e0c1858f834b9df9ec106bc305a643d19aa0e2b29de4946',
+  'blast/17/20':'28c4f3caa9f722b8303af17a7ba4876f89f5f8f68ff863f8c911050c7b18f72a',
   'blast/839/20':'f7519bf74c8e284043738aed986d0d3294d1e72a64c696d9704e2c0ec9eaacb1',
 };
 const results={};

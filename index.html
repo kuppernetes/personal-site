@@ -2096,18 +2096,100 @@ const NX_DISP=new Int8Array([0,-1,1,-1,1,0]), NY_DISP=new Int8Array([-1,-1,-1,0,
 // the original row-major order for equal distances so random draws stay exact.
 // Scratch snapshots are safe to reuse: a detonation cannot recurse into step.
 const BLAST_RADIUS=22,BLAST_KILL_RADIUS=10;
+// A single bomb cell still throws exactly BLAST_RADIUS; a drawn blob of them
+// throws further, so the disc is cached out to the largest reach any one
+// detonation can have.
+const BLAST_MAX_RADIUS=52;
 const BLAST_OFFSETS=(()=>{
   const cells=[];
-  for(let y=-BLAST_RADIUS;y<=BLAST_RADIUS;y++)for(let x=-BLAST_RADIUS;x<=BLAST_RADIUS;x++){
-    const d2=x*x+y*y;if(d2<=BLAST_RADIUS*BLAST_RADIUS)cells.push([x,y,d2]);
+  for(let y=-BLAST_MAX_RADIUS;y<=BLAST_MAX_RADIUS;y++)for(let x=-BLAST_MAX_RADIUS;x<=BLAST_MAX_RADIUS;x++){
+    const d2=x*x+y*y;if(d2<=BLAST_MAX_RADIUS*BLAST_MAX_RADIUS)cells.push([x,y,d2]);
   }
   cells.sort((a,b)=>b[2]-a[2]);
   return new Int16Array(cells.flat());
+})();
+// Farthest-first means the disc of radius r is always a suffix of the array.
+// BLAST_START[r] is where it begins, so a radius-22 blast still walks exactly
+// the cells it always did, in exactly the order it always did.
+const BLAST_START=(()=>{
+  const n=BLAST_OFFSETS.length/3,starts=new Int32Array(BLAST_MAX_RADIUS+1);
+  for(let r=0;r<=BLAST_MAX_RADIUS;r++){
+    let k=0;while(k<n&&BLAST_OFFSETS[k*3+2]>r*r)k++;
+    starts[r]=k;
+  }
+  return starts;
 })();
 const blastMat=new Int16Array(BLAST_OFFSETS.length/3);
 const blastVariant=new Uint8Array(blastMat.length);
 // A bounded handoff to the visual layer; effects never consume physics RNG.
 const blastEvents=[];
+
+/* ═══ BOMB CLUSTERS ═══
+   A bomb is drawn, not placed, so "a bomb" is normally a blob of hundreds of
+   BOMB cells. Lighting one cell used to light only that cell: it blew, the
+   fire it left lit whichever neighbours survived, and a drawn bomb came apart
+   in a ragged string of little pops over a second or two. Ignition now floods
+   the whole connected blob in one go — every cell lit on the same tick with
+   the same countdown, one detonator at the blob's centre of mass carrying a
+   blast sized to the blob, and any scrap the disc failed to reach consumed in
+   that same frame so nothing is left lit to pop on its own afterwards.
+   Bit 0x08 of a lit cell marks a slave: lit, ticking, but not the detonator. */
+const BOMB_LIT=0x80,BOMB_SLAVE=0x08;
+const BOMB_CLUSTER_MAX=16384;
+const bombCells=new Int32Array(BOMB_CLUSTER_MAX);
+// detonator cell index -> {r, cells} for the blobs currently counting down
+const bombClusters=new Map();
+const BOMB_CLUSTERS_MAX=64;
+
+function igniteBomb(x,y){
+  const seed=idx(x,y);
+  if(grid[seed]!==BOMB||(variant[seed]&BOMB_LIT))return;
+  const lit=BOMB_LIT|(7<<4)|3;   // four sub-ticks a beat ≈ 450ms of anticipation
+  let n=0,head=0,sx=x,sy=y;
+  variant[seed]=lit|BOMB_SLAVE;bombCells[n++]=seed;
+  // 8-connected: debris flung by an earlier blast lands in diagonal chains,
+  // and those read as one lump of bomb to the eye.
+  while(head<n){
+    const ci=bombCells[head++],cx=ci%W,cy=(ci/W)|0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+      if(!dx&&!dy)continue;
+      const nx=cx+dx,ny=cy+dy;
+      if(nx<0||nx>=W||ny<0||ny>=H||n>=BOMB_CLUSTER_MAX)continue;
+      const ni=idx(nx,ny);
+      if(grid[ni]!==BOMB||(variant[ni]&BOMB_LIT))continue;
+      variant[ni]=lit|BOMB_SLAVE;bombCells[n++]=ni;sx+=nx;sy+=ny;
+    }
+  }
+  // detonator: the cluster cell nearest the cluster's own centre of mass
+  const mx=sx/n,my=sy/n;
+  let best=0,bestD=Infinity;
+  for(let k=0;k<n;k++){
+    const ci=bombCells[k],dx=(ci%W)-mx,dy=((ci/W)|0)-my,d=dx*dx+dy*dy;
+    if(d<bestD){bestD=d;best=k;}
+  }
+  const pi=bombCells[best],px=pi%W,py=(pi/W)|0;
+  let far=0;
+  for(let k=0;k<n;k++){
+    const ci=bombCells[k],cx=ci%W,cy=(ci/W)|0;
+    const dx=cx-px,dy=cy-py,d=dx*dx+dy*dy;
+    if(d>far)far=d;
+    updated[ci]=frameId;cellChanged(cx,cy);
+  }
+  variant[pi]=lit;                                   // clears the slave bit
+  // Reach grows with the blob, and always covers the blob itself.
+  const rc=Math.sqrt(n/Math.PI);
+  let r=BLAST_RADIUS+Math.round(1.8*(rc-0.5));
+  r=Math.max(r,Math.ceil(Math.sqrt(far))+3);
+  r=Math.min(BLAST_MAX_RADIUS,Math.max(BLAST_RADIUS,r));
+  // Painting over a lit blob, or resetting, strands entries whose detonator is
+  // no longer a lit bomb; drop those before deciding the table is full.
+  if(bombClusters.size>=BOMB_CLUSTERS_MAX){
+    for(const k of bombClusters.keys())if(grid[k]!==BOMB||!(variant[k]&BOMB_LIT))bombClusters.delete(k);
+  }
+  // Over the cap the detonator falls back to a plain blast and the leftovers
+  // promote themselves — a bomb the size of the screen may chain, as it should.
+  if(bombClusters.size<BOMB_CLUSTERS_MAX)bombClusters.set(pi,{r,cells:bombCells.slice(0,n)});
+}
 
 // movement target tests (exclude frozen so hover-freeze pins matter)
 function eFree(x,y){return x>=0&&x<W&&y>=0&&y<H&&grid[idx(x,y)]===EMPTY&&!frozen[idx(x,y)];}
@@ -2313,6 +2395,68 @@ function updateChunks(){
       ch.vy=0; // grounded in the shallows — stays a live body, still buoyant
     }
   }
+}
+
+/* ═══════════════════════════════════════════════════════
+   HOW MUCH THE MEADOW GROWS
+   Left alone for five minutes the garden used to disappear under its own
+   greenery: 33 live PLANT cells became 1300, the reeds drank the pond down
+   and walked across the bed, and 90 berries became 900 — a solid red mass
+   over what had been water. Nothing in the rules said stop. A plant had a
+   flat 0.001 chance per tick to occupy a neighbour, from every cell, forever,
+   so the thicket was a front that never stopped advancing; and any cell with
+   three plant neighbours could ripen, so a thicket ripened ENTIRELY.
+
+   Two limits, because there are two ways for it to run away.
+
+   VIGOUR is local: bits 3-5 of a PLANT's (or a SEED's) variant, the number of
+   shoots left in that cell. Putting one out spends one and hands the child
+   what remains, so a root of vigour v can only ever reach 2^v cells before
+   the whole lineage is spent. A tuft thickens; a sown seed makes a proper
+   thicket; neither crosses the meadow. It is carried through the seed so a
+   pip knows what it will grow into before it lands: a bird's dropping is a
+   volunteer and stays small, what you plant by hand is generous.
+
+   THE QUOTA is global, and catches what vigour cannot see. Birds carry fruit
+   across the map, so new lineages keep being founded however short each one
+   is. Past the quota the meadow simply stops taking — measured live, so the
+   authored bush and the wordmark's blooms (frozen, and permanent) do not
+   count against what is allowed to grow.
+═══════════════════════════════════════════════════════ */
+const PLANT_VIG=0x38;                    // variant bits 3-5: shoots remaining
+const VIG_TUFT=1;                        // a blade of meadow grass
+const VIG_REED=2;                        // a pond reed, with water to drink
+const VIG_PIP=3;                         // a volunteer from a bird or a bee
+const VIG_SOWN=5;                        // sown by hand, from the palette
+const PLANT_QUOTA=0.40;                  // live PLANT cells per screen column
+const FRUIT_QUOTA=0.12;                  // live BERRY cells per screen column
+let meadowPlants=0,meadowFruit=0;
+/* The flock's shortlist of somewhere to eat, refreshed on the same sweep.
+   Frozen fruit counts as a target — a bird will strip the bush, which is the
+   point of putting fruit on it — but not against the growth quota. */
+let berryTargets=[];
+function scanGrowth(){
+  berryTargets=[];
+  let plants=0,fruit=0;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const i=idx(x,y),m=grid[i];
+    if(m===PLANT){if(!frozen[i])plants++;continue;}
+    if(m!==BERRY)continue;
+    if(!frozen[i])fruit++;
+    if(berryTargets.length<48)berryTargets.push(x,y);
+  }
+  meadowPlants=plants;meadowFruit=fruit;
+}
+// Fruit wants leaf around it. A cell whose neighbours are already ripe does
+// not ripen: it is what keeps a thicket from turning red all at once, and it
+// is an art rule before it is a simulation one — a berry only reads as a
+// berry against the green it hangs in.
+function nearFruit(x,y){
+  for(let ay=-1;ay<=1;ay++)for(let ax=-1;ax<=1;ax++){
+    if(!ax&&!ay)continue;
+    if(mat(x+ax,y+ay)===BERRY)return true;
+  }
+  return false;
 }
 
 function step(x,y){
@@ -2587,28 +2731,46 @@ function step(x,y){
   }
 
   if(m===PLANT){
-    // roots drink: a plant with water beside it climbs an order of magnitude
-    // faster and pulls the puddle down as it goes
+    /* roots drink: a plant with water beside it climbs an order of magnitude
+       faster. It used to swallow the cell unconditionally, and that is what
+       emptied the pond — the reeds on the rim drank the waterline dry a cell
+       at a time and then walked out over the bed. A puddle IS drinkable; that
+       is the whole point of watering a scatter of seed. So the test is whether
+       there is more water underneath: a film on the ground has none and goes,
+       a pond rim has the rest of the pond below it and only keeps the roots
+       wet. */
     let drink=false;
     if(Math.random()<0.006){
       for(let k=0;k<3;k++){ // down, d, -d
         const ax=NX_DXX[k]*d,ay=NY_DXX[k];
-        if(mat(x+ax,y+ay)===WATER){setMat(x+ax,y+ay,EMPTY);drink=true;break;}
+        if(mat(x+ax,y+ay)!==WATER)continue;
+        if(mat(x+ax,y+ay+1)!==WATER)setMat(x+ax,y+ay,EMPTY);  // a puddle, not a pond
+        drink=true;break;
       }
     }
+    const vig=(variant[i]&PLANT_VIG)>>3;
     if(drink||Math.random()<0.001){
       const k=Math.random()*4|0, ax=NX_URLD[k], ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
-      if(t===EMPTY||t===WATER||(t===GRASS&&Math.random()<0.25))setMat(x+ax,y+ay,PLANT);
+      // Air or turf only — never open water. A reed stands IN the pond
+      // because it was planted there, not because it can walk onto one.
+      if((t===EMPTY||(t===GRASS&&Math.random()<0.25))&&vig&&meadowPlants<W*PLANT_QUOTA){
+        variant[i]=(variant[i]&~PLANT_VIG)|((vig-1)<<3);
+        setMat(x+ax,y+ay,PLANT,((vig-1)<<3)|(Math.random()*8|0));
+        meadowPlants++;
+      }
       // bare soil next to living roots greens back over — this is how a burnt
-      // meadow eventually turns back into turf
+      // meadow eventually turns back into turf. It costs no vigour and no
+      // quota: turf spreads no further on its own, so healing a scar cannot
+      // run away the way a thicket can.
       else if(t===DIRT&&Math.random()<0.35)setMat(x+ax,y+ay,GRASS);
     }
-    // a thicket dense enough to shade itself sets fruit; birds do the rest
-    if(Math.random()<0.0002){
+    // a thicket dense enough to shade itself sets fruit, with leaf left
+    // between one berry and the next; birds do the rest
+    if(Math.random()<0.0002&&meadowFruit<W*FRUIT_QUOTA){
       let n=0;
       for(let k=0;k<4;k++)if(mat(x+NX_URLD[k],y+NY_URLD[k])===PLANT)n++;
-      if(n>=3){setMat(x,y,BERRY,Math.random()*4|0);return;}
+      if(n>=3&&!nearFruit(x,y)){meadowFruit++;setMat(x,y,BERRY,Math.random()*4|0);return;}
     }
     updated[i]=frameId;wake3(x,y);return; // stays awake to keep growing
   }
@@ -2621,7 +2783,7 @@ function step(x,y){
       const ax=NX_URLD[k]*d,ay=NY_URLD[k];
       const t=mat(x+ax,y+ay);
       if((t===PLANT||t===MOSS)&&Math.random()<0.004){
-        if(eFree(x,y-1))setMat(x,y-1,SEED);
+        if(eFree(x,y-1))setMat(x,y-1,SEED,(VIG_PIP<<3)|(Math.random()*8|0));
         setMat(x,y,EMPTY);return;
       }
     }
@@ -2649,7 +2811,7 @@ function step(x,y){
         if(t===STONE&&Math.random()<0.5)setMat(x+ax,y+ay,MOSS);
         else if(t===DIRT&&Math.random()<(damp?0.45:0.08))setMat(x+ax,y+ay,MOSS);
         else if(damp&&(t===ASH||t===SAND)&&Math.random()<0.10)setMat(x+ax,y+ay,MOSS);
-        else if(damp&&ay===-1&&t===EMPTY&&Math.random()<0.06)setMat(x,y-1,PLANT);
+        else if(damp&&ay===-1&&t===EMPTY&&Math.random()<0.06)setMat(x,y-1,PLANT,(VIG_TUFT<<3)|(Math.random()*8|0));
       }
     }
     updated[i]=frameId;wake3(x,y);return;
@@ -2670,7 +2832,9 @@ function step(x,y){
         const t=mat(x+NX_URLD[k],y+NY_URLD[k]);
         if(t===WATER||t===STEAM){wet=true;break;}
       }
-      if(Math.random()<(wet?0.35:0.02)){setMat(x,y,PLANT);return;}
+      // the pip carried its vigour down with it: what it was sown as is what
+      // it grows into
+      if(Math.random()<(wet?0.35:0.02)){setMat(x,y,PLANT,(variant[i]&PLANT_VIG)|(Math.random()*8|0));return;}
       updated[i]=frameId;wake3(x,y);return; // keep trying until it takes
     }
     return; // settled on barren ground → sleeps
@@ -2698,8 +2862,7 @@ function step(x,y){
       if(t===FUSE&&!(variant[ni]&0x80)&&Math.random()<0.45){
         variant[ni]|=0x80;cellChanged(nx,ny);updated[ni]=frameId;
       } else if(t===BOMB&&!(variant[ni]&0x80)){
-        variant[ni]=0x80|(7<<4)|3;
-        cellChanged(nx,ny);updated[ni]=frameId;
+        igniteBomb(nx,ny);
       } else if(t===OIL&&Math.random()<0.35){setMat(nx,ny,FIRE);}
     }
     if(Math.random()<0.35&&eFree(x,y-1))setMat(x,y-1,SMOKE);
@@ -2715,35 +2878,47 @@ function step(x,y){
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),t=grid[ni];
         if(t===FIRE||(t===FUSE&&(variant[ni]&0x80))){
-          variant[i]=0x80|(7<<4)|3;
-          pixDirty(x,y);updated[i]=frameId;wake3(x,y);
+          igniteBomb(x,y);
           return;
         }
       }
       return;
     }
     const ct=(variant[i]>>4)&7;
-    if(ct===0&&(variant[i]&15)===0){
-      if(blastEvents.length<24)blastEvents.push({x,y});
+    if(ct===0&&(variant[i]&3)===0){
+      if(variant[i]&BOMB_SLAVE){
+        // Only reachable if the detonator was destroyed before it fired —
+        // another blast ate it, or the blob outgrew the cluster table. Promote
+        // the orphan rather than leave a lit scrap sitting there forever.
+        variant[i]=BOMB_LIT|(1<<4)|3;
+        updated[i]=frameId;cellChanged(x,y);
+        return;
+      }
+      const cluster=bombClusters.get(i);
+      if(cluster)bombClusters.delete(i);
+      if(blastEvents.length<24)blastEvents.push({x,y,r:cluster?cluster.r:BLAST_RADIUS});
       // detonate: snapshot every destructible cell in the blast disc, clear
       // it, then re-emit. Inner core → FIRE; everything else gets FLUNG
       // radially outward (with an upward bias) keeping its original material —
       // sand sprays as sand, dirt as chunks, wood as splinters.
       // Text/MASK survive so the page stays intact.
-      const R_kill=BLAST_KILL_RADIUS, R_push=BLAST_RADIUS;
-      for(let k=0;k<blastMat.length;k++){
+      const R_push=cluster?cluster.r:BLAST_RADIUS;
+      const R_kill=Math.round(R_push*BLAST_KILL_RADIUS/BLAST_RADIUS);
+      const first=BLAST_START[R_push];
+      for(let k=first;k<blastMat.length;k++){
         blastMat[k]=-1;
         const bx=BLAST_OFFSETS[k*3],by=BLAST_OFFSETS[k*3+1];
         const nx=x+bx,ny=y+by;
         if(nx<0||nx>=W||ny<0||ny>=H)continue;
         const ni=idx(nx,ny),tm=grid[ni];
         if(tm===TITLE||tm===ACCENT||tm===BODY||tm===MASK||tm===RIGID)continue;
+        if(tm===BOMB&&bombClusters.size)bombClusters.delete(ni); // detonator eaten mid-countdown
         blastMat[k]=tm;blastVariant[k]=variant[ni];
         grid[ni]=EMPTY;variant[ni]=0;frozen[ni]=0;
         updated[ni]=frameId;cellChanged(nx,ny);
       }
       // farthest cells settle first so closer flung pixels land into vacated air
-      for(let q=0;q<blastMat.length;q++){
+      for(let q=first;q<blastMat.length;q++){
         const srcM=blastMat[q];if(srcM<0)continue;
         const cx=x+BLAST_OFFSETS[q*3],cy=y+BLAST_OFFSETS[q*3+1],d2=BLAST_OFFSETS[q*3+2];
         if(d2<R_kill*R_kill){
@@ -2785,11 +2960,20 @@ function step(x,y){
         }
         if(!placed&&Math.random()<0.5)setMat(cx,cy,SMOKE);
       }
+      // Whatever of the blob the disc could not reach goes up with it, so a
+      // bomb drawn bigger than its own blast still leaves nothing behind.
+      if(cluster){
+        for(let k=0;k<cluster.cells.length;k++){
+          const ci=cluster.cells[k];
+          if(grid[ci]!==BOMB)continue;
+          setMat(ci%W,(ci/W)|0,Math.random()<0.7?FIRE:SMOKE);
+        }
+      }
       return;
     }
     // Four ticks per countdown beat gives the fuse ~450ms of anticipation.
-    const sub=variant[i]&15;
-    variant[i]=0x80|(sub?(ct<<4)|(sub-1):((ct-1)<<4)|3);
+    const sub=variant[i]&3;
+    variant[i]=(variant[i]&BOMB_SLAVE)|BOMB_LIT|(sub?(ct<<4)|(sub-1):((ct-1)<<4)|3);
     updated[i]=frameId;cellChanged(x,y);
     return;
   }
@@ -2798,6 +2982,9 @@ function step(x,y){
 function simulate(){
   frameId++;
   stepDir=(frameId&1)?1:-1;
+  // Growth is capped against a live census, so the census has to run whether
+  // or not there are birds in the sky to use the berry half of it.
+  if(frameId%20===0)scanGrowth();
   // promote next→current, clear next
   let t;
   t=dcMinX;dcMinX=dnMinX;dnMinX=t;
@@ -2983,6 +3170,27 @@ const LEAF_RAMP=[[69,125,65],[42,91,57],[107,153,72],[29,65,48]];
 const PINE_RAMP=[[54,103,83],[34,73,66],[91,138,104],[25,51,51]];
 const GLAZE_RAMP=[[93,155,166],[58,111,131],[158,201,202],[44,79,105]];
 const GRASS_RAMP=[[71,126,59],[65,117,55],[79,132,63],[57,108,52]];
+/* Fruit was the one sprite material still shaded by SHADE's flat neutral
+   offsets: ±22 on every channel at once. That is a brightness knob, not a
+   shading ramp, and on a saturated red it does the wrong thing at both ends —
+   the "highlight" is the same hot red one step lighter (it never reads as a
+   lit facet, only as a brighter dot) and the "shadow" keeps the full
+   saturation, so a berry in shade shouts as loudly as one in the sun.
+
+   A ramp instead, in the same shape as LEAF_RAMP: the highlight desaturates
+   hard and warms toward the sky's light, which is what makes a 2-cell fruit
+   read as ROUND, and the shadow deepens toward maroon instead of staying
+   scarlet. The base has come down from 214,52,68 as well. That value sat at
+   almost exactly the luminance of LEAF's base — the same brightness in an
+   opposing hue, which is the recipe for fizz rather than contrast — and the
+   meadow's own PLANT fruit was a field of vibrating dots. This base is darker
+   than the leaf it hangs in and the highlight is much lighter, so the fruit
+   carries its own light-to-dark structure instead of borrowing the leaf's. */
+const BERRY_RAMP=[[198,58,68],[156,38,64],[236,126,112],[104,24,48]];
+// The project lavender (the Catiator's colour) rides the same material. It was
+// the SHADE offsets applied to 174,116,188 and still is, spelled out, so the
+// brand colour does not move when the fruit ramp does.
+const PLUM_RAMP=[[174,116,188],[152,94,170],[188,130,198],[136,80,158]];
 /* ═══ TONE ═══
    A whole-UNIT brightness shift, carried in bits 6-7 of a structured variant,
    so a builder can ask for "the same masonry, one shade down" for a string
@@ -3057,7 +3265,7 @@ function matColor(m,v){
     case LEAF: return [...((v&0x20)?PINE_RAMP:LEAF_RAMP)[v&3],255];
     case BRICK: return[168+j,88+j,62+j,255];  // terracotta
     case THATCH:return[210+j,168+j,86+j,255]; // straw roof
-    case BERRY: return[214+j,52+j,68+j,255];  // ripe red
+    case BERRY: return[...((v&0x10)?PLUM_RAMP:BERRY_RAMP)[v&3],255]; // ripe red / project lavender
     case GLASS: return(v&0x10)?[...GLAZE_RAMP[v&3],225]:[178+j,206+j,222+j,200];
     case FUSE:  {
       // lit cells glow a sizzling orange; unlit reads as a tarry cord
@@ -4396,7 +4604,7 @@ function matTexel(m,v,x,y,out,dst,s){
       const sh=SHADE[v&3];
       r=(art?art.brick[0]:168)+sh[0];g=(art?art.brick[1]:88)+sh[1];b=(art?art.brick[2]:62)+sh[2];a=255;break; }
     case THATCH:{ const sh=SHADE[v&3]; r=210+sh[0]; g=168+sh[1]; b=86+sh[2]; a=255; break; }
-    case BERRY: { const sh=SHADE[v&3]; r=((v&0x10)?174:214)+sh[0]; g=((v&0x10)?116:52)+sh[1]; b=((v&0x10)?188:68)+sh[2]; a=255; break; }
+    case BERRY: { const col=((v&0x10)?PLUM_RAMP:BERRY_RAMP)[v&3]; r=col[0]; g=col[1]; b=col[2]; a=255; break; }
     case GLASS: { const sh=SHADE[v&3];
       if(v&0x10){const col=GLAZE_RAMP[v&3];r=col[0];g=col[1];b=col[2];a=225;break;}
       r=(art?art.glass[0]:178)+sh[0];g=(art?art.glass[1]:206)+sh[1];b=(art?art.glass[2]:222)+sh[2];a=210;break; }
@@ -5090,16 +5298,38 @@ const SPRITES={
     "..L..",
     ".LlL.",
   ],
-  // dense bush with a few berries — easy fuel for fire experiments
+  /* A fruiting bush, at the same 13×8 footprint as the flat-topped hedge it
+     replaces. Three things were wrong with that one as pixel art.
+
+     THE SILHOUETTE was a rectangle with a two-cell nick in the top edge, so it
+     read as a clipped hedge rather than as something that grew. This one is
+     two crowns over one mass: the crowns break the top line, a deep-shade
+     crevice runs down between them at row 2, and the body swells to the full
+     width at row 3 and tapers back in — a bush is widest a third of the way
+     down, not at the top.
+
+     THE FRUIT was three lone base-red cells. One cell of pure BERRY on a field
+     of LEAF is the same LUMINANCE as the leaf around it (98 against 102) and a
+     different hue, which is the definition of visual noise — it fizzes rather
+     than reads. Each berry here is a 3-cell cluster: highlight up-left, base,
+     shadow down-right, which is how every other round thing in this world is
+     drawn (see the toadstool's cap). Two clusters and one single, triangulated
+     rather than evenly spaced, and set into the shaded hollows where fruit
+     actually hangs.
+
+     THE FOOT was a four-cell wood slab, so the bush stood on a stump. One
+     two-cell stem now, skirted in deep-shade foliage that also carries the
+     canopy's overhang: every cell rests on a frozen cell below or diagonally
+     below, so the whole thing holds together until something knocks it. */
   bush:[
-    "..HHLL..HL...",
-    ".HHLLLlHLLl..",
-    "HLLLBllLLLLl.",
-    "HLLLlllHLLBl.",
-    ".lll%LLLlll%.",
-    "..%llBLLll%..",
-    "...%lllTt%...",
-    "....%tttt%...",
+    "...HH...HH...",
+    "..HHLLl.HHLl.",
+    ".HHLLLLl%ABLl",
+    "HHLABLLLlbbll",
+    ".LLbbLLLLlll.",
+    "..lllLLABl%..",
+    "...%llTtbl%..",
+    "....%%Tt%%...",
   ],
   // A small half-timbered cottage: living roof with a shaded eave and a
   // dormer, plaster walls in a deep-wood frame, two glass windows, a plank
@@ -6615,7 +6845,7 @@ function spawnNaturalLandscape(){
       const h=1+(Math.random()*3|0);
       for(let i=1;i<=h;i++){
         const ty=sy-i;
-        if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT);
+        if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT,(VIG_TUFT<<3)|(Math.random()*8|0));
       }
     }
   }
@@ -6629,7 +6859,7 @@ function spawnNaturalLandscape(){
     const h=3+(Math.random()*6|0);
     for(let i=1;i<=h;i++){
       const ty=sy-i;
-      if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT);
+      if(ty>=0&&grid[idx(x,ty)]===EMPTY)putCell(x,ty,PLANT,(VIG_REED<<3)|(Math.random()*8|0));
     }
   }
 
@@ -6646,7 +6876,7 @@ function spawnNaturalLandscape(){
     const sy=surf[x],ty=sy-1;
     if(ty<0||Math.sqrt(pondEl(x,sy))<0.95)continue;
     if(grid[idx(x,sy)]!==GRASS)continue;   // not on the bare path
-    if(grid[idx(x,ty)]===EMPTY)putCell(x,ty,SEED);
+    if(grid[idx(x,ty)]===EMPTY)putCell(x,ty,SEED,(VIG_REED<<3)|(Math.random()*8|0));
   }
 
   // mossy stones peeking through the turf on slopes
@@ -7637,6 +7867,9 @@ function stoneVariant(x,y,tone){
 function bakeVariant(m,x,y,tone){
   if(m===BRICK)return brickVariant(x,y,tone|0);
   if(m===WOOD)return woodVariant(x,y,tone|0);
+  // Sown by hand, so sown generously: a painted plant or seed carries the
+  // full run of shoots, and a watered scatter still makes a real thicket.
+  if(m===PLANT||m===SEED)return (VIG_SOWN<<3)|(Math.random()*8|0);
   return Math.random()*8|0;
 }
 /* What a BUILDER lays, as opposed to what the brush paints.
@@ -7951,26 +8184,14 @@ function doAmbient(){
 ═══════════════════════════════════════════════════════ */
 const birds=[];
 const BIRD_MAX=350;
-// hungry birds steer toward ripe fruit: a cheap periodic sweep keeps a short
-// list of berry cells so flocking can treat them as a target, not just
-// something pecked at by chance when a bird happens to drift past
-let berryTargets=[];
-function scanBerries(){
-  berryTargets=[];
-  for(let y=0;y<H&&berryTargets.length<48;y++){
-    for(let x=0;x<W;x++){
-      if(grid[idx(x,y)]===BERRY){
-        berryTargets.push(x,y);
-        if(berryTargets.length>=48)break;
-      }
-    }
-  }
-}
+// Hungry birds steer toward ripe fruit rather than pecking at whatever they
+// happen to drift past. The shortlist they steer at is berryTargets, built by
+// scanGrowth() alongside the growth census that shares the sweep with it.
 const birdCanvas=document.getElementById('birdCanvas');
 const bctx=birdCanvas.getContext('2d');
 const blastFX=[];
 const blastReducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
-function clearBlastFX(){blastEvents.length=0;blastFX.length=0;}
+function clearBlastFX(){blastEvents.length=0;blastFX.length=0;bombClusters.clear();}
 document.getElementById('btnReset').addEventListener('click',clearBlastFX);
 window.addEventListener('resize',clearBlastFX);
 function drawBlastFX(ts){
@@ -7987,22 +8208,25 @@ function drawBlastFX(ts){
     const e=blastFX[i],t=(ts-e.start)/1000;
     if(t>0.85){blastFX.splice(i,1);continue;}
     const reduced=blastReducedMotion.matches;
+    // The flash is drawn to the blast it belongs to: a single bomb cell is 1,
+    // a blob drawn with the fat brush pushes this past 2.
+    const s=(e.r||BLAST_RADIUS)/BLAST_RADIUS;
     // A local warm bloom, never a full-screen flash. Reduced motion keeps
     // just this soft, stationary glow and skips the traveling particles.
     if(t<0.22){
-      const fade=1-t/0.22,r=reduced?12:7+18*(1-fade);
+      const fade=1-t/0.22,r=(reduced?12:7+18*(1-fade))*s;
       bctx.globalAlpha=fade*(reduced?0.25:0.65);
       bctx.fillStyle='#ffca73';
       bctx.beginPath();bctx.arc(e.x,e.y,r,0,Math.PI*2);bctx.fill();
       if(!reduced){
         bctx.fillStyle='#fff1c4';
-        bctx.fillRect(e.x-4*fade,e.y-4*fade,8*fade,8*fade);
+        bctx.fillRect(e.x-4*fade*s,e.y-4*fade*s,8*fade*s,8*fade*s);
       }
     }
     if(reduced)continue;
     // Fast pressure front with a slower, broken dust ring behind it.
     if(t<0.38){
-      const p=t/0.38,r=4+34*(1-Math.pow(1-p,3));
+      const p=t/0.38,r=(4+34*(1-Math.pow(1-p,3)))*s;
       bctx.globalAlpha=(1-p)*0.8;
       bctx.fillStyle=p<0.3?'#ffe5a2':'#bd9576';
       for(let k=0;k<72;k++){
@@ -8015,7 +8239,7 @@ function drawBlastFX(ts){
     // sequence intact. Hot flecks cool to orange embers as gravity wins.
     for(let k=0;k<32;k++){
       const life=0.4+(k%7)*0.065;if(t>life)continue;
-      const a=k*2.399963+e.x*0.17,speed=24+(k*17%43);
+      const a=k*2.399963+e.x*0.17,speed=(24+(k*17%43))*s;
       const vx=Math.cos(a)*speed,vy=Math.sin(a)*speed-20;
       const px=e.x+vx*t,py=e.y+vy*t+48*t*t;
       bctx.globalAlpha=Math.min(1,(life-t)*4);
@@ -8034,9 +8258,17 @@ function drawBlastFX(ts){
 function spawnBird(x,y){
   if(birds.length>=BIRD_MAX)return;
   const a=Math.random()*Math.PI*2;
+  const fl=Math.random()*100|0;
   // tgt: the perch (index into wmPerches) a bird is flying to, -1 for none;
-  // sit: ticks left on the perch, 0 in the air; face: which way it sits
-  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:Math.random()*100|0,fed:0,tgt:-1,tgtT:0,sit:0,face:1});
+  // sit: ticks left on the perch, 0 in the air; face: which way it sits.
+  // z: 0 = far class, drawn a size smaller and a step nearer the sky's own
+  // value, which is the only thing that gives a flat 2D flock any depth.
+  // seed: desyncs the glide and the perched fidgets so the flock doesn't
+  // twitch in unison. Both are derived from flap rather than drawn fresh:
+  // the scene previews seed Math.random and count on the sequence, so a
+  // spawn must not take more numbers out of it than it always has.
+  birds.push({x,y,vx:Math.cos(a)*0.9,vy:Math.sin(a)*0.9,flap:fl,fed:0,tgt:-1,tgtT:0,sit:0,face:1,
+              z:(fl%13)<5?0:1, seed:(fl*37)%260});
 }
 /* ── PERCHING ──
    The flock is the one thing in the sky that moves, and the name is the one
@@ -8071,7 +8303,6 @@ let boidHead=null,boidNext=null,boidGW=0,boidGH=0;
 function updateBoids(){
   const n=birds.length;
   if(!n)return;
-  if(frameId%20===0)scanBerries();
   const perc=18,perc2=perc*perc,sepR=5,sep2=sepR*sepR;
   const maxSpeed=1.15,maxForce=0.045;
   const gw=((W/BOID_CELL)|0)+1,gh=((H/BOID_CELL)|0)+1;
@@ -8094,6 +8325,9 @@ function updateBoids(){
     const b=birds[i];
     if(b.sit>0){
       b.sit--;
+      // a perched bird turns on its feet now and then — most of what reads as
+      // "alive" on a sprite that is otherwise five pixels holding still
+      if(((b.sit+b.seed)&127)===0)b.face=-b.face;
       const dpx=b.x-mouseSimX,dpy=b.y-mouseSimY;
       const gone=grid[idx(b.x|0,(b.y|0)+1)]===EMPTY;
       if(b.sit>0&&!gone&&dpx*dpx+dpy*dpy>144)continue;
@@ -8218,7 +8452,7 @@ const PECK=[[0,0],[1,0],[-1,0],[0,1],[0,-1]];
 function forage(b){
   const sx=b.x|0,sy=b.y|0;
   if(b.fed>0){
-    if(--b.fed===0&&eFree(sx,sy+1))setMat(sx,sy+1,SEED);
+    if(--b.fed===0&&eFree(sx,sy+1))setMat(sx,sy+1,SEED,(VIG_PIP<<3)|(Math.random()*8|0));
     return;
   }
   if(sx<1||sx>=W-1||sy<1||sy>=H-1)return;
@@ -8232,6 +8466,162 @@ function forage(b){
   }
 }
 
+/* ── BIRD SPRITES ──
+   The flock used to be a symmetric five-pixel chevron with a loose pixel
+   floating three cells ahead of it as a direction marker. Three things were
+   wrong with it as pixel art. The marker had a gap in front of the body, so
+   at a glance it read as grit on the screen rather than as a head. The
+   chevron was a front view while the perched bird and the cats are side
+   views, so a bird changed species the moment it landed. And every bird in
+   the sky was the same near-black, which is *darker than the night sky* —
+   the flock quietly disappeared for half of every day/night cycle.
+
+   These are side-view sprites in the same language as the rest of the
+   critters: tail, body, neck, head, beak, and a wing that swings through a
+   four-phase stroke. Three things carry them at this size:
+
+     · TONE TRACKS THE SKY. Near-black by day, pale by night, so the flock
+       silhouettes against the sky in both instead of dissolving into one.
+     · DEPTH. A far class drawn a size smaller and pulled toward the sky's
+       own value (atmospheric perspective), and on near birds a second,
+       lighter tone on the *far* wing — which is what gives a six-pixel
+       sprite a near side and a far side.
+     · POSE. Pitch tips the head and tail with the climb, and birds drop
+       out of the flap into a held glide on their own clocks, so the flock
+       stops beating in unison. */
+
+// Tone endpoints, [night, day]. Note far/near invert between them: by day
+// the recessive tone is LIGHTER than the body (washing out toward a bright
+// sky), at night it is DARKER (sinking back into a dark one).
+let birdToneK=-1,birdToneFar='#4e4a5e',birdToneWing='#3a3646',birdToneNear='#16141b';
+function mixHex(a,b,t){
+  const r=(parseInt(a.slice(1,3),16)*(1-t)+parseInt(b.slice(1,3),16)*t)|0;
+  const g=(parseInt(a.slice(3,5),16)*(1-t)+parseInt(b.slice(3,5),16)*t)|0;
+  const l=(parseInt(a.slice(5,7),16)*(1-t)+parseInt(b.slice(5,7),16)*t)|0;
+  return '#'+(1<<24|r<<16|g<<8|l).toString(16).slice(1);
+}
+function updateBirdTones(){
+  // quantized so a slow day cycle doesn't rebuild three color strings a frame
+  const k=(dayFactor()*24)|0;
+  if(k===birdToneK)return;
+  birdToneK=k;
+  /* Not a straight lerp on the day factor. Dusk sits at dayFactor 0.5 — the
+     exact midpoint — but the sky there is still bright, with a warm band on
+     the horizon, so a linear fade had the flock going pale grey over a lit
+     sky every evening: no contrast in either direction and the birds read as
+     ash. The sky only actually loses its light at the very bottom of the
+     range, so the flock holds full black down through dusk and flips over a
+     short window at true night. */
+  const d=k/24, u=Math.min(1,Math.max(0,(d-0.08)/0.24)), t=u*u*(3-2*u);
+  birdToneNear=mixHex('#aab2c8','#16141b',t);
+  birdToneWing=mixHex('#79809a','#3a3646',t);
+  birdToneFar =mixHex('#535a71','#4e4a5e',t);
+}
+
+/* Wing strokes as dx,dy pairs off the shoulder, near wing and far wing. The
+   cycle is up → level → down → level, so the two held extremes get a quarter
+   of the frames each and the fast pass through the middle gets the rest —
+   the same weighting that keeps a two-frame walk from reading as a jitter.
+
+   Three rules keep this legible at six pixels, and all three are things the
+   sprite got wrong first. The wing must never be a horizontal RUN: a run at
+   dy=-1 sits flush on the body at dy=0 and the two fuse into a slab, which
+   is the shape the old chevron kept making. It must not be a straight
+   vertical COLUMN either — a bar with a mast standing on it is a letter T,
+   whether the mast is at the back or the middle. It wants a diagonal
+   shoulder that straightens into a tip, which is a wing. And the far wing is
+   the near wing shifted one cell back, so the two tones read as two wings;
+   the same tone in both places is just a smudge. Level, the wing is
+   The cycle has no "level" frame. Level is where the wing foreshortens to
+   nothing, so the frame is a bare bar with a bump — and since level is
+   passed through twice a cycle, half the flock was a row of dashes at any
+   moment. Two half-strokes instead: every frame is a recognisable bird. */
+const BIRD_WING=[
+  {n:[0,-1,-1,-2,-1,-3], f:[-1,-1,-2,-2]},   // top of the upstroke
+  {n:[0,-1,-1,-2],       f:[-1,-1]},         // half down
+  {n:[0,1,-1,2,-1,3],    f:[-1,1,-2,2]},     // bottom of the downstroke
+  {n:[0,1,-1,2],         f:[-1,1]}           // half up, and round again
+];
+// held out at full span: a bird riding the air rather than working it
+const BIRD_GLIDE={n:[0,-1,-1,-2,-2,-3], f:[-1,-1,-2,-2]};
+
+function birdPixels(x,y,f,p,nn){
+  for(let i=0;i<nn;i+=2)bctx.fillRect(x+p[i]*f,y+p[i+1],1,1);
+}
+
+/* layer 0 = far class, 1 = far wings / folded wing, 2 = near class. Back to
+   front, one fillStyle per layer, so the whole flock costs three style
+   changes a frame instead of two per bird. */
+function drawBird(b,layer){
+  const x=b.x|0,y=b.y|0;
+  if(y<camY-10||y>camY+VH+10)return;        // offscreen: still flocking, not drawn
+
+  if(b.sit>0){
+    if(layer===0)return;
+    /* Perched: body, tail swept back, head with a crown and beak. The head
+       dips and the tail tip flicks on the sit clock, offset per bird by seed,
+       and the bird turns on its feet from the update loop. The folded wing is
+       the one flank cell drawn in the middle tone, which is why the body
+       below does NOT paint (-1,0) — layer 1 owns that cell and layer 2 would
+       go straight over it. Nothing is drawn below y: the perch itself is at
+       y+1, so a foot pixel would just be a smudge on the letter. */
+    const f=b.face,s=b.sit+b.seed;
+    if(layer===1){bctx.fillRect(x-f,y,1,1);return;}
+    // The two windows must not nest. (s>>4)&7 is a sixteenth of the cycle and
+    // (s>>5)&3 is an eighth containing it, so the tail could only ever flick
+    // while the head was already down; +4 puts the flick on the far side.
+    const dip=((s>>5)&3)===0?1:0, flick=(((s>>4)+4)&7)===0?1:0;
+    bctx.fillRect(x-2*f,y,1,1);              // tail base
+    // The flick COCKS the tail rather than sliding the tip up a row: moving
+    // it left the tip touching the base at a corner only, which at this size
+    // is just a speck floating off the back of the bird.
+    if(flick){bctx.fillRect(x-2*f,y-1,1,1);bctx.fillRect(x-3*f,y-1,1,1);}
+    else bctx.fillRect(x-3*f,y,1,1);
+    bctx.fillRect(x,y,1,1);                  // body, sitting on the letter
+    bctx.fillRect(x+f,y,1,1);
+    bctx.fillRect(x-f,y-1,1,1);              // shoulder — the cell that closes
+    bctx.fillRect(x,y-1,1,1);                // the waist. Without it the tail and
+    bctx.fillRect(x+f,y-1+dip,1,1);          // the head are two lumps on a thread
+    bctx.fillRect(x+f,y-2+dip,1,1);          // crown, dips on the sit clock
+    bctx.fillRect(x+2*f,y-1+dip,1,1);        // beak
+    return;
+  }
+
+  const far=b.z===0;
+  if(far?layer!==0:layer===0)return;
+  const f=b.vx>=0?1:-1;
+  const sp=Math.hypot(b.vx,b.vy)||1, pitch=b.vy/sp;
+  /* Pitch is expressed through the WING, not by tilting the body. Nudging the
+     beak and tail pixels off the bar to tip the bird only ever touched their
+     neighbours at a corner, and a lone pixel touching at a corner reads as a
+     lone pixel — the same detached-speck problem the old direction tick had.
+     A bird committed to a descent puts its wings out instead, which is both
+     what birds do and a pose change the eye actually catches. */
+  // Each bird glides for 70 of every 260 ticks on its own offset, and always
+  // on a committed descent. Derived from flap+seed rather than rolled, so
+  // drawing never touches the sim's random stream.
+  const gliding=((b.flap+b.seed)%260)<70||pitch>0.55;
+  const w=gliding?BIRD_GLIDE:BIRD_WING[(b.flap>>2)&3];
+
+  if(far){
+    // far class: keeps the beak, which is the whole direction cue, and drops
+    // the tail. Wing clipped to its first two pixels.
+    bctx.fillRect(x-f,y,1,1);
+    bctx.fillRect(x,y,1,1);
+    bctx.fillRect(x+f,y,1,1);
+    bctx.fillRect(x+2*f,y,1,1);
+    birdPixels(x,y,f,w.n,Math.min(4,w.n.length));
+    return;
+  }
+  if(layer===1){birdPixels(x,y,f,w.f,w.f.length);return;}
+  bctx.fillRect(x-2*f,y,1,1);                // tail
+  bctx.fillRect(x-f,y,1,1);                  // body — the head is the front of
+  bctx.fillRect(x,y,1,1);                    // this bar, not a pixel stepped up
+  bctx.fillRect(x+f,y,1,1);                  // off it: at six pixels a raised
+  bctx.fillRect(x+2*f,y,1,1);                // head reads as a loose mark, and
+  birdPixels(x,y,f,w.n,w.n.length);          // the beak alone carries direction
+}
+
 function drawBirds(){
   if(birdCanvas.width!==W)return; // skip mid-resize
   // One camera translate for the whole overlay. Birds, cats and the chest all
@@ -8240,41 +8630,10 @@ function drawBirds(){
   bctx.setTransform(1,0,0,1,0,-camY);
   bctx.clearRect(0,camY,W,VH);
   if(!birds.length)return;
-  bctx.fillStyle='#1c1a22';
-  for(const b of birds){
-    const x=b.x|0,y=b.y|0;
-    if(b.sit>0){
-      // sitting: a plump body, the head forward and up, the tail behind. The
-      // head dips every so often, which is all the idle a five-pixel bird
-      // needs to read as alive rather than as a mark on the letter.
-      const f=b.face,dip=((b.sit>>5)&3)===0?1:0;
-      bctx.fillRect(x-1,y,3,1);
-      bctx.fillRect(x+f,y-1+dip,1,1);
-      bctx.fillRect(x-2*f,y-1,1,1);
-      continue;
-    }
-    // pick a shape based on flight direction + flap phase
-    const dirRight=b.vx>=0;
-    const up=((b.flap>>2)&1)===0;
-    // tiny chevron: ▴ (wings up) or ◜◝ (wings down). 1px scale.
-    if(up){
-      // wings raised: a peak
-      bctx.fillRect(x,   y,   1,1);
-      bctx.fillRect(x-1, y-1, 1,1);
-      bctx.fillRect(x+1, y-1, 1,1);
-      bctx.fillRect(x-2, y,   1,1);
-      bctx.fillRect(x+2, y,   1,1);
-    } else {
-      // wings lowered: a flat M
-      bctx.fillRect(x-2, y-1, 1,1);
-      bctx.fillRect(x-1, y,   1,1);
-      bctx.fillRect(x,   y-1, 1,1);
-      bctx.fillRect(x+1, y,   1,1);
-      bctx.fillRect(x+2, y-1, 1,1);
-    }
-    // direction tick — a single pixel ahead of the bird
-    if(dirRight)bctx.fillRect(x+3,y,1,1); else bctx.fillRect(x-3,y,1,1);
-  }
+  updateBirdTones();
+  bctx.fillStyle=birdToneFar;  for(const b of birds)drawBird(b,0);
+  bctx.fillStyle=birdToneWing; for(const b of birds)drawBird(b,1);
+  bctx.fillStyle=birdToneNear; for(const b of birds)drawBird(b,2);
 }
 
 
@@ -9156,7 +9515,7 @@ requestAnimationFrame(loop);
       <h2>RetroVirus VR</h2>
       <div class="sub">Escape the antivirus prison</div>
       <div class="meta">VR Jam 2020 · Unity · SteamVR 2.0</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2mGfEtkYbME?rel=0" title="RetroVirus VR demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2mGfEtkYbME?rel=0" title="RetroVirus VR demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>You've been quarantined. Fight your way out of an antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
       <h3>Features</h3>
       <ul>
@@ -9183,7 +9542,7 @@ requestAnimationFrame(loop);
       <h2>Songbird</h2>
       <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
       <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/c2cUoMuH6bY?rel=0" title="Songbird demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/c2cUoMuH6bY?rel=0" title="Songbird demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit. Take too much damage and rage takes over: harder to aim, easier to break your own instrument.</p>
       <h3>Controls</h3>
       <ul>
@@ -9211,7 +9570,7 @@ requestAnimationFrame(loop);
       <h2>Nira</h2>
       <div class="sub">A short 3D action-adventure about a girl and her hoverstaff</div>
       <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/MCfxDnmBX3w?rel=0" title="Nira demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/MCfxDnmBX3w?rel=0" title="Nira demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Your grandfather left something for you at the observatory. Guide Nira through an atmospheric low-poly world using <b>Kane</b>, a magical hoverstaff, and uncover the mystery of what he left behind.</p>
       <h3>Highlights</h3>
       <ul>
@@ -9257,7 +9616,7 @@ requestAnimationFrame(loop);
     'imagine-together': { title:'★ Imagine Together ★', icon:'star', theme:'spatial', html:`
       <h2>Imagine Together</h2>
       <div class="sub">Flagship experience · Spectacles</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/Od-_nZpmU9Q?rel=0&start=101" title="Imagine Together demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/Od-_nZpmU9Q?rel=0&start=101" title="Imagine Together demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Co-located multiplayer 3D generation for real-time creation and sharing — people in the same space generate and manipulate 3D content together.</p>
       <blockquote>"Featured in a live on-stage demo at Snap Partner Summit."</blockquote>
       <h3>What's Inside</h3>
@@ -9272,7 +9631,7 @@ requestAnimationFrame(loop);
     translation: { title:'★ Translation ★', icon:'globe', theme:'spatial', html:`
       <h2>Translation</h2>
       <div class="sub">Flagship experience · Spectacles</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/hR4W_Qtzij4?rel=0" title="Translation demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/hR4W_Qtzij4?rel=0" title="Translation demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Multi-user cross-language conversation with live summarization, plus a single-user mode for seamless interaction with people who aren't wearing Spectacles.</p>
       <h3>Modes</h3>
       <ul>
@@ -9317,7 +9676,7 @@ requestAnimationFrame(loop);
         <section class="ac-section">
           <div class="ac-section-number">03 / THE TALK</div>
           <div><h3>Dev talk</h3><p>A walkthrough of Agent Center's design and build.</p>
-            <div class="shot-vid"><iframe src="https://www.youtube.com/embed/GtULAKBGod8?rel=0" title="Agent Center dev talk" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+            <div class="shot-vid"><iframe src="https://www.youtube.com/embed/GtULAKBGod8?rel=0" title="Agent Center dev talk" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
           </div>
         </section>
         <footer class="ac-footer"><span>Mitchell Kuppersmith / Selected work</span><a data-launch="ai-playground" role="button" tabindex="0">Next project: AI Playground →</a></footer>
@@ -9377,7 +9736,7 @@ requestAnimationFrame(loop);
       <h2>CATIATOR</h2>
       <div class="sub">★ MOONSHOT PRIZE · BEST HACKATHON PROJECT ★</div>
       <div class="meta">Stanford TreeHacks 2021</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/_OPf_EpcgpE?rel=0" title="Catiator demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/_OPf_EpcgpE?rel=0" title="Catiator demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p><b>Cat·i·a·tor</b> <em>(noun)</em>: Cat + Gladiator! A cat wearing a gladiator helmet ${ico('cat','pxi-inline')}</p>
       <p>Interactive VR game to learn American Sign Language through finger-tracked gesture combat. Battle waves of fierce-but-chonky catiator warriors by signing the corresponding letters.</p>
       <blockquote>"Signs are to eyes as words are to ears."</blockquote>
@@ -9423,7 +9782,7 @@ requestAnimationFrame(loop);
       <h2>IntARnet</h2>
       <div class="sub">Scott Krulcik Grand Prize</div>
       <div class="meta">CMU TartanHacks 2021</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2WW6OzM3Tsc?rel=0" title="IntARnet demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2WW6OzM3Tsc?rel=0" title="IntARnet demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>An AR social media app built around spatial anchors — drop persistent posts at real-world locations and discover what others have left behind.</p>
       <h3>Concept</h3>
       <p>Twitter, but the timeline is the city. Post drawings, text or 3D models and they stay pinned to the spot you left them — the only way to read a post is to walk to it. That constraint is the feature: it gets people outdoors and keeps what you see relevant to the block you're standing on.</p>
@@ -9449,7 +9808,7 @@ requestAnimationFrame(loop);
     larp: { title:'lARp — mushroom AR', icon:'mushroom', theme:'forest', html:`
       <h2>lARp</h2>
       <div class="sub">Best Art and Gaming Hack · HooHacks 2021</div>
-      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/wR7rJfNN0Ow?rel=0" title="lARp demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>
+      <div class="shot-vid"><iframe src="https://www.youtube.com/embed/wR7rJfNN0Ow?rel=0" title="lARp demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>A mushroom-themed AR fitness game that promotes physical activity through gamification — battle or befriend procedurally generated mushroom NPCs while GPT-3 powers open-ended dialogue.</p>
       <blockquote>"The hardest part about exercise is to start doing it. Once you are doing exercise regularly, the hardest part is to stop it." — Erin Grey</blockquote>
       <p><em>lARp</em> makes it easy to start. Use the outdoors (or a treadmill) as your gym and work toward becoming the buff mushroom of your dreams.</p>
