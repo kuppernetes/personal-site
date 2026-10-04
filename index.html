@@ -1852,7 +1852,7 @@ function computeDims(){
   const vw=vpW(),vh=vpH();
   const CELL_BUDGET=1300000;
   // Sprites are authored in cells, so a fixed SCALE pins their on-screen size
-  // (the oak is 21x24 cells = 84x96px) no matter how big the window is — extra
+  // (the oak is 23x24 cells = 92x96px) no matter how big the window is — extra
   // width lands as bare meadow and the composition pulls apart. Growing SCALE
   // with the viewport keeps the grid near a constant cell count, so the scene
   // holds its proportions and simply zooms in.
@@ -1958,7 +1958,13 @@ const isLiq=m=>m===WATER||m===OIL||m===ACID;
 // slick is what carries fire across open water.
 const LDEN=new Uint8Array(256);
 LDEN[OIL]=1;LDEN[ACID]=2;LDEN[WATER]=3;
+// what acid dissolves, and that plus whatever else it reacts with at all
+const ACID_EATS=new Uint8Array(256),ACID_HIT=new Uint8Array(256),ACID_NB=new Uint8Array(4);
+for(const m of [STONE,SAND,PLANT,ASH,MOSS,SEED,DIRT,GRASS,WOOD,LEAF,THATCH,BERRY,BRICK,GLASS])ACID_EATS[m]=ACID_HIT[m]=1;
+ACID_HIT[WATER]=ACID_HIT[MASK]=1;
 const isStatic=m=>m===STONE||m===TITLE||m===ACCENT||m===BODY||m===RIGID||m===DIRT||m===GRASS||m===MASK;
+const INERT=new Uint8Array(256);   // cells step() has nothing to do for
+for(let m=0;m<256;m++)INERT[m]=(m===EMPTY||isStatic(m))?1:0;
 
 /* ═══════════════════════════════════════════════════════
    CHUNK DIRTY-RECTANGLES (Noita-style)
@@ -2054,6 +2060,20 @@ let simSpeed=2;
 let frameId=1;
 let stepDir=1;
 
+/* Grow chunk c's physics and render bounds to cover a rect already inside it.
+   This is the hottest code in a pour — every moved grain lands here — so each
+   bounds array is read through a local, which V8 keeps in a register instead
+   of reloading the script-level binding for every compare and store. */
+function chunkChanged(c,x0,y0,x1,y1){
+  let a=dnMinX;if(x0<a[c])a[c]=x0;
+  a=dnMinY;if(y0<a[c])a[c]=y0;
+  a=dnMaxX;if(x1>a[c])a[c]=x1;
+  a=dnMaxY;if(y1>a[c])a[c]=y1;
+  a=rcMinX;if(x0<a[c])a[c]=x0;
+  a=rcMinY;if(y0<a[c])a[c]=y0;
+  a=rcMaxX;if(x1>a[c])a[c]=x1;
+  a=rcMaxY;if(y1>a[c])a[c]=y1;
+}
 // A physics mutation wakes and repaints the same one-cell neighbourhood.
 // Merge both sets of chunk bounds in one traversal; keeping the two rects
 // independent preserves any earlier physics-only wakes or render-only dirt.
@@ -2062,6 +2082,8 @@ function cellChanged(x,y){
   const x1=Math.min(W-1,x+1),y1=Math.min(H-1,y+1);
   if(x1<x0||y1<y0)return;
   const cx0=(x0/CW)|0,cx1=(x1/CW)|0,cy0=(y0/CW)|0,cy1=(y1/CW)|0;
+  // Nearly always the 3x3 sits inside one chunk, and needs no clipping.
+  if(cx0===cx1&&cy0===cy1){chunkChanged(cy0*ncx+cx0,x0,y0,x1,y1);return;}
   for(let cy=cy0;cy<=cy1;cy++)for(let cx=cx0;cx<=cx1;cx++){
     const c=cy*ncx+cx;
     const rx0=Math.max(x0,cx*CW),rx1=Math.min(x1,cx*CW+CW-1);
@@ -2201,6 +2223,15 @@ function moveSwap(x,y,nx,ny){
   grid[j]=grid[i];variant[j]=variant[i];
   grid[i]=gm;variant[i]=gv;
   updated[i]=frameId;updated[j]=frameId;
+  /* Both neighbourhoods, as one rect. Growing a chunk's bounds by two rects in
+     turn ends at the same min/max as growing it once by their bounding box, so
+     when that box sits in one chunk this is exactly the pair of cellChanged
+     calls below at half the cost. Across a chunk edge the two rects clip
+     differently, so that case keeps the calls. */
+  let x0=(x<nx?x:nx)-1,y0=(y<ny?y:ny)-1,x1=(x<nx?nx:x)+1,y1=(y<ny?ny:y)+1;
+  if(x0<0)x0=0;if(y0<0)y0=0;if(x1>=W)x1=W-1;if(y1>=H)y1=H-1;
+  const cx=(x0/CW)|0,cy=(y0/CW)|0;
+  if(cx===((x1/CW)|0)&&cy===((y1/CW)|0)){chunkChanged(cy*ncx+cx,x0,y0,x1,y1);return;}
   cellChanged(x,y);cellChanged(nx,ny);
 }
 function setMat(x,y,m,v){
@@ -2580,27 +2611,38 @@ function step(x,y){
       // down, d, -d, up
       // ...but water dilutes it. Enough rain on a pool and the acid fizzes out
       // into plain water, so flooding is a real answer to a spill.
-      for(let k=0;k<4;k++){
-        const ax=NX_URLD[k]*d,ay=NY_DXXU[k];
-        if(mat(x+ax,y+ay)===WATER&&Math.random()<0.025){
-          if(eFree(x,y-1)&&Math.random()<0.35)setMat(x,y-1,SMOKE);
-          setMat(x,y,WATER);return;
+      //
+      // The four neighbours are read once for both scans: each scan only
+      // writes a cell on its way out (burnMask writes nothing when it returns
+      // false). Acid deep in its own pool touches nothing it reacts with, and
+      // then neither scan would draw a single number, so both are skipped.
+      const nb=ACID_NB;
+      nb[0]=y+1<H?grid[i+W]:BOUND;
+      nb[1]=(x+d>=0&&x+d<W)?grid[i+d]:BOUND;
+      nb[2]=(x-d>=0&&x-d<W)?grid[i-d]:BOUND;
+      nb[3]=y>0?grid[i-W]:BOUND;
+      if(ACID_HIT[nb[0]]|ACID_HIT[nb[1]]|ACID_HIT[nb[2]]|ACID_HIT[nb[3]]){
+        for(let k=0;k<4;k++){
+          if(nb[k]===WATER&&Math.random()<0.025){
+            if(eFree(x,y-1)&&Math.random()<0.35)setMat(x,y-1,SMOKE);
+            setMat(x,y,WATER);return;
+          }
         }
-      }
-      for(let k=0;k<4;k++){
-        const ax=NX_URLD[k]*d,ay=NY_DXXU[k];
-        const t=mat(x+ax,y+ay);
-        // the page itself is not immune: a MASK cell belonging to a window
-        // etches away and the hole opens in the real HTML behind it
-        if(t===MASK&&Math.random()<0.16&&burnMask(x+ax,y+ay,1)){
-          if(eFree(x,y-1)&&Math.random()<0.3)setMat(x,y-1,SMOKE);
-          if(Math.random()<0.45){setMat(x,y,EMPTY);return;} // spent on the way through
-          break;
-        }
-        if((t===STONE||t===SAND||t===PLANT||t===ASH||t===MOSS||t===SEED||t===DIRT||t===GRASS||t===WOOD||t===LEAF||t===THATCH||t===BERRY||t===BRICK||t===GLASS)&&Math.random()<0.10){
-          setMat(x+ax,y+ay,EMPTY);
-          if(Math.random()<0.4){setMat(x,y,EMPTY);return;}
-          break;
+        for(let k=0;k<4;k++){
+          const ax=NX_URLD[k]*d,ay=NY_DXXU[k];
+          const t=nb[k];
+          // the page itself is not immune: a MASK cell belonging to a window
+          // etches away and the hole opens in the real HTML behind it
+          if(t===MASK&&Math.random()<0.16&&burnMask(x+ax,y+ay,1)){
+            if(eFree(x,y-1)&&Math.random()<0.3)setMat(x,y-1,SMOKE);
+            if(Math.random()<0.45){setMat(x,y,EMPTY);return;} // spent on the way through
+            break;
+          }
+          if(ACID_EATS[t]&&Math.random()<0.10){
+            setMat(x+ax,y+ay,EMPTY);
+            if(Math.random()<0.4){setMat(x,y,EMPTY);return;}
+            break;
+          }
         }
       }
     }
@@ -3018,9 +3060,12 @@ function simulate(){
         continue;
       }
       if(x0<0)x0=0; if(y0<0)y0=0; if(x1>=W)x1=W-1; if(y1>=H)y1=H-1;
+      // step() returns at once for air and fixed terrain, frozen or not, and
+      // those are a third of what an awake rect holds — skip the call.
       for(let y=y1;y>=y0;y--){
-        if(stepDir>0){for(let x=x0;x<=x1;x++)step(x,y);}
-        else{for(let x=x1;x>=x0;x--)step(x,y);}
+        const row=y*W;
+        if(stepDir>0){for(let x=x0;x<=x1;x++)if(!INERT[grid[row+x]])step(x,y);}
+        else{for(let x=x1;x>=x0;x--)if(!INERT[grid[row+x]])step(x,y);}
       }
     }
   }
@@ -5201,31 +5246,52 @@ const SPRITE_MATS={
 // Designed at ~2× the original size so silhouettes read as deliberate pixel
 // art at the new chunkier SCALE.
 const SPRITES={
+  /* The focal tree, under the name. The first oak read as a letter Q: a ring
+     of canopy round a hole, over a trunk that forked round a second hole. It
+     was drawn to satisfy the support rule rather than the eye, and the rule
+     is real, so it is worth saying what it allows.
+
+     LEAF is debris: a frozen leaf holds only while something frozen sits
+     directly or diagonally under it (tryDecompose), so a canopy cannot
+     overhang air — its underside may only step in toward the trunk a cell a
+     row. WOOD holds as one connected chunk grounded anywhere
+     (tryChunkDetach), so a limb can run out at any angle. The crown therefore
+     rests on two low limbs that leave the trunk at the fork and reach under
+     its lower corners. The sky between limb and trunk is two cells wide,
+     which is as wide as the top of any hole in a canopy can be: over a third
+     cell, the leaf in the middle has nothing under it at all.
+
+     The crown is florets, each lit on its upper-left rim and shaded toward
+     its lower right, with a crease of deep shade where one tucks behind the
+     next; the whole thing is lit from the upper left like the rest of the
+     meadow. Twenty-four rows is a ceiling, not a choice: at 1280x720 the
+     name sits a few rows above the crown (see the turf line in
+     spawnNaturalLandscape). */
   oak:[
-    "........HHHLL........",
-    ".......HHLLLLl.......",
-    "...HHLLHLLLLLll......",
-    "..HHLLLLLlllLLl......",
-    ".HHLLLLLll%HHLLLl....",
-    ".HLLLLll%.HLLLLLLl...",
-    "HLLLLLll...HLLLLLll..",
-    "HLLLLll%..^TLLLLLLll.",
-    ".LLLLll%ttTtLLLLLll%.",
-    ".lllll%TTTtlLLLLll%%.",
-    "..lll%tT!tTttllll%%..",
-    "...%%t^T!t..ttll%%...",
-    "....tT^T!t...tTt%....",
-    ".....^TT!t...tTt.....",
-    ".....^TT!TttTTt......",
-    "......^TT!TTTt.......",
-    ".......^T!TTt........",
-    ".......^T!Tt.........",
-    ".......^T!Tt.........",
-    ".......^T!Tt.........",
-    "......^TT!TTt........",
-    "......^TT!TTt........",
-    ".....^TTT!TTTt.......",
-    "...^tTTtt!ttTTtt.....",
+    ".........HHHL..........",
+    ".......HHHHLLLl..HH....",
+    "......HHLLLLLLl%HHLLl..",
+    "..HHHlHLLLLLLLll%HLLLl.",
+    ".HHHLLLL%HHHHLL%lHLLLLl",
+    "HHLLLLL%HHHLLLLl%LLLLll",
+    "HLLLLLl%HLLLLLLLl%LLLl%",
+    "HLLLLl%%HLLLLLLLll%Lll%",
+    "l%HHHL%HLLLLLLLll%HHHLl",
+    "%HHLLLl%LLLLLLll%HLLLll",
+    ".HLLLLll%LLLLll%HLLLll.",
+    "..lLLlll%%lLLl%%lLLlll.",
+    "...%ll%%%llll%%%llll%..",
+    "....t!%%..^Tt..%%!tt...",
+    ".....tt!..^Tt..!tt.....",
+    "......tt^^TTt!t!.......",
+    "........^TTTt!.........",
+    ".........^TTt!.........",
+    ".........^T!Tt.........",
+    ".........^TTt!.........",
+    "........^^TTTt!........",
+    "........^TTTTt!........",
+    ".......^TTTTTtt!.......",
+    ".....^tTTTt!TTtt!t.....",
   ],
   // Layered blue-green boughs with fine timber twigs under the overhangs.
   pine:[
@@ -5277,17 +5343,20 @@ const SPRITES={
   // A toadstool at toadstool size. The first one was fifteen rows — two
   // thirds of the oak, and taller than the greenhouse — so a fungus was the
   // biggest thing in the middle of the meadow. Eight rows puts it under the
-  // oak's canopy where it belongs, with the same cap-highlight, white spots
-  // and banded stem, just fewer of each.
+  // oak's canopy where it belongs, with the same cap-highlight and spots.
+  // The stem is cream thatch rather than timber: a brown stalk under a red
+  // cap read as a stool or a little table, and a pale one is what says
+  // fly agaric. The gills stay WOOD because they are the one row that
+  // overhangs the stem, and only a chunk material may hang out over air.
   mushroom:[
     "...AABBB...",
     "..AAYBBBb..",
     ".ABBBBBBYb.",
     "ABBYBBBBBbb",
-    ".ttTTTTTtt.",
-    "....^Tt....",
-    "....^Tt....",
-    "...^tTtt...",
+    ".tt!!!!!tt.",
+    "....YRr....",
+    "....YRr....",
+    "...YYRrr...",
   ],
   // A flower at flower size: five rows, down from ten. At ten it stood
   // taller than a fence picket. Still on a leaf stem so it falls cleanly.
@@ -5343,41 +5412,52 @@ const SPRITES={
   // light stone (124,121,121) is neutral where everything below it is warm,
   // so the wall separates from the soil by value and the footing by hue.
   // Plenty of surface area for fire, acid, and impact tests to crumble apart.
+  //
+  // Lived in: a window box on each sill — a plank rail hung off the mid-beam
+  // with leaves and buttercups standing on it — a scatter of the same
+  // buttercups in the sod roof, and a climber up the right-hand post that
+  // puts out a leaf every other row instead of running up it as one ruled
+  // green line. The flowers are THATCH, not BERRY: frozen fruit goes on the
+  // flock's berryTargets (scanGrowth), and the birds would strip the roof.
   cottage:[
     "............HL............",
     "...........HLLl..cEC......",
-    "..........HHLLLl.cKC......",
+    "..........HHLYLl.cKC......",
     ".........HHLLLLllcKC......",
     "........HLLLLlllLKKC......",
     ".......HHLL^T^LLLLKC......",
     "......HHLL^!*g!LLLlll.....",
     ".....HHLL^T!Gg!LLLLLll....",
-    "....HHLLLLL!!!!!LLLllLl...",
-    "...HHLLLlllLLLLLLlllllLl..",
-    "..HHLLLLll%%LLLHLLLLllLll.",
-    ".HLLLLlll%%LLLLHLLLLll%lll",
+    "....HHLYLLL!!!!!LLLllLl...",
+    "...HHLLLlllLLLYLLlllllLl..",
+    "..HHLLLLll%%LLLHLLLYllLll.",
+    ".HLLYLlll%%LLLLHLLLLll%lll",
     ".%lllllllllllllllllllllll.",
     "..!!!!!!!!!!!!!!!!!!!!!!L.",
-    "..!r!!!!!!rr!r^^^^^!!!!!L.",
+    "..!r!!!!!!rr!r^^^^^!!!!!lH",
     "..!R!*G!g!RR!R!^Tt!!*g!!L.",
     "..!R!GG!g!RR!R!^Tt!!Gg!!Ll",
-    "..!R!gg!g!RR!R!^Tt!!gg!!L.",
-    "..!R^^^^^^RR!R!^TY!^^^^!BL",
-    "..!!!!!!!!!!!!!^Tt!!!!!!L.",
-    "..!RR!RRRRRR!R!^Tt!RRRR!L.",
+    "..!R!gg!g!RR!R!^Tt!!gg!!H.",
+    "..!RHYLYLlRR!R!^TY!YLYl!BL",
+    "..!!^TTTTt!!!!!^Tt!^TTt!L.",
+    "..!RR!RRRRRR!R!^Tt!RRRR!lH",
     "..!RRR!RRRRR!R!^Tt!RRRR!L.",
-    "..EEDEEEDEEDEEE^TtEEEEDEL.",
+    "..EEDEEEDEEDEEE^TtEEEEDELl",
     "..DSDDSSDSDDSSDEEEESDSDDL.",
   ],
-  // Three cut logs share the wood palette; the saw-cut faces keep their
-  // highlights in broad rings so this reads clearly at six cells high.
+  // Firewood, stacked end-on: two logs and one in the groove on top. The
+  // first stack was all timber, three lumps of the same brown with their
+  // rings drawn in WOOD highlights, and at six rows it read as a heap of
+  // earth. The saw-cut faces are thatch — pale end grain, lit at the upper
+  // left, with a darker heart — inside a ring of bark, which is the whole
+  // cue that says "cut log" at this size.
   logstack:[
-    "....^^^.....",
-    "...^T^Tt....",
-    "..^^ttt^^...",
-    ".^T^Tt^T^Tt.",
-    ".^TTTt^TTTt.",
-    "..tttt.tttt.",
+    ".....TT.....",
+    "....TYR!....",
+    "..TTt!!TTt..",
+    ".TYRr!TYRr!.",
+    ".TRrr!TRrr!.",
+    "..!!!..!!!..",
   ],
   // A picket fence, four pickets. Five was 29 cells and would not fit
   // between the greenhouse and the arch, which is the gap it is for.
@@ -6295,12 +6375,23 @@ function strataMat(d,y,x){
   // then the bedding
   const bed=bedAt(x,y);
   const bi=Math.floor(bed);
+  // 0 on the bed's centre line, 1 at its top or bottom face
+  const face=Math.abs(bed-bi-0.5)*2;
   for(const b of s.beds){
     if(((bi%b.every)+b.every)%b.every<b.of){
       /* Patchiness along the bed, from a field rather than a coin flip — this
          is what lets a bed thin out and disappear over a stretch and come back
-         further along, instead of dissolving into speckle. */
-      if(fbm2(x*0.035,bi*2.7,2)<b.p)return b.m;
+         further along, instead of dissolving into speckle.
+
+         It never thinned, though. The field only looked at x, so every row of
+         a bed gave out at the same column and each patch ended in a vertical
+         cut: a stone bed in the topsoil drew as a ruled grey rectangle, the
+         one straight-sided thing in the cutting. The threshold now falls away
+         toward the bed's faces, so a patch is a lens — full thickness where
+         the field is lowest, pinching to its centre line where it gives out.
+         (A per-row nudge on the edge was tried and dropped: it put one-cell
+         spurs on the tips and a buried stone came out looking like a fish.) */
+      if(fbm2(x*0.035,bi*2.7,2)<b.p-face*face*0.22)return b.m;
     }
   }
   return s.matrix;
@@ -10395,9 +10486,20 @@ requestAnimationFrame(loop);
        scroll position every frame, so the drift yields for a moment after any
        touch; and a visitor who has asked their system for no motion gets none,
        which — with no button to press — is the only way they could stop it.
-       A wheel is not one of them, and over the strip it does nothing at all:
-       the track scrolls on one axis and a wheel offers the other. Over the
-       world it sizes the brush. */
+       A wheel is not one of them. Over the strip it is a throttle instead:
+       each notch kicks the conveyor up to speed (either direction) and the
+       extra velocity bleeds off back to the idle drift. Over the world the
+       wheel sizes the brush. */
+    let boost=0;                       // extra px/ms from the wheel, signed
+    const BOOST_PER_PX=.012,BOOST_MAX=2.5,BOOST_DECAY_MS=450;
+    shelf.addEventListener('wheel',e=>{
+      if(e.ctrlKey||reducedMotion.matches)return;
+      const unit=e.deltaMode===1?16:e.deltaMode===2?track.clientWidth:1;
+      const d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*unit;
+      if(!d)return;
+      e.preventDefault();
+      boost=Math.max(-BOOST_MAX,Math.min(BOOST_MAX,boost+d*BOOST_PER_PX));
+    },{passive:false});
     const pauseForInteraction=()=>{pauseUntil=performance.now()+3500;};
     const endPointerInteraction=e=>{
       if(!activePointers.delete(e.pointerId))return;
@@ -10431,12 +10533,18 @@ requestAnimationFrame(loop);
       lastFrame=now;
       const waiting=reducedMotion.matches||activePointers.size>0||document.hidden||now<pauseUntil
         ||shelf.contains(document.activeElement);
-      if(waiting){position=track.scrollLeft;}
+      // A wheel throttle works even while a focused card holds the idle drift still.
+      const throttled=reducedMotion.matches||activePointers.size>0||document.hidden;
+      if(throttled)boost=0;
+      else boost*=Math.exp(-elapsed/BOOST_DECAY_MS);
+      if(Math.abs(boost)<.005)boost=0;
+      if(throttled||(waiting&&!boost)){position=track.scrollLeft;}
       else if(cycleWidth>0){
         // Preserve fractional pixels so slow motion remains smooth at every frame rate.
         if(Math.abs(track.scrollLeft-position)>1)position=track.scrollLeft;
-        position+=elapsed*.028;
+        position+=elapsed*((waiting?0:.028)+boost);
         if(position>=cycleWidth)position-=cycleWidth;
+        else if(position<0)position+=cycleWidth;
         track.scrollLeft=position;
       }
       requestAnimationFrame(advance);
@@ -11204,9 +11312,25 @@ function placeEvilChest(){
   const floorY=VH-CHROME_ROWS-1;
   evilSY=Math.min(gy-EVIL_FEET+2,floorY-(EVIL_FEET-1));
 }
-// invisible collision under the chest body so sand piles on the lid
+// invisible collision under the chest body so sand piles on the lid. The cells
+// it claims are remembered so the mask can be lifted and set down again when
+// the chest falls, without touching a window's MASK that happens to be nearby.
+const evilMaskCells=[];
+function unstampEvilChestMask(){
+  if(!evilMaskCells.length)return;
+  let x0=W,y0=H,x1=0,y1=0;
+  for(const i of evilMaskCells){
+    if(grid[i]===MASK&&!maskOwner[i]){grid[i]=EMPTY;variant[i]=0;}
+    const x=i%W,y=(i/W)|0;
+    if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+  }
+  evilMaskCells.length=0;
+  // whatever was resting on the lid has lost its floor
+  wakeRect(x0-1,y0-1,x1+1,y1+1);
+}
 function stampEvilChestMask(){
   if(!W||!H||evilSX<0)return;
+  unstampEvilChestMask();
   const compact=W<160;
   for(let y=evilSY+(compact?10:4);y<=evilSY+EVIL_FEET-1;y++)for(let x=evilSX+(compact?1:2);x<=evilSX+(compact?18:27);x++){
     if(x<0||x>=W||y<0||y>=H)continue;
@@ -11222,11 +11346,55 @@ function stampEvilChestMask(){
       if(!((x>=evilSX+left&&x<evilSX+left+foot)||(x>=evilSX+right&&x<evilSX+right+foot)))continue;
     }
     const i=idx(x,y);
-    if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;}
+    if(grid[i]===EMPTY){grid[i]=MASK;variant[i]=0;evilMaskCells.push(i);}
   }
-  // its contact shadow: the turf the chest stands on, between and beside the
-  // feet, darkens to the sod's root tone — the same cue the warning board
-  // and every planted thing gets, so the chest is set down and not laid on
+}
+/* ── gravity ──────────────────────────────────────────────
+   The chest balances on its two feet. If whatever is under them is erased,
+   burned, dissolved or washed away, it drops a cell at a time, picking up
+   speed, until the feet find something to stand on again. Powder and
+   debris hold it up; liquids, fire and gas do not. */
+let evilFallV=0,evilFallAcc=0;
+function evilHolds(m){
+  return m!==EMPTY&&!isLiq(m)&&m!==LAVA&&m!==FIRE&&m!==SMOKE&&m!==STEAM&&m!==POLLEN;
+}
+function evilSupported(){
+  const y=evilSY+EVIL_FEET;       // the row just under the feet
+  if(y>=H)return true;            // the bottom of the world is the floor
+  const compact=W<160;
+  const a=compact?[2,15]:[3,22],n=compact?3:5;
+  let held=0;
+  for(const x0 of a)for(let x=evilSX+x0;x<evilSX+x0+n;x++){
+    if(x>=0&&x<W&&evilHolds(grid[idx(x,y)]))held++;
+  }
+  return held>=(compact?2:4);     // a sliver of ground is not enough to stand on
+}
+function updateEvilGravity(){
+  if(evilSX<0||!W||!H||!evilMaskCells.length)return;
+  if(evilSupported()){
+    if(evilFallV>0){                              // landed: a thud, then still
+      if(evilFallV>1.5)evilShakeT=Math.max(evilShakeT,9);
+      evilFallV=0;evilFallAcc=0;
+    }
+    return;
+  }
+  evilFallV=Math.min(4,evilFallV+0.3);
+  evilFallAcc+=evilFallV;
+  let moved=false;
+  while(evilFallAcc>=1){
+    evilFallAcc--;
+    if(evilSupported())break;
+    if(!moved){unstampEvilChestMask();moved=true;}
+    evilSY++;
+  }
+  if(moved){stampEvilChestMask();evilDirty=true;}
+}
+// its contact shadow: the turf the chest stands on, between and beside the
+// feet, darkens to the sod's root tone — the same cue the warning board
+// and every planted thing gets, so the chest is set down and not laid on
+function shadeEvilChestFeet(){
+  if(!W||!H||evilSX<0)return;
+  const compact=W<160;
   for(let x=evilSX+(compact?1:1);x<=evilSX+(compact?18:28);x++){
     if(x<0||x>=W)continue;
     const y=evilSoilY(x);
@@ -11566,6 +11734,7 @@ function updateEvil(){
   }
   if(evilShakeT>0)evilShakeT--;
   if(evilBurstT>0)evilBurstT--;
+  updateEvilGravity();
   if(--evilTwitchT<0)evilTwitchT=340+(Math.random()*160|0);
   // A modest cadence follows nearby firelight as well as the day/night cycle.
   // The lid itself redraws every moving frame; all positions remain whole cells.
@@ -11640,7 +11809,7 @@ if(hasFinePointer){
   userTag.style.display='none';
 }
 // place it once the world exists, and again whenever the world is rebuilt
-function refreshEvilChest(){placeEvilChest();drawEvilChest();stampEvilChestMask();}
+function refreshEvilChest(){placeEvilChest();evilFallV=evilFallAcc=0;drawEvilChest();stampEvilChestMask();shadeEvilChestFeet();}
 requestAnimationFrame(()=>requestAnimationFrame(refreshEvilChest));
 document.getElementById('btnReset').addEventListener('click',()=>requestAnimationFrame(refreshEvilChest));
 let evilResizeTimer=null;
