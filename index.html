@@ -260,6 +260,13 @@ html,body{
 /* The briefcase and the folder both default to Win95 yellow; Snap's is its
    leather brown so the two pictures side by side do not read as one. */
 #projectShelf .sa-ico[data-launch="snap"] .pxi{--accent:#b07838}
+/* Stacked (see sizeShelf): one card wide, the buttons a 2x2 block that
+   takes whatever height the sentence leaves, so the panel is full top to
+   bottom instead of centred in air. */
+#projectShelf.sa-stack .shelf-about{justify-content:flex-start}
+#projectShelf.sa-stack .sa-lede{font-size:16.5px;text-wrap:balance}
+#projectShelf.sa-stack .sa-links{flex:1 1 auto;height:auto;padding-top:10px;
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
 @media(max-height:700px){#projectShelf .sa-ico .pxi{width:24px;height:24px}}
 #projectShelf .win95-title{padding:3px 4px 3px 6px;cursor:default}
 #projectShelf .win95-title>span{font-size:12px}
@@ -10754,7 +10761,14 @@ requestAnimationFrame(loop);
       const target=Math.min(280,Math.max(190,vpW()*.2));
       const cols=Math.max(2,Math.round((avail+gap)/(target+gap)));
       const cw=(avail-gap*(cols-1))/cols;
-      const span=Math.min(cols-1,Math.max(1,Math.round((Math.max(avail/3,330)+gap)/(cw+gap))));
+      /* The about panel is one column with its buttons in a 2x2 block when
+         the shelf is tall enough to stack them -- a wide panel at that height
+         was a sentence and a row of buttons floating in grey. A short shelf
+         keeps the wide panel and the single row. */
+      const shelfH=Math.min(300,Math.max(150,vpH()*.26));
+      const stack=shelfH>=190&&cw>=200;
+      shelf.classList.toggle('sa-stack',stack);
+      const span=stack?1:Math.min(cols-1,Math.max(1,Math.round((Math.max(avail/3,330)+gap)/(cw+gap))));
       shelf.style.setProperty('--shelf-cols',cols);
       shelf.style.setProperty('--shelf-cw',cw+'px');
       shelf.style.setProperty('--shelf-span',span);
