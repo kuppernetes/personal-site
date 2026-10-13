@@ -1567,40 +1567,45 @@ html,body{
 #matPicker .mat-opt.active .mat-dot,#matPicker .mat-opt:active .mat-dot{transform:translate(1px,1px)}
 #matPicker .mat-opt:focus-visible{outline:1px dotted #000;outline-offset:-4px}
 #matPicker .mat-opt::before{bottom:calc(100% + 6px)}
-@media(max-width:700px){
-  body.mobile-playing #matPicker{padding:4px 6px;border:2px solid;border-color:#fff #000 #000 #fff;gap:6px}
-  body.mobile-playing #matPicker .mat-current{display:flex}
-  body.mobile-playing #matPicker .mat-list{gap:0;border:0}
-  body.mobile-playing #matPicker .mat-opt{flex:0 0 44px;width:44px;height:44px}
-  body.mobile-playing #matPicker .mat-dot{left:8px;top:6px}
-}
 /* Mobile stays a desktop playground: adapt the chrome, keep the world. */
 @media(max-width:600px){
-  :root{--top-height:clamp(190px,calc(var(--app-h) * .30),280px)}
+  :root{--top-height:194px}
   html,body{overflow:hidden}
   #projectShelf .win95-title{min-height:26px;font-size:12px}
   #projectShelf .win95-title .tbtns{display:none}
-  #projectShelf .gal-card{flex-basis:62vw}
+  /* Two and a bit cards across, picture and name only: the cut card at the
+     edge reads as "swipe for more" rather than as a layout that missed. */
+  #projectShelf .gal-card{flex-basis:40vw}
+  #projectShelf .gal-tag{display:none}
   #projectShelf .shelf-track{gap:8px;padding:8px}
-  #projectShelf .shelf-all{right:8px}
-  /* The about band keeps its own row across the top, at its own height. */
-  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-body{gap:8px;padding:8px;grid-template-rows:var(--ah);justify-content:center;
-    grid-template-columns:repeat(auto-fill,var(--cw))}
-  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-about{width:var(--aw);grid-column:1/-1;justify-self:center}
+  /* The drift never rests, so the strip only snaps while a finger is on it
+     (.is-held, set by the conveyor); a swipe lands on a card edge, and the
+     drift carries on from there. */
+  #projectShelf .shelf-track.is-held{scroll-snap-type:x mandatory}
+  #projectShelf .shelf-track .gal-card{scroll-snap-align:start}
   /* A third of a phone is a sliver, and with no taskbar these links are the
-     only way to About and Contact -- so the sheet becomes a short band over
-     the strip: the sentence and the links, nothing else. */
+     only way to About and Contact -- so the sheet drops its sentence and its
+     frame and becomes one row of buttons on the slate. */
   .shelf-body{flex-direction:column}
-  .shelf-about{flex:0 0 auto;margin:8px 8px 0;padding:8px 10px}
-  .sa-lede{font-size:16.5px}
-  .sa-links{flex:0 0 auto;height:auto;padding-top:8px;gap:4px}
-  #projectShelf .sa-ico{min-height:52px}
+  .shelf-about{flex:0 0 auto;margin:8px 8px 0;padding:0;background:none;border:0;box-shadow:none}
+  .sa-lede{display:none}
+  .sa-links{flex:0 0 auto;height:auto;padding-top:0;gap:4px}
+  #projectShelf .sa-ico{height:52px}
   #projectShelf .sa-ico .pxi{width:24px;height:24px}
+  /* The same tab as on a desktop, hanging under the shelf: always in view,
+     and in the place Close will be once the grid is down. The shorter shelf
+     leaves it clear of the wordmark. */
+  #projectShelf .shelf-all{right:8px}
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-body{gap:8px;padding:8px;grid-template-rows:var(--ah);
+    grid-template-columns:repeat(auto-fill,minmax(var(--cw),1fr))}
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-about{width:auto;grid-column:1/-1;margin:0}
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .gal-card{width:var(--cw);justify-self:center}
   .taskbar-start,.taskbar-btn{height:44px;font-size:12px}
   .taskbar-clock{height:36px;font-size:10px;padding:2px 5px}
   #matPicker{left:0;right:0;gap:4px;padding:4px 6px}
-  #matPicker .mat-current{flex-shrink:0}
-  #matPicker .mat-cur-name{width:58px;padding:5px 3px}
+  /* The pressed button already says what is loaded, and the [1] key hint
+     means nothing without a keyboard; the room goes to the buttons. */
+  #matPicker .mat-current{display:none}
   #matPicker .mat-list{overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;touch-action:pan-x}
   #matPicker .mat-list::-webkit-scrollbar{display:none}
   #matPicker .mat-opt{flex:0 0 44px;width:44px;height:44px}
@@ -6376,7 +6381,10 @@ function wmClearTop(){
   const base=Math.max(0,(VH*0.13)|0);
   const cr=canvas.getBoundingClientRect();
   if(!cr.height)return base;
-  const gap=vpW()<=600?36:Math.max(48,Math.min(72,vpH()*.065));
+  // On a phone the See all tab hangs into this gap, so it is measured from the
+  // tab's foot: the name sits clear of it, nearer the middle of the open sky.
+  const tab=vpW()<=600&&document.querySelector('#projectShelf .shelf-all');
+  const gap=vpW()<=600?(tab?tab.offsetHeight:0)+40:Math.max(48,Math.min(72,vpH()*.065));
   return Math.max(base,Math.ceil((dockFullHeight()+gap)/SCALE));
 }
 function stampWordmark(){
@@ -11132,6 +11140,8 @@ requestAnimationFrame(loop);
       // A wheel throttle works even while a focused card holds the idle drift still.
       const throttled=reducedMotion.matches||activePointers.size>0||document.hidden||expanded()
         ||closing();
+      // Snap only while a hand is on the strip; see .shelf-track.is-held.
+      track.classList.toggle('is-held',activePointers.size>0||now<pauseUntil);
       if(throttled)boost=0;
       else boost*=Math.exp(-elapsed/BOOST_DECAY_MS);
       if(Math.abs(boost)<.005)boost=0;
