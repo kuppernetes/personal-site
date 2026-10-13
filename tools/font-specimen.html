@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Font specimen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Geist+Pixel&family=Instrument+Serif&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Pixelify+Sans:wght@400;600&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* Departure Mono is not on Google Fonts; the repo's own woff2 via jsdelivr. */
+@font-face{font-family:'Departure Mono';font-display:swap;
+  src:url(https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@1.500/public/assets/DepartureMono-Regular.woff2) format('woff2')}
+
+:root{--page:#2b2f38;--ink:#e8e6e1;--dim:#9aa0ab}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 system-ui,sans-serif;
+  -webkit-font-smoothing:none}
+header.top{padding:20px 16px 8px;max-width:1500px;margin:0 auto}
+header.top h1{margin:0 0 4px;font-size:18px}
+header.top p{margin:0;color:var(--dim);max-width:70ch}
+nav.jump{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+nav.jump a{color:var(--ink);text-decoration:none;border:1px solid #555b66;padding:3px 8px;font-size:12px}
+nav.jump a:hover{background:#444a55}
+
+section.set{max-width:1500px;margin:28px auto 0;padding:0 16px}
+.set-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-bottom:8px}
+.set-head h2{margin:0;font-size:15px}
+.set-head span{color:var(--dim);font-size:12px}
+
+/* ---- the shelf, copied from index.html with the faces swapped for vars ---- */
+.frame{border:2px solid #000;overflow:hidden}
+.shelf{height:230px;background:#747b87;border-bottom:2px solid #000;display:flex;min-width:0}
+.shelf-about{flex:0 0 calc(33.333% - 14px);min-width:0;margin:12px 0 12px 14px;
+  display:flex;flex-direction:column;overflow:hidden;background:#c0c0c0;color:#000;
+  padding:14px 18px;
+  border:2px solid;border-color:#fff #242833 #242833 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
+.sa-name{flex-shrink:0;margin:0 0 6px;font:var(--name-font);color:#404040;letter-spacing:var(--name-track,0)}
+.sa-lede{margin:0;font:var(--lede-font);letter-spacing:var(--lede-track,0)}
+.sa-links{margin-top:auto;padding-top:6px;display:flex;flex-wrap:wrap;gap:4px 14px;font:var(--ui-font)}
+.sa-links a{color:#000080;text-decoration:underline;text-underline-offset:2px;padding:1px 2px;margin:0 -2px}
+.sa-links a:hover{background:#000080;color:#fff;text-decoration:none}
+.track{display:flex;gap:12px;flex:1;min-width:0;overflow:hidden;padding:12px 14px}
+.card{display:flex;flex-direction:column;flex:0 0 clamp(190px,20vw,280px);min-width:0;
+  padding:3px;background:#c0c0c0;color:#000;
+  border:2px solid;border-color:#fff #242833 #242833 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
+.card:hover .card-name{color:#fff;background:linear-gradient(90deg,#000080,#1084d0)}
+.card-name{font:var(--card-font);letter-spacing:var(--card-track,0);color:#e6e6e6;background:#808080;
+  padding:5px 6px;margin:0 0 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
+.card-shot{flex:1;min-height:0;background:#101c42 center/cover no-repeat;border:1px solid;border-color:#555 #fff #fff #555}
+.card-tag{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+  font:var(--tag-font);color:#000;height:calc(2 * var(--tag-lh) + 10px);
+  margin:4px 0 0;padding:4px 5px;flex-shrink:0;border:1px solid;border-color:#808080 #fff #fff #808080}
+
+/* the world under it, with the role line and the loaded-material readout */
+.world{position:relative;height:150px;background:#79aee0 url(full-scene-desktop.png) center top/100% auto no-repeat;
+  image-rendering:pixelated}
+.role{position:absolute;left:50%;top:16px;transform:translateX(-50%);white-space:nowrap;
+  font:var(--role-font);letter-spacing:var(--role-track,1px);color:#2a2620;
+  text-shadow:1px 1px 0 #ffffff80}
+.mat{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:8px;padding:5px 10px 5px 6px;
+  background:#c0c0c0;border:2px solid;border-color:#fff #000 #000 #fff;border-left:0;border-bottom:0;
+  font:var(--ui-font);color:#000}
+.mat i{width:22px;height:22px;background:#d8b46a;border:2px solid;border-color:#808080 #fff #fff #808080}
+
+/* glyph strip, to judge each face on its own */
+.glyphs{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1px;background:#000;border:2px solid #000;border-top:0}
+.glyphs div{background:#c0c0c0;color:#000;padding:10px 12px}
+.glyphs small{display:block;font:11px/1.3 system-ui,sans-serif;color:#555;margin-bottom:4px}
+
+/* ---- the sets ---- */
+#current{--name-font:bold 11px/1.2 Tahoma,sans-serif;--lede-font:27px/1.12 Georgia,'Times New Roman',serif;
+  --ui-font:12px/1.3 Tahoma,sans-serif;--card-font:bold 12px/1.2 Tahoma,sans-serif;
+  --tag-font:11px/1.2 Tahoma,sans-serif;--tag-lh:13.2px;--role-font:bold 11px/1 Tahoma,sans-serif;--role-track:2px}
+#instrument-departure{--name-font:11px/1.2 'Departure Mono',monospace;--name-track:.5px;
+  --lede-font:34px/1.02 'Instrument Serif',serif;--lede-track:-.2px;
+  --ui-font:11px/1.4 'Departure Mono',monospace;--card-font:11px/1.2 'Departure Mono',monospace;
+  --tag-font:11px/1.25 'Departure Mono',monospace;--tag-lh:13.75px;--role-font:11px/1 'Departure Mono',monospace;--role-track:2px}
+#fraunces-silkscreen{--name-font:8px/1.4 Silkscreen,monospace;--name-track:1px;
+  --lede-font:27px/1.12 Fraunces,serif;
+  --ui-font:8px/1.6 Silkscreen,monospace;--card-font:8px/1.4 Silkscreen,monospace;--card-track:.5px;
+  --tag-font:12px/1.2 Fraunces,serif;--tag-lh:14.4px;--role-font:8px/1 Silkscreen,monospace;--role-track:2px}
+#newsreader-geist{--name-font:13px/1.2 'Geist Pixel',monospace;
+  --lede-font:28px/1.1 Newsreader,serif;
+  --ui-font:13px/1.3 'Geist Pixel',monospace;--card-font:13px/1.2 'Geist Pixel',monospace;
+  --tag-font:12px/1.25 Newsreader,serif;--tag-lh:15px;--role-font:13px/1 'Geist Pixel',monospace;--role-track:2px}
+#all-pixel{--name-font:11px/1.2 'Departure Mono',monospace;
+  --lede-font:22px/1.25 'Departure Mono',monospace;
+  --ui-font:11px/1.4 'Departure Mono',monospace;--card-font:11px/1.2 'Departure Mono',monospace;
+  --tag-font:11px/1.25 'Departure Mono',monospace;--tag-lh:13.75px;--role-font:8px/1 Silkscreen,monospace;--role-track:2px}
+#pixelify-instrument{--name-font:600 12px/1.2 'Pixelify Sans',sans-serif;
+  --lede-font:34px/1.02 'Instrument Serif',serif;
+  --ui-font:13px/1.3 'Pixelify Sans',sans-serif;--card-font:600 13px/1.2 'Pixelify Sans',sans-serif;
+  --tag-font:12px/1.2 'Pixelify Sans',sans-serif;--tag-lh:14.4px;--role-font:600 12px/1 'Pixelify Sans',sans-serif;--role-track:2px}
+
+@media (max-width:760px){
+  .shelf{flex-direction:column;height:auto}
+  .shelf-about{flex:none;margin:8px 8px 0;padding:8px 10px}
+  .track{height:190px;padding:10px 8px}
+  .card{flex-basis:200px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Font specimen</h1>
+  <p>The live shelf, the role line and the material readout, rebuilt in each pairing. The first set is what ships today. Hover a card for the active title bar.</p>
+  <nav class="jump" id="jump"></nav>
+</header>
+
+<main id="sets"></main>
+
+<template id="tpl">
+  <div class="frame">
+    <div class="shelf">
+      <aside class="shelf-about">
+        <p class="sa-name">Mitchell Kuppersmith</p>
+        <p class="sa-lede">I design and ship AI-native AR for Spectacles, Snap's AR glasses.</p>
+        <nav class="sa-links"><a>Role at Snap</a><a>All work</a><a>About</a><a>Education</a><a>Contact</a></nav>
+      </aside>
+      <div class="track"></div>
+    </div>
+    <div class="world">
+      <div class="role">SENIOR DESIGN ENGINEER</div>
+      <div class="mat"><i></i><span>sand [1]</span></div>
+    </div>
+  </div>
+  <div class="glyphs"></div>
+</template>
+
+<script>
+const SETS=[
+  {id:'current',title:'Current',faces:'Georgia + Tahoma',note:'what ships today',
+   glyphs:[['Georgia','27px/1.1 Georgia,serif'],['Tahoma','12px/1.4 Tahoma,sans-serif']]},
+  {id:'instrument-departure',title:'1 · Instrument Serif + Departure Mono',faces:'both OFL',note:'editorial lede over a terminal UI; Departure is drawn for 11px',
+   glyphs:[['Instrument Serif','34px/1 "Instrument Serif"'],['Departure Mono 11px','11px/1.5 "Departure Mono"'],['Departure Mono 22px','22px/1.3 "Departure Mono"']]},
+  {id:'fraunces-silkscreen',title:'2 · Fraunces + Silkscreen',faces:'both OFL',note:'warmer; Silkscreen is caps-only at 8px, so captions stay in Fraunces',
+   glyphs:[['Fraunces','27px/1.1 Fraunces'],['Silkscreen 8px','8px/1.8 Silkscreen'],['Silkscreen 16px','16px/1.4 Silkscreen']]},
+  {id:'newsreader-geist',title:'3 · Newsreader + Geist Pixel',faces:'both OFL',note:'most restrained; the Google Fonts build of Geist Pixel is drawn on a fine ~26-per-em grid, so at these sizes it reads as a plain grotesk, not as pixels',
+   glyphs:[['Newsreader','28px/1.1 Newsreader'],['Geist Pixel 13px','13px/1.4 "Geist Pixel"'],['Geist Pixel 52px','52px/1.1 "Geist Pixel"']]},
+  {id:'all-pixel',title:'4 · All pixel: Departure Mono + Silkscreen',faces:'both OFL',note:'no serif at all; lede at 22px, exactly 2x the 11px grid, so it stays as hard-edged as the sim',
+   glyphs:[['Departure Mono 22px','22px/1.3 "Departure Mono"'],['Departure Mono 11px','11px/1.5 "Departure Mono"'],['Silkscreen 8px','8px/1.8 Silkscreen']]},
+  {id:'pixelify-instrument',title:'5 · Instrument Serif + Pixelify Sans',faces:'both OFL',note:'friendlier, rounder pixel UI',
+   glyphs:[['Pixelify Sans 13px','13px/1.4 "Pixelify Sans"'],['Pixelify Sans 26px','600 26px/1.2 "Pixelify Sans"']]},
+];
+const CARDS=[
+  ['Imagine Together','Make 3D together in one room. Demoed at Snap Partner Summit','https://img.youtube.com/vi/Od-_nZpmU9Q/hqdefault.jpg'],
+  ['Translation','Live translation in AR, even with people not wearing Spectacles','https://img.youtube.com/vi/hR4W_Qtzij4/hqdefault.jpg'],
+  ['Agent Center','Run coding agents in AR by voice, text or image. Open source',''],
+  ['Snaptrap','A telekinetic VR prison break, built for a 2020 VR game jam',''],
+];
+const SAMPLE='Sphinx of black quartz, judge my vow. 0123456789 → [sand] {water} #fire';
+const main=document.getElementById('sets'),jump=document.getElementById('jump'),tpl=document.getElementById('tpl');
+for(const s of SETS){
+  const sec=document.createElement('section');sec.className='set';sec.id=s.id;
+  sec.innerHTML=`<div class="set-head"><h2>${s.title}</h2><span>${s.faces} · ${s.note}</span></div>`;
+  sec.appendChild(tpl.content.cloneNode(true));
+  const track=sec.querySelector('.track');
+  for(const [n,t,img] of CARDS){
+    const c=document.createElement('div');c.className='card';
+    c.innerHTML=`<div class="card-name">${n}</div><div class="card-shot"${img?` style="background-image:url(${img})"`:''}></div><div class="card-tag">${t}</div>`;
+    track.appendChild(c);
+  }
+  const g=sec.querySelector('.glyphs');
+  for(const [label,font] of s.glyphs){
+    const d=document.createElement('div');
+    d.innerHTML=`<small>${label}</small><span style='font:${font}'>${SAMPLE}</span>`;
+    g.appendChild(d);
+  }
+  main.appendChild(sec);
+  const a=document.createElement('a');a.href='#'+s.id;a.textContent=s.title.replace(/^\d · /,'');jump.appendChild(a);
+}
+</script>
+<div style="height:40px"></div>
+</body>
+</html>

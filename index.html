@@ -20,6 +20,10 @@
 <!-- The Win95 title-bar navy, so a phone's browser chrome reads as the top of
      the desktop rather than a white strip above it. -->
 <meta name="theme-color" content="#000080">
+<!-- Departure Mono (Helena Zhang, SIL OFL) for the shelf: a pixel face drawn
+     for 11px, so it is only ever set at 11 or a multiple of it. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@1.500/public/assets/DepartureMono-Regular.woff2">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://kuppersmith.dev/">
 <meta property="og:site_name" content="Mitchell Kuppersmith">
@@ -46,6 +50,8 @@
  "sameAs":["https://www.linkedin.com/in/mitchell-kuppersmith"]}
 </script>
 <style>
+@font-face{font-family:'Departure Mono';font-display:swap;
+  src:url(https://cdn.jsdelivr.net/gh/rektdeckard/departure-mono@1.500/public/assets/DepartureMono-Regular.woff2) format('woff2')}
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   /* The docked shelf's open height. It is chrome, so it earns its keep by
@@ -61,13 +67,14 @@
   --app-h:100vh;
   --app-h:100dvh;
   --top-height:clamp(150px,calc(var(--app-h) * 0.26),300px);
+  --px-font:'Departure Mono','Courier New',monospace;
   /* The strip the phone keeps for itself at the bottom of the screen — the
      home indicator. viewport-fit=cover hands us those pixels, so the taskbar
      has to hand them back as padding or the Start button sits under the bar
      the user swipes. 0px everywhere else, so this is inert off a notched
      phone. */
   --safe-b:env(safe-area-inset-bottom, 0px);
-  --taskbar-bar:30px;                     /* keep in sync with TASKBAR_PX */
+  --taskbar-bar:0px;                      /* keep in sync with TASKBAR_PX */
   /* What the palette has to clear to sit ON the taskbar rather than under it:
      the bar plus whatever the phone reserved below it. */
   --taskbar-h:calc(var(--taskbar-bar) + var(--safe-b));
@@ -189,10 +196,9 @@ html,body{
    This was a fixed grey band with the materials palette welded onto its right
    end: one title stripe over two unrelated things, and the only element on the
    site that was neither the world nor a window on top of it. It is a window
-   now -- same chrome, same taskbar -- docked to the top edge, because a
-   full-width strip has nowhere to be dragged to. `_` rolls it up to its title
-   bar, the X sends it to the taskbar, and it rolls itself up on the way down
-   (see dockAutoSync): below the meadow the rooms are the content. */
+   now docked to the top edge, because a full-width strip has nowhere to be
+   dragged to -- and, since the about third took its place, without a title
+   bar: a label reading "Projects" over a strip of projects said nothing. */
 #projectShelf{
   position:fixed;inset:0 0 auto;z-index:10;height:var(--top-height);
   display:flex;flex-direction:column;min-width:0;
@@ -201,17 +207,65 @@ html,body{
   border-width:0 0 2px;border-color:#000;
   box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px 0 0 #808080;
 }
-#projectShelf.is-rolled{height:auto}
-#projectShelf.is-rolled .shelf-track{display:none}
+/* No title bar: the band is the slate the cards ride on, and the left third
+   is made of the same grey material as the cards -- same raised frame, same
+   drop shadow -- so it reads as one more object on the strip rather than a
+   panel pasted beside it. Times, because it is the face Win95 set prose in.
+   It says who this is before the strip says what they made, and its buttons
+   open the overview pages. */
+#projectShelf{background:#747b87;border-width:0 0 2px;box-shadow:none}
+.shelf-body{display:flex;flex:1;min-height:0;min-width:0}
+.shelf-about{flex:0 0 var(--shelf-aw,max(calc(33.333% - 14px),330px));min-width:0;margin:12px 0 12px 14px;
+  display:flex;flex-direction:column;justify-content:center;overflow:hidden;background:#c0c0c0;color:#000;
+  padding:clamp(10px,1.4vh,18px) clamp(12px,1.3vw,22px);
+  border:2px solid;border-color:#fff #242833 #242833 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
+/* 22px is exactly twice Departure Mono's grid, so the lede stays as hard-edged
+   as the sim; 16.5 (1.5x) is the step down where 22 would not fit. */
+.sa-lede{margin:0;font:22px/1.25 var(--px-font)}
+@media(max-width:1100px),(max-height:640px){.sa-lede{font-size:16.5px}}
+/* The smiley grins while the pointer is anywhere over the panel. Swapping the
+   glyph rather than drawing a face keeps it the font's own -- and in a
+   monospace face D is exactly as wide as ), so nothing on the line moves. */
+.sa-face{white-space:nowrap}
+.sa-grin{display:none}
+@media(hover:hover){
+  .shelf-about:hover .sa-smile,.shelf-about:focus-within .sa-smile{display:none}
+  .shelf-about:hover .sa-grin,.shelf-about:focus-within .sa-grin{display:inline}
+}
+/* Sized to their picture and label, not stretched to the panel: tall
+   buttons read as pillars. What the panel has left over is split above and
+   below the pair by the panel's own centring. */
+.sa-links{flex:0 1 auto;min-height:0;height:68px;padding-top:12px;display:flex;gap:4px}
+/* Win95 toolbar buttons -- Explorer's big Back/Forward/Home, an icon over its
+   label in a raised frame -- so each reads both as a picture of the page and
+   as a thing to press. Scoped to the shelf rather than to .sa-links because a
+   launched button is cloned into #dropLayer and falls the way a card does --
+   the flyer has to keep its face once it has left the nav. The label is its
+   own element so it can become the window's title bar as it lands. */
+#projectShelf .sa-ico{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:5px;padding:4px 2px;color:#000;text-decoration:none;cursor:pointer;
+  font:11px/1.2 var(--px-font);text-align:center;background:#c0c0c0;
+  border:2px solid;border-color:#fff #000 #000 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf}
+#projectShelf .sa-ico .pxi{filter:drop-shadow(2px 2px 0 #0004)}
+#projectShelf .sa-ico>span{white-space:nowrap}
+#projectShelf .sa-links .sa-ico:hover{background:#d4d0c8}
+/* Pressed: the frame inverts and everything inside shifts a pixel down and
+   right, which is all a Win95 button ever did. */
+#projectShelf .sa-links .sa-ico:active{border-color:#000 #fff #fff #000;
+  box-shadow:inset 1px 1px #808080,inset -1px -1px #dfdfdf;padding:5px 1px 3px 3px}
+#projectShelf .sa-links .sa-ico:active .pxi{filter:none}
+#projectShelf .sa-links .sa-ico:focus-visible{outline:1px dotted #000;outline-offset:-5px}
+/* The briefcase and the folder both default to Win95 yellow; Snap's is its
+   leather brown so the two pictures side by side do not read as one. */
+#projectShelf .sa-ico[data-launch="snap"] .pxi{--accent:#b07838}
+@media(max-height:700px){#projectShelf .sa-ico .pxi{width:24px;height:24px}}
 #projectShelf .win95-title{padding:3px 4px 3px 6px;cursor:default}
 #projectShelf .win95-title>span{font-size:12px}
 #projectShelf .tbtns{margin-left:auto;display:flex;gap:2px}
 .shelf-track{display:flex;gap:12px;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;
-  margin:3px 4px 4px;padding:8px 8px 10px;
-  background-color:#747b87;
-  background-image:radial-gradient(#a0a6af .65px,transparent .65px);background-size:4px 4px;
-  border:2px solid;border-color:#505660 #fff #fff #505660;
-  box-shadow:inset 0 2px 3px #0003;
+  padding:12px 14px 12px 12px;
   /* Deliberately NOT snapped. The strip is a conveyor: it never comes to rest,
      so there is no resting position to snap to, and mandatory snap would drag
      every frame of the drift back to the nearest card edge. */
@@ -220,7 +274,54 @@ html,body{
      on motion nobody asked for and ate a row of pixels doing it. */
   overscroll-behavior-x:contain;scrollbar-width:none;-ms-overflow-style:none;scroll-padding-inline:8px}
 .shelf-track::-webkit-scrollbar{display:none}
-#projectShelf .gal-card{display:flex;flex-direction:column;flex:0 0 clamp(190px,20vw,280px);min-width:0;
+/* A tab hanging off the shelf's bottom-right edge, out over the sky: always
+   in the same place however far the strip has drifted, and never on top of a
+   card. It pulls the shelf down over the world into a grid of the same cards,
+   and back up again. */
+#projectShelf .shelf-all{position:absolute;top:100%;right:14px;margin-top:2px;z-index:2;
+  display:flex;align-items:center;gap:8px;padding:7px 12px 8px;
+  font:11px/1 var(--px-font);color:#000;background:#c0c0c0;cursor:pointer;
+  border:2px solid;border-top:0;border-color:#fff #000 #000 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 0 #dfdfdf,3px 3px 0 #30374480}
+#projectShelf .shelf-all:hover{background:#d4d0c8}
+#projectShelf .shelf-all:active{padding:8px 11px 7px 13px}
+#projectShelf .shelf-all:focus-visible{outline:1px dotted #000;outline-offset:-5px}
+.sa-chev{width:14px;height:8px;fill:currentColor;shape-rendering:crispEdges}
+#projectShelf.is-expanded .sa-chev{transform:scaleY(-1)}
+/* Expanded: the shelf runs down to just short of the bottom, leaving the tab
+   hanging where it can still be reached, and the about panel and the cards
+   become one grid -- the strip's track steps out of the way (display:contents)
+   so the cards flow on under the panel instead of leaving a column of slate
+   beneath it. Every size here is measured off the docked strip as it opens
+   (--cw, --ch, --aw; see setExpanded), so nothing changes shape on the way
+   down or back up. The cards travel between the two layouts as a snake
+   (see fly); while it pulls back in on closing, the grid is kept
+   (.is-closing) and the shrinking shelf clips it. */
+#projectShelf{transition:height .5s cubic-bezier(.3,.7,.2,1)}
+#projectShelf.is-instant{transition:none}
+/* Only as tall as the grid it holds (--exp-h, measured on the way down), so a
+   big screen does not get a field of empty slate under the last row. */
+#projectShelf.is-expanded{height:min(var(--exp-h,100vh),calc(var(--app-h) - 44px))}
+:is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-body{display:grid;align-content:start;
+  grid-template-columns:repeat(var(--shelf-cols,4),var(--shelf-cw));grid-auto-rows:var(--ch);gap:12px;padding:12px 14px;
+  overflow-x:hidden;overflow-y:auto;scrollbar-width:none}
+:is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-track{display:contents}
+:is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-about{
+  margin:0;width:auto;grid-column:span var(--shelf-span,2)}
+:is(#projectShelf.is-expanded,#projectShelf.is-closing) .gal-card[data-loop-copy]{display:none}
+/* Nobody pours sand while browsing the grid, and on a phone the palette would
+   sit on top of the tab that closes it. */
+#projectShelf.is-expanded~#matPicker{visibility:hidden}
+#projectShelf.is-closing .shelf-body{overflow:hidden}
+/* No scrollbar while the shelf grows: the grid is briefly taller than the
+   shelf, and a bar flashing on would narrow every column for a moment. */
+#projectShelf.is-opening .shelf-body{overflow-y:hidden}
+@media(prefers-reduced-motion:reduce){#projectShelf{transition:none}}
+/* Win95's window zoom: an outline steps out from what was clicked to where
+   the window will be, and the window is there when it lands. */
+#dropLayer .zoom-rect{position:absolute;left:0;top:0;border:2px solid #000;
+  box-shadow:inset 0 0 0 1px #fff,0 0 0 1px #fff}
+#projectShelf .gal-card{display:flex;flex-direction:column;flex:0 0 var(--shelf-cw,clamp(190px,20vw,280px));min-width:0;
   padding:3px;background:#c0c0c0;color:#000;text-decoration:none;cursor:pointer;
   border:2px solid;border-color:#fff #242833 #242833 #fff;
   box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
@@ -235,7 +336,7 @@ html,body{
    is. The cards used to carry a third, invented gradient of their own, so
    there were three title-bar treatments inside one 200px band -- and hover
    changed the colour without the change meaning anything. */
-#projectShelf .gal-name{order:-1;position:relative;font:bold 12px/1.2 Tahoma,sans-serif;
+#projectShelf .gal-name{order:-1;position:relative;font:11px/1.2 var(--px-font);
   color:#e6e6e6;background:#808080;padding:5px 6px;
   margin:0 0 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
 #projectShelf .gal-shot.is-tbd{background-color:#101c42;
@@ -261,8 +362,11 @@ html,body{
 /* Always two lines tall, even when the words fit on one: a caption that grew
    with its text would give every card a different-height picture. */
 #projectShelf .gal-tag{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
-  font:11px/1.2 Tahoma,sans-serif;color:#000;height:calc(2.4em + 10px);
-  margin:4px 0 0;padding:4px 5px;overflow:hidden;flex-shrink:0;
+  font:11px/1.4 var(--px-font);color:#000;height:calc(2.8em + 6px);
+  /* No bottom padding: overflow clips at the padding edge, so any padding
+     there showed the top of a third line under the ellipsis. The leading in
+     1.4 is the breathing room instead. */
+  margin:4px 0 0;padding:4px 5px 0;overflow:hidden;flex-shrink:0;
   border:1px solid;border-color:#808080 #fff #fff #808080}
 #projectShelf :focus-visible{outline:2px dotted #000080;outline-offset:-2px}
 
@@ -457,7 +561,11 @@ html,body{
 .win95-title .tbtn{cursor:pointer}
 .win95{cursor:default}
 
-/* ── Win95 taskbar ── */
+/* ── Win95 taskbar ──
+   Hidden: the about third at the top now does the directory's job, so all the
+   chrome lives on the top edge. With nothing to minimise to, a window's `_`
+   goes too -- a project's card or link brings an open window back. */
+#taskbar,#startMenu,.win-app .tbtn[data-act="min"]{display:none!important}
 #taskbar{
   /* Grows by the home-indicator inset rather than being pushed up by it, so
      the chrome still reaches the bottom edge of the screen and only its
@@ -715,6 +823,14 @@ html,body{
    each copy is opaque for as long as it lasts and then it is simply not there,
    which is what a program that could only ever blit a card looked like. Flat,
    though: the drop shadow stacked eighteen deep was a dark smear. */
+/* The about buttons fall too, and their label plays the same part as a card's
+   name strip: pinned to the top of the growing box, lit in the window's own
+   title colour, so a button visibly turns into the window it opened. */
+#projectShelf .sa-ico.drop-card.is-opening{align-items:stretch;justify-content:flex-start;gap:0}
+#projectShelf .sa-ico.drop-card.is-opening>.pxi{display:none}
+#projectShelf .sa-ico.drop-card.is-opening>span{
+  opacity:1;padding:4px 6px;text-align:left;
+  color:#fff;background:var(--drop-bar,linear-gradient(90deg,#000080 0%,#1084d0 100%))}
 #projectShelf .drop-stamp{opacity:0;box-shadow:none;will-change:opacity}
 
 /* ── 90s-flair atoms reused across themes ── */
@@ -811,30 +927,6 @@ html,body{
   background:#c0c0c0;padding:8px;position:relative;z-index:1;
 }
 .gal-intro{font-size:11px;color:#404040;margin:0 2px 8px;font-style:italic}
-/* identity block — the site boots here, so this is the masthead.
-   These links used to sit as a row of raised buttons directly above the tab
-   strip, which made two lookalike control rows with completely different jobs:
-   one opens other windows, one filters the grid. Tabs now own the only button
-   chrome in the window; these are ordinary links, sitting up beside the name
-   under their own label so the two never read as peers. */
-.gal-id{margin:0 0 2px}
-.gal-id-top{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:6px 18px}
-.gal-id-who{min-width:180px}
-.gal-id p{font-size:11px;line-height:1.4;margin:7px 0 0;max-width:64ch}
-.gal-links{display:flex;flex-wrap:wrap;align-items:center;gap:2px 12px;padding-top:3px;max-width:100%}
-.gal-links-lbl{
-  flex-basis:100%;font-size:9px;letter-spacing:.6px;text-transform:uppercase;
-  color:#4a4a4a;font-weight:700;margin-bottom:1px;
-}
-.win-app .win-body .gal-links a{
-  display:inline-flex;align-items:center;gap:4px;font-size:11px;
-  color:#000080;text-decoration:underline;cursor:pointer;
-}
-.win-app .win-body .gal-links a:hover{color:#1084d0}
-.gal-links a:focus-visible{outline:1px dotted #000;outline-offset:1px}
-/* Win95 etched groove: closes off the masthead so the tab strip below reads as
-   belonging to the grid it is attached to, not to the identity block */
-.gal-rule{height:2px;margin:10px 0 0;border-top:1px solid #808080;border-bottom:1px solid #fff}
 /* 190px floor, not 168: at the new window width auto-fill would otherwise pack
    five or six columns and the tiles would come out smaller than they were at
    three. 190 tops out at four ~220px tiles and still fits three in the narrow
@@ -906,14 +998,6 @@ html,body{
 @media (max-width:600px){
   .gal-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px;padding:6px}
   .gal-tab{padding:3px 8px 4px;font-size:10px}
-  /* the masthead has to stay short here or the first tile never shows on load */
-  .gal-id p{font-size:10px;line-height:1.35}
-  .gal-id-top{gap:4px}
-  /* four links at this width need a tighter column gap than the desktop 12px,
-     or the last one wraps to a second line and takes 17px off the top of the
-     grid, which here is most of a tile row */
-  .gal-links{padding-top:0;gap:1px 8px}
-  .win-app .win-body .gal-links a{font-size:10px;gap:3px}
 }
 
 /* ── THEME: vapor (vaporwave — Catiator) ── */
@@ -1465,7 +1549,7 @@ html,body{
   box-shadow:inset 1px 1px 0 #dfdfdf,inset -1px 0 0 #808080;max-width:100%;box-sizing:border-box}
 #matPicker .mat-current{order:2;display:flex;flex-direction:row;align-items:center}
 #matPicker .mat-cur-dot{display:none}
-#matPicker .mat-cur-name{width:70px;font-size:10px;color:#000;padding:5px 6px;
+#matPicker .mat-cur-name{width:70px;font:11px/1.2 var(--px-font);color:#000;padding:5px 6px;
   border:1px solid;border-color:#808080 #fff #fff #808080}
 #matPicker .mat-list{display:flex;gap:2px;padding:0;border:0;background:transparent;min-width:0}
 #matPicker .mat-opt{flex:0 0 34px;width:34px;height:36px;padding:0;background:#c0c0c0;
@@ -1489,12 +1573,26 @@ html,body{
 }
 /* Mobile stays a desktop playground: adapt the chrome, keep the world. */
 @media(max-width:600px){
-  :root{--top-height:clamp(190px,calc(var(--app-h) * .30),280px);--taskbar-bar:52px}
+  :root{--top-height:clamp(190px,calc(var(--app-h) * .30),280px)}
   html,body{overflow:hidden}
   #projectShelf .win95-title{min-height:26px;font-size:12px}
   #projectShelf .win95-title .tbtns{display:none}
   #projectShelf .gal-card{flex-basis:62vw}
-  #projectShelf .shelf-track{gap:8px;padding:5px 6px 7px}
+  #projectShelf .shelf-track{gap:8px;padding:8px}
+  #projectShelf .shelf-all{right:8px}
+  /* The about band keeps its own row across the top, at its own height. */
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-body{gap:8px;padding:8px;grid-template-rows:var(--ah);justify-content:center;
+    grid-template-columns:repeat(auto-fill,var(--cw))}
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-about{width:var(--aw);grid-column:1/-1;justify-self:center}
+  /* A third of a phone is a sliver, and with no taskbar these links are the
+     only way to About and Contact -- so the sheet becomes a short band over
+     the strip: the sentence and the links, nothing else. */
+  .shelf-body{flex-direction:column}
+  .shelf-about{flex:0 0 auto;margin:8px 8px 0;padding:8px 10px}
+  .sa-lede{font-size:16.5px}
+  .sa-links{flex:0 0 auto;height:auto;padding-top:8px;gap:4px}
+  #projectShelf .sa-ico{min-height:52px}
+  #projectShelf .sa-ico .pxi{width:24px;height:24px}
   .taskbar-start,.taskbar-btn{height:44px;font-size:12px}
   .taskbar-clock{height:36px;font-size:10px;padding:2px 5px}
   #matPicker{left:0;right:0;gap:4px;padding:4px 6px}
@@ -1670,14 +1768,19 @@ html,body{
   <canvas id="birdCanvas"></canvas>
   <div id="uiLayer">
     <section id="projectShelf" class="win95 is-dock" aria-label="Projects">
-      <div class="win95-title">
-        <span>Projects</span>
-        <div class="tbtns">
-          <div class="tbtn" data-act="roll" role="button" tabindex="0" title="Roll up" aria-label="Roll up the projects shelf">_</div>
-          <div class="tbtn" data-act="dock-min" role="button" tabindex="0" title="Minimize to taskbar" aria-label="Minimize the projects shelf to the taskbar">✕</div>
-        </div>
+      <div class="shelf-body">
+        <aside class="shelf-about" aria-label="About Mitchell">
+          <p class="sa-lede">I like making software fun <span class="sa-face">:<span class="sa-smile">)</span><span class="sa-grin" aria-hidden="true">D</span></span></p>
+          <nav class="sa-links" aria-label="Overview pages">
+            <a class="sa-ico" data-launch="snap" role="button" tabindex="0" aria-label="Current role at Snap"><svg class="pxi" aria-hidden="true"><use href="#ico-briefcase"/></svg><span>Current role</span></a>
+            <a class="sa-ico" data-launch="about" role="button" tabindex="0"><svg class="pxi" aria-hidden="true"><use href="#ico-user"/></svg><span>About</span></a>
+            <a class="sa-ico" data-launch="education" role="button" tabindex="0"><svg class="pxi" aria-hidden="true"><use href="#ico-book"/></svg><span>School</span></a>
+            <a class="sa-ico" href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener" aria-label="Contact on LinkedIn"><svg class="pxi" aria-hidden="true"><use href="#ico-mail"/></svg><span>Contact</span></a>
+          </nav>
+        </aside>
+        <div id="projectTrack" class="shelf-track" role="group" aria-label="Scroll through projects"></div>
       </div>
-      <div id="projectTrack" class="shelf-track" role="group" aria-label="Scroll through projects"></div>
+      <button class="shelf-all" type="button" aria-expanded="false" aria-controls="projectTrack"><span>See all</span><svg class="sa-chev" viewBox="0 0 7 4" aria-hidden="true"><path d="M0 0h7v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1v-1h-1z"/></svg></button>
     </section>
 
     <div id="matPicker" role="region" aria-label="Materials">
@@ -4186,7 +4289,7 @@ function packZoneUniforms(){
   }
 }
 packZoneUniforms();
-const TASKBAR_PX=30;          // keep in sync with --taskbar-bar
+const TASKBAR_PX=0;           // keep in sync with --taskbar-bar
 /* The bar's real height, including the home-indicator strip it absorbs on a
    notched phone. Falls back to the flat 30 before the element exists. */
 function taskbarPx(){
@@ -6107,7 +6210,10 @@ function dockFullHeight(){
 function topDockBottom(){
   const el=document.getElementById('projectShelf');
   if(!el||el.dataset.minimized==='1')return 0;
-  return el.getBoundingClientRect().bottom;
+  // ...and the "See all" tab hanging below it, whose corner is exactly where
+  // a maximised window's close button would otherwise sit.
+  const tab=el.querySelector('.shelf-all');
+  return el.getBoundingClientRect().bottom+(tab?tab.offsetHeight:0);
 }
 /* Keep a clear gap between the docked project shelf and the name in the world.
    The Materials palette is deliberately not counted: it is a floating window
@@ -9395,7 +9501,7 @@ requestAnimationFrame(loop);
      the home-indicator inset (--safe-b), and a window clamped against a flat
      30 would tuck its bottom edge underneath that strip. */
   const taskbarH = () =>
-    tasksEl ? Math.round(tasksEl.closest('#taskbar').getBoundingClientRect().height) || 30 : 30;
+    tasksEl ? Math.round(tasksEl.closest('#taskbar').getBoundingClientRect().height) : 0;
   // Mobile's palette spans the whole screen, so it is a hard reading boundary.
   const windowBottomGap = () => taskbarH() + (vpW()<=600 ? document.getElementById('matPicker').offsetHeight : 0);
 
@@ -9546,7 +9652,7 @@ requestAnimationFrame(loop);
       e.preventDefault(); e.stopPropagation();
       fn();
     };
-    ['click','keydown'].forEach(ev=>{
+    if(rollBtn&&hideBtn)['click','keydown'].forEach(ev=>{
       rollBtn.addEventListener(ev, act(()=> setDockRolled(!dockRolled())));
       hideBtn.addEventListener(ev, act(()=> minimize(dockEl)));
     });
@@ -9699,29 +9805,11 @@ requestAnimationFrame(loop);
       </a>`;
   }
 
-  /* This is the window the site boots into, so it has to answer "who is this"
-     before it answers "what have they made" — hence the identity block above
-     the grid. It is deliberately four lines: any longer and the first row of
-     tiles drops below the fold on a laptop. */
+  /* Every project at once, filterable -- the one thing the strip cannot do.
+     No masthead: the shelf's about panel already says who this is, so the
+     window opens straight onto its tabs and grid. */
   function galleryHTML(){
     return `
-      <div class="gal-id">
-        <div class="gal-id-top">
-          <div class="gal-id-who">
-            <h2>Mitchell Kuppersmith</h2>
-            <div class="sub">Senior Design Engineer · Snap Inc. · Santa Monica, CA</div>
-          </div>
-          <div class="gal-links">
-            <span class="gal-links-lbl">More about me</span>
-            <a data-launch="snap" tabindex="0" role="button">${ico('briefcase','pxi-xs','--accent:#fffc00')}Snap Role</a>
-            <a data-launch="education" tabindex="0" role="button">${ico('book','pxi-xs')}Education</a>
-            <a data-launch="about" tabindex="0" role="button">${ico('user','pxi-xs')}About Me</a>
-            <a href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener">${ico('mail','pxi-xs')}LinkedIn</a>
-          </div>
-        </div>
-        <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.</p>
-      </div>
-      <div class="gal-rule"></div>
       <div class="gal-tabs" role="tablist" aria-label="Filter work by category">${GAL_TABS.map(t=>{
         // counted off PROJECTS rather than written into GAL_TABS, so adding a
         // project can never leave a stale number behind
@@ -10522,14 +10610,292 @@ requestAnimationFrame(loop);
     const cards=[...track.querySelectorAll('.gal-card')];
     // A second run makes the last-to-first transition continuous. Only the
     // originals are keyboard/screen-reader stops; visible copies still open projects.
-    cards.forEach(card=>{
+    const copies=cards.map(card=>{
       const copy=card.cloneNode(true);
       copy.dataset.loopCopy='';copy.tabIndex=-1;copy.setAttribute('aria-hidden','true');
       copy.addEventListener('click',e=>{e.preventDefault();releaseFocus(copy);
         launchPanel(copy.dataset.launch,copy);resumeDrift(copy);});
       track.appendChild(copy);
+      return copy;
     });
     initGallery(shelf);
+    /* One card size for the strip and the grid alike, so opening the grid
+       never stretches a card: on a desktop the width is whatever makes a
+       whole number of cards fill the shelf exactly -- the column count whose
+       card comes nearest the old 190-280px -- and the about panel is exactly
+       a whole number of those columns. The strip at rest and the grid's first
+       row are then the same layout. A phone keeps its own sizes. */
+    function sizeShelf(){
+      if(vpW()<=600){['--shelf-cols','--shelf-cw','--shelf-aw','--shelf-span'].forEach(v=>shelf.style.removeProperty(v));return;}
+      const gap=12, avail=vpW()-28;
+      const target=Math.min(280,Math.max(190,vpW()*.2));
+      const cols=Math.max(2,Math.round((avail+gap)/(target+gap)));
+      const cw=(avail-gap*(cols-1))/cols;
+      const span=Math.min(cols-1,Math.max(1,Math.round((Math.max(avail/3,330)+gap)/(cw+gap))));
+      shelf.style.setProperty('--shelf-cols',cols);
+      shelf.style.setProperty('--shelf-cw',cw+'px');
+      shelf.style.setProperty('--shelf-span',span);
+      shelf.style.setProperty('--shelf-aw',span*cw+(span-1)*gap+'px');
+    }
+    sizeShelf();
+    window.addEventListener('resize',sizeShelf);
+    /* The tab under the shelf pulls it down into a grid of every card, and
+       back up. Instant on the way up when a card is being opened: the new
+       window is placed against the shelf's bottom edge, and mid-transition
+       that edge is still most of the way down the screen. */
+    const allBtn=shelf.querySelector('.shelf-all');
+    const allLbl=allBtn.querySelector('span');
+    const expanded=()=>shelf.classList.contains('is-expanded');
+    const shelfBody=shelf.querySelector('.shelf-body');
+    const aboutEl=shelf.querySelector('.shelf-about');
+    /* The grid opens and closes as a snake. Its path is serpentine -- along
+       the first row, down, back along the second, down, along the third -- so
+       every step is one cell sideways or one cell down, never the long
+       diagonal from the end of one row to the start of the next. Each card
+       starts hidden under the one before it on the path and slides out once
+       that one is in place. Closing is rollUp, below. */
+    const SNAKE={ease:'cubic-bezier(.2,.8,.2,1)',step:45,move:200,strip:60,settle:280,close:450,closeEase:'cubic-bezier(.4,0,.2,1)',
+      carry:320,carryEase:'cubic-bezier(.4,0,.2,1)',
+      closeBase:240,closePerPx:.4,closeMin:320,closeMax:600};
+    let flights=[],timers=[];
+    const reduce=()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
+    const onScreen=r=>Math.max(0,Math.min(r.right,innerWidth)-Math.max(r.left,0));
+    const t=(x,y)=>`translate(${x}px,${y}px)`;
+    const closing=()=>shelf.classList.contains('is-closing');
+    function land(){
+      timers.forEach(clearTimeout);timers=[];
+      flights.forEach(a=>a.cancel());flights=[];
+      shelf.classList.remove('is-closing','is-opening');
+      shelf.style.transition='';shelf.style.transitionDuration='';shelf.style.transitionTimingFunction='';
+    }
+    function later(ms,fn){timers.push(setTimeout(fn,ms));}
+    // Card indices in serpentine order over the grid as it is laid out now.
+    function path(){
+      const cells=cards.map(c=>c.getBoundingClientRect());
+      const rows=[];
+      cards.forEach((c,i)=>{
+        const r=rows.find(r=>Math.abs(r.top-cells[i].top)<4);
+        r?r.ids.push(i):rows.push({top:cells[i].top,ids:[i]});
+      });
+      rows.sort((a,b)=>a.top-b.top);
+      const seq=rows.flatMap((r,n)=>{
+        const ids=r.ids.sort((a,b)=>cells[a].left-cells[b].left);
+        return n%2?ids.reverse():ids;
+      });
+      return {cells,seq};
+    }
+    /* One card's turn: waits in `src`, then slides home. With `mask` it is
+       coming out from under the card before it, so it is clipped to the part
+       that has cleared that card -- fully hidden while it waits, then revealed
+       leading edge first as it travels, the clip opening at the same rate the
+       card moves. Nothing fades. The inset runs a few pixels past the card so
+       its drop shadow survives the open clip. */
+    const CLIP_ALL=6;
+    function emerge(card,src,to,wait,move,z,mask){
+      const dx=src.left-to.left, dy=src.top-to.top;
+      const A=t(dx,dy);
+      const open=`inset(-${CLIP_ALL}px)`;
+      let shut=open;
+      if(mask){
+        const o=-CLIP_ALL+'px', full='100%';
+        shut=Math.abs(dx)>=Math.abs(dy)
+          ? (dx<0 ? `inset(${o} ${o} ${o} ${full})` : `inset(${o} ${full} ${o} ${o})`)
+          : (dy<0 ? `inset(${full} ${o} ${o} ${o})` : `inset(${o} ${o} ${full} ${o})`);
+      }
+      const dur=wait+move;
+      const frames=wait
+        ? [{offset:0,transform:A,clipPath:shut,zIndex:z},
+           {offset:wait/dur,transform:A,clipPath:shut,zIndex:z,easing:SNAKE.ease},
+           {offset:1,transform:t(0,0),clipPath:open,zIndex:z}]
+        : [{transform:A,clipPath:shut,zIndex:z},{transform:t(0,0),clipPath:open,zIndex:z}];
+      flights.push(card.animate(frames,{duration:dur,easing:wait?'linear':SNAKE.ease}));
+      return dur;
+    }
+    /* Rows of the grid as laid out now, top to bottom, and the shelf height
+       that shows rows 0..r (the grid's bottom padding and the shelf's own
+       border below the last one). */
+    function rowsNow(cells){
+      const tops=[...new Set(cells.map(r=>Math.round(r.top)))].sort((a,b)=>a-b);
+      const row=i=>tops.findIndex(y=>Math.abs(y-cells[i].top)<4);
+      const shelfTop=shelf.getBoundingClientRect().top, pad=parseFloat(getComputedStyle(shelfBody).paddingBottom)+2;
+      const cap=vpH()-44;
+      const H=r=>Math.min(cap,Math.max(...cells.filter((c,i)=>row(i)===r).map(c=>c.bottom))-shelfTop+pad);
+      return {last:tops.length-1,row,H};
+    }
+    // The shelf's height as its own keyframed animation, so it can follow the
+    // snake row by row instead of one CSS sweep.
+    function heightTrack(points,dur){
+      shelf.style.transition='none';
+      flights.push(shelf.animate(points.map(([t,h,e])=>({offset:Math.min(1,t/dur),height:h+'px',easing:e||'linear'})),{duration:dur}));
+    }
+    /* Opening, on a desktop. The resting strip and the grid's first row are
+       the same layout (sizeShelf), so the strip itself becomes the first row:
+       it slides back to its start -- every card by the same amount, the way
+       the conveyor moves -- and the cards on screen land in their cells.
+       Then the snake carries on from the end of that row, and the shelf's
+       edge follows it down a row at a time, reaching each row as the snake
+       turns into it. A phone's strip and grid do not share a layout, so it
+       keeps the plain snake (snakeOutFrom). */
+    function snakeOut(orig0,copy0){
+      if(vpW()<=600)return snakeOutFrom(onScreen(copy0)>onScreen(orig0)?copy0:orig0);
+      const {cells,seq}=path();
+      const {last,row,H}=rowsNow(cells);
+      const n=cards.length, W=innerWidth, gap=12;
+      const x0=cells[0].left, pitch=cells[0].width+gap;
+      // Slide whichever way is shorter: back to the originals, or on to the
+      // loop copies, which are the same cards one cycle along.
+      const dA=x0-orig0.left, dB=x0-copy0.left, shift=Math.abs(dA)<=Math.abs(dB)?dA:dB;
+      const A=Math.abs(shift)<2?0:SNAKE.carry;
+      const first=seq.filter(i=>row(i)===0).length;
+      let total=A;
+      seq.forEach((i,k)=>{
+        const card=cards[i], to=cells[i];
+        const stripX=x0+i*pitch;                         // this card at the strip's start
+        const from=t(stripX-shift-to.left,cells[0].top-to.top);
+        if(k<first){                                     // a first-row card: the strip carries it home
+          if(A)flights.push(card.animate([{transform:from},{transform:t(0,0)}],{duration:A,easing:SNAKE.carryEase}));
+          return;
+        }
+        // Everyone else rides the strip off the right edge, then waits hidden
+        // under its predecessor for its turn in the snake.
+        const park=t(Math.max(stripX,W+4)-to.left,cells[0].top-to.top);
+        const src=cells[seq[k-1]], wait=A+(k-first)*SNAKE.step, dur=wait+SNAKE.move;
+        const dx=src.left-to.left, dy=src.top-to.top, o=-CLIP_ALL+'px', open=`inset(${o})`;
+        const shut=Math.abs(dx)>=Math.abs(dy)
+          ? (dx<0?`inset(${o} ${o} ${o} 100%)`:`inset(${o} 100% ${o} ${o})`)
+          : (dy<0?`inset(100% ${o} ${o} ${o})`:`inset(${o} ${o} 100% ${o})`);
+        const frames=[];
+        // Parked a hair before the carry ends, so the jump into hiding never
+        // lands after the first snake card's own start (which is A exactly).
+        if(A)frames.push({offset:0,transform:from,clipPath:open,easing:SNAKE.carryEase},
+                         {offset:Math.max(0,A/dur-1e-4),transform:park,clipPath:open});
+        frames.push({offset:A/dur,transform:t(dx,dy),clipPath:shut},
+                    {offset:wait/dur,transform:t(dx,dy),clipPath:shut,easing:SNAKE.ease},
+                    {offset:1,transform:t(0,0),clipPath:open});
+        flights.push(card.animate(frames.map(f=>({...f,zIndex:n-k})),{duration:dur}));
+        total=Math.max(total,dur);
+      });
+      // The edge reaches row r as the snake turns down into it, and has
+      // uncovered all of it by the time that first card lands.
+      const pts=[[0,H(0)]];
+      for(let r=1;r<=last;r++){
+        const k=seq.findIndex(i=>row(i)===r);
+        const ts=A+(k-first)*SNAKE.step, te=ts+SNAKE.move;
+        pts.push([ts,H(r-1),SNAKE.ease],[te,H(r)]);
+      }
+      pts.push([total,H(last)]);
+      heightTrack(pts,total);
+      shelf.classList.add('is-opening');
+      later(total+60,land);
+    }
+    function snakeOutFrom(start){
+      const {cells,seq}=path();
+      let total=0;
+      seq.forEach((i,k)=>{
+        let src=k?cells[seq[k-1]]:start;
+        // The first card comes from the strip; if it was off screen there, it
+        // slides in from the right edge, which hides it on the way.
+        if(!k&&src.left>=innerWidth)src={left:innerWidth+16,top:cells[i].top};
+        total=Math.max(total,emerge(cards[i],src,cells[i],k*SNAKE.step,SNAKE.move,cards.length-k,k>0));
+      });
+      shelf.classList.add('is-opening');
+      later(Math.max(total,420)+60,land);
+    }
+    /* Closing: the shelf's edge rises over the rows below the first in one
+       continuous sweep, and the cards stay put under it -- a mask, not a fade. On a
+       desktop the first row already IS the strip at its start, so when the
+       edge arrives there is nothing left to move: the strip just picks up
+       its drift. (A phone's strip is laid out differently; its cards settle
+       into place, and any extra on-screen ones slide in from the right.) */
+    function rollUp(){
+      shelfBody.scrollTop=0;
+      const cells=cards.map(c=>c.getBoundingClientRect());
+      const {last,row,H}=rowsNow(cells);
+      const desk=vpW()>600;
+      shelf.classList.add('is-closing');
+      shelf.classList.remove('is-expanded');
+      let T;
+      if(desk&&last>0){
+        /* One continuous move, not a step per row: easing each row on its
+           own brought the edge nearly to rest between rows, and the close
+           read as a stutter. The duration follows the distance, so a short
+           grid and a tall one close at the same pace. */
+        const dist=H(last)-H(0);
+        T=Math.round(Math.min(SNAKE.closeMax,Math.max(SNAKE.closeMin,SNAKE.closeBase+dist*SNAKE.closePerPx)));
+        heightTrack([[0,H(last),SNAKE.closeEase],[T,H(0)]],T);
+      }else{
+        T=SNAKE.close;
+        shelf.style.transitionDuration=T+'ms';shelf.style.transitionTimingFunction=SNAKE.closeEase;
+      }
+      later(T,()=>{
+        land();
+        track.scrollLeft=0;
+        if(desk)return;
+        let entering=0;
+        cards.forEach((card,i)=>{
+          const r=card.getBoundingClientRect();
+          if(r.left>=innerWidth)return;
+          if(row(i)===0)emerge(card,cells[i],r,0,SNAKE.settle,1,false);
+          else emerge(card,{left:innerWidth+16,top:r.top},r,(entering++)*SNAKE.strip,SNAKE.move+120,1,false);
+        });
+        later(SNAKE.move+120+cards.length*SNAKE.strip,()=>{flights.forEach(a=>a.cancel());flights=[];});
+      });
+    }
+    function setExpanded(on,instant){
+      const was=expanded()||closing();
+      land();
+      if(on!==expanded()){
+        const animate=!instant&&!reduce()&&!!cards[0].animate;
+        if(on){
+          // Rows are the strip's height; widths come from sizeShelf (desktop)
+          // or these measurements (phone).
+          const c=cards[0].getBoundingClientRect(), a=aboutEl.getBoundingClientRect();
+          shelf.style.setProperty('--cw',c.width+'px');
+          shelf.style.setProperty('--ch',c.height+'px');
+          shelf.style.setProperty('--aw',a.width+'px');shelf.style.setProperty('--ah',a.height+'px');
+          const r1=cards[0].getBoundingClientRect(), r2=copies[0].getBoundingClientRect();
+          shelf.classList.add('is-expanded');
+          shelfBody.scrollTop=0;
+          // The grid is laid out the instant the class lands, whatever the
+          // shelf's height is doing, so its true height can be read now.
+          const top=shelfBody.getBoundingClientRect().top;
+          const low=Math.max(aboutEl.getBoundingClientRect().bottom,...cards.map(c=>c.getBoundingClientRect().bottom));
+          shelf.style.setProperty('--exp-h',Math.ceil(low-top+parseFloat(getComputedStyle(shelfBody).paddingBottom)+2)+'px');
+          if(animate)snakeOut(r1,r2);
+        }else if(was){
+          if(animate)rollUp();
+          else{
+            if(instant)shelf.classList.add('is-instant');
+            shelf.classList.remove('is-expanded');
+            track.scrollLeft=0;
+          }
+        }
+      }
+      allBtn.setAttribute('aria-expanded',String(on));
+      allLbl.textContent=on?'Close':`See all ${PROJECTS.length}`;
+      allBtn.setAttribute('aria-label',on?'Close the project grid':`See all ${PROJECTS.length} projects`);
+      if(instant){void shelf.offsetHeight;shelf.classList.remove('is-instant');}
+    }
+    setExpanded(false);
+    /* A mouse click leaves the tab focused, and focus anywhere in the shelf
+       holds the conveyor still -- which read as the strip jamming after it
+       closed. Let go of both, the same way a card does once it has opened
+       something. Keyboard users keep their focus. */
+    allBtn.addEventListener('click',e=>{
+      setExpanded(!expanded());
+      if(e.detail)resumeDrift(allBtn);
+    });
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&expanded())setExpanded(false);});
+    /* From the grid a card cannot drop -- it is not where it was a moment ago
+       -- so the shelf snaps up and Win95's zoom carries it from where it sat
+       in the grid to the window. */
+    function openCard(card){
+      if(!expanded()){launchPanel(card.dataset.launch,card);return;}
+      const from=card.getBoundingClientRect();
+      setExpanded(false,true);
+      const win=launchPanel(card.dataset.launch);
+      if(win)zoomInto(from,win);
+    }
     /* Hoisted so the card handlers below can call it before the drift state it
        clears has been declared. Opening a project is the one interaction that
        is *finished* the moment it happens -- the card is blurred, focus has
@@ -10555,6 +10921,13 @@ requestAnimationFrame(loop);
       const el=document.activeElement;
       if(el&&card.contains(el))el.blur();
     }
+    /* The about third's index opens the overview pages. Same focus release as
+       a card, so a link left focused cannot hold the conveyor still. */
+    shelf.querySelectorAll('.shelf-about [data-launch]').forEach(link=>{
+      const open=e=>{e.preventDefault();releaseFocus(link);launchPanel(link.dataset.launch,link);resumeDrift(link);};
+      link.addEventListener('click',open);
+      link.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')open(e);});
+    });
     cards.forEach((card,i)=>{
       card.addEventListener('click', e=>{
         e.preventDefault();
@@ -10563,14 +10936,14 @@ requestAnimationFrame(loop);
         // still", and the resume below cannot lift a hold that focus is
         // still asserting.
         releaseFocus(card);
-        launchPanel(card.dataset.launch, card);
+        openCard(card);
         resumeDrift(card);
       });
       card.addEventListener('keydown', e=>{
         if(e.key==='Enter'||e.key===' '){
           e.preventDefault();e.stopPropagation();
           releaseFocus(card);
-          launchPanel(card.dataset.launch, card);
+          openCard(card);
           resumeDrift(card);
           return;
         }
@@ -10601,7 +10974,7 @@ requestAnimationFrame(loop);
     let boost=0;                       // extra px/ms from the wheel, signed
     const BOOST_PER_PX=.012,BOOST_MAX=2.5,BOOST_DECAY_MS=450;
     shelf.addEventListener('wheel',e=>{
-      if(e.ctrlKey||reducedMotion.matches)return;
+      if(e.ctrlKey||reducedMotion.matches||expanded())return;
       const unit=e.deltaMode===1?16:e.deltaMode===2?track.clientWidth:1;
       const d=(Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY)*unit;
       if(!d)return;
@@ -10642,7 +11015,8 @@ requestAnimationFrame(loop);
       const waiting=reducedMotion.matches||activePointers.size>0||document.hidden||now<pauseUntil
         ||shelf.contains(document.activeElement);
       // A wheel throttle works even while a focused card holds the idle drift still.
-      const throttled=reducedMotion.matches||activePointers.size>0||document.hidden;
+      const throttled=reducedMotion.matches||activePointers.size>0||document.hidden||expanded()
+        ||closing();
       if(throttled)boost=0;
       else boost*=Math.exp(-elapsed/BOOST_DECAY_MS);
       if(Math.abs(boost)<.005)boost=0;
@@ -10852,7 +11226,7 @@ requestAnimationFrame(loop);
     const from = card.getBoundingClientRect();
     const to = win.getBoundingClientRect();
     const bar = document.getElementById('taskbar').getBoundingClientRect();
-    const floor = bar.top - from.height;   // card top when its foot meets the bar
+    const floor = (bar.height ? bar.top : innerHeight) - from.height;   // card top when its foot meets the bar, or the screen's edge
     const slot = to.top;                   // and where the window will sit
     /* A card half-scrolled out of the track would appear to fall from a point
        nobody clicked; a desktop too short to hold the whole arc has nothing
@@ -10993,6 +11367,24 @@ requestAnimationFrame(loop);
     return true;
   }
 
+  /* Win95's zoom rather than a drop, for a control that is not a card: an
+     outline steps from the control out to the window's frame, then the window
+     appears in it. Same contract as dropCardInto -- the window is already
+     built and placed, and is only hidden while the outline travels. */
+  function zoomInto(from, win){
+    if(matchMedia('(prefers-reduced-motion:reduce)').matches||!win.animate) return;
+    const a=from.getBoundingClientRect?from.getBoundingClientRect():from, z=win.getBoundingClientRect();
+    const box=document.createElement('div');
+    box.className='zoom-rect';
+    dropLayer().appendChild(box);
+    win.classList.add('is-dropping');
+    const at=r=>({transform:`translate(${r.left}px,${r.top}px)`,width:r.width+'px',height:r.height+'px'});
+    let done=false;
+    const finish=()=>{ if(done) return; done=true; box.remove(); win.classList.remove('is-dropping'); };
+    box.animate([at(a),at(z)],{duration:240,easing:'steps(6,jump-both)',fill:'forwards'}).onfinish=finish;
+    setTimeout(finish,600);   // backstop: never strand the window hidden
+  }
+
   /* `from` is the element the launch came from, if it is one that can be
      seen to fall — see dropCardInto. Everything else opens as before. */
   function launchPanel(id, from){
@@ -11004,7 +11396,7 @@ requestAnimationFrame(loop);
       existing.el.style.display='flex';
       existing.el.dataset.minimized='';
       focusWindow(existing.el);
-      return;
+      return existing.el;
     }
     const win=document.createElement('div');
     win.className='win-app is-focus theme-'+(panel.theme||'desktop');
@@ -11124,8 +11516,11 @@ requestAnimationFrame(loop);
       }
     });
 
+    // The gallery is a browse-everything mode, so it opens full view.
+    if(id==='work') win.querySelector('[data-act="max"]').click();
     if(from&&vpW()>600) dropCardInto(from, win);
     focusWindow(win);
+    return win;
   }
 
   // the sim calls this when a window has burned past saving, so the taskbar
