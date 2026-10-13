@@ -1391,6 +1391,9 @@ html,body{
 
 /* ── narrow viewport: fit the furniture ── */
 @media (max-width:600px){
+  /* A phone window opens full screen over the materials bar and the shelf's
+     See all tab (both z-index:10); it still starts at the shelf's bottom edge. */
+  #windowsLayer{z-index:11}
   .win-app{
     width:calc(100vw - 12px);
     max-width:calc(100vw - 12px);
@@ -10600,6 +10603,17 @@ requestAnimationFrame(loop);
   }
 
   function fitMaximized(win){
+    /* A phone has no room for a window beside anything, so a maximised one
+       takes the whole screen under the shelf: over the See all tab and down
+       across the materials bar, which the stylesheet lifts it above. */
+    if(vpW()<=600){
+      const shelf=document.getElementById('projectShelf');
+      const top=shelf&&shelf.dataset.minimized!=='1'?shelf.getBoundingClientRect().bottom:0;
+      win.style.left='0px'; win.style.top=top+'px';
+      win.style.width=vpW()+'px';
+      win.style.height=Math.max(60,vpH()-top)+'px';
+      return;
+    }
     const top=topDockBottom();
     win.style.left='4px'; win.style.top=top+'px';
     win.style.width=(vpW()-12)+'px';
@@ -11530,6 +11544,10 @@ requestAnimationFrame(loop);
     const panel = PANELS[id];
     if(!panel) return;
     pushRoute(id);
+    // One page at a time on a phone: the new one takes over from the last.
+    if(vpW()<=600){
+      [...openWindows].forEach(([key, info])=>{ if(key!==id) window.__closeWindowEl(info.el); });
+    }
     const existing = openWindows.get(id);
     if(existing){
       existing.el.style.display='flex';
@@ -11662,7 +11680,8 @@ requestAnimationFrame(loop);
     });
 
     // The gallery is a browse-everything mode, so it opens full view.
-    if(id==='work') win.querySelector('[data-act="max"]').click();
+    // So does everything on a phone.
+    if(id==='work'||vpW()<=600) win.querySelector('[data-act="max"]').click();
     if(from&&vpW()>600) dropCardInto(from, win);
     focusWindow(win);
     return win;
