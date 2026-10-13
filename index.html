@@ -338,7 +338,11 @@ html,body{
    changed the colour without the change meaning anything. */
 #projectShelf .gal-name{order:-1;position:relative;font:11px/1.2 var(--px-font);
   color:#e6e6e6;background:#808080;padding:5px 6px;
-  margin:0 0 4px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex-shrink:0}
+  margin:0 0 4px;overflow:hidden;white-space:nowrap;flex-shrink:0;display:flex;gap:8px}
+/* The year sits at the far end of the title bar and never gives ground: a long
+   name ellipsises before the date does. */
+#projectShelf .gal-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
+#projectShelf .gal-date{margin-left:auto;flex-shrink:0;opacity:.75}
 #projectShelf .gal-shot.is-tbd{background-color:#101c42;
   background-image:linear-gradient(#627db522 1px,transparent 1px),linear-gradient(90deg,#627db522 1px,transparent 1px),
     radial-gradient(ellipse at 50% 45%,#334c80,transparent 72%);background-size:20px 20px,20px 20px,100% 100%}
@@ -741,6 +745,23 @@ html,body{
      (and on iOS, from rubber-banding the whole document) behind it */
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
+/* Corner resize handles. All four corners take the drag; only the bottom-right
+   one draws the classic diagonal grip. Above the burn overlay (z 60) so a
+   scorched window can still be resized. */
+.win-app .win-grip{
+  position:absolute;width:12px;height:12px;z-index:61;touch-action:none;
+}
+.win-app .win-grip[data-dir="nw"]{left:-4px;top:-4px;cursor:nwse-resize}
+.win-app .win-grip[data-dir="ne"]{right:-4px;top:-4px;cursor:nesw-resize}
+.win-app .win-grip[data-dir="sw"]{left:-4px;bottom:-4px;cursor:nesw-resize}
+.win-app .win-grip[data-dir="se"]{
+  right:0;bottom:0;cursor:nwse-resize;
+  background:linear-gradient(135deg,
+    transparent 0 45%,#fff 45% 52%,#808080 52% 60%,
+    transparent 60% 68%,#fff 68% 75%,#808080 75% 83%,transparent 83%);
+}
+.win-app.is-resizing,.win-app.is-resizing *{user-select:none}
+@media (max-width:600px){ .win-app .win-grip{display:none} }
 .win-app .win-body h2{font-size:15px;margin:0 0 4px;color:#000080}
 .win-app .win-body h3{font-size:12px;margin:10px 0 4px;color:#000;font-weight:700}
 .win-app .win-body .sub{font-size:11px;color:#404040;margin-bottom:2px}
@@ -841,14 +862,6 @@ html,body{
   60%{color:#00cc44}80%{color:#0080ff}100%{color:#aa00ff}
 }
 .rainbow{animation:rainbow95 2s linear infinite;font-weight:700}
-.marquee{
-  overflow:hidden;white-space:nowrap;
-  border:2px inset #808080;background:#000;color:#ffe600;
-  font-family:'Courier New',monospace;font-size:11px;
-  padding:3px 0;margin:6px 0;
-}
-.marquee span{display:inline-block;padding-left:100%;animation:marq 18s linear infinite}
-@keyframes marq{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
 .hit-counter{
   display:inline-block;background:#000;color:#0f0;
   font-family:'Courier New',monospace;font-size:14px;font-weight:700;
@@ -992,7 +1005,8 @@ html,body{
 }
 /* shelf-only: the gallery has room for the full blurb and keeps its badge */
 .gal-tag{display:none}
-.win-app .win-body .gal-name{font-size:11px;font-weight:700;margin:5px 2px 0;line-height:1.25;color:#000;text-decoration:none}
+.win-app .win-body .gal-name{font-size:11px;font-weight:700;margin:5px 2px 0;line-height:1.25;color:#000;text-decoration:none;display:flex;gap:6px}
+.win-app .win-body .gal-date{margin-left:auto;flex-shrink:0;font-weight:400;color:#454545}
 .win-app .win-body .gal-blurb{font-size:10px;line-height:1.35;color:#202020;margin:3px 2px 4px;text-decoration:none}
 .win-app .win-body .gal-meta{font-size:9px;color:#454545;font-style:italic;margin:auto 2px 1px;text-decoration:none}
 @media (max-width:600px){
@@ -1085,17 +1099,11 @@ html,body{
 .theme-agent .ac-section{padding:15px 13px;margin-top:12px;background:#fff;border:2px solid;border-color:#808080 #fff #fff #808080;box-shadow:inset 1px 1px #000}
 .win-app.theme-agent .win-body h3{font:bold 15px/1.3 'Tahoma',sans-serif;margin:0 0 9px;color:#000080}
 .win-app.theme-agent .ac-section p{margin:0 0 10px;max-width:65ch}
-.theme-agent .ac-tools{margin:0}
-.theme-agent .ac-tools>div{padding:9px 0;border-bottom:1px solid #d6d6df}
-.theme-agent .ac-tools>div:first-child{padding-top:0}
-.theme-agent .ac-tools dt{font-size:12px;font-weight:bold;color:#000080;margin-bottom:3px}
-.theme-agent .ac-tools dd{font-size:12px;line-height:1.5;color:#333}
 .win-app.theme-agent .ac-integrations{margin:12px 0 0;font-size:12px}
 .theme-agent .ac-steps{display:grid;gap:10px;margin-top:13px}
 .theme-agent .ac-step{border-left:3px solid #000080;padding-left:9px}
 .theme-agent .ac-step b{display:block;font-size:12px;margin-bottom:2px}
 .win-app.theme-agent .ac-step p{font-size:12px;color:#333;line-height:1.5;margin:0}
-.theme-agent .ac-footer{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:12px;padding:6px;border:1px solid;border-color:#808080 #fff #fff #808080;font-size:10px;color:#333}
 .win-app.theme-agent .win-body a{color:#000080;text-underline-offset:2px}
 .theme-agent button:focus-visible,.theme-agent a:focus-visible{outline:1px dotted #000;outline-offset:2px}
 @container (max-width:360px){
@@ -1461,8 +1469,8 @@ html,body{
 
 /* ── SHARED PROJECT CASE STUDIES ────────────────────────────
    Agent Center established the useful grammar for a project page here: a
-   restrained hero, factual strip, framed media, white inset reading cards and
-   a quiet next-project footer. Legacy project copy is promoted into that same
+   restrained hero, factual strip, framed media and white inset reading cards.
+   Legacy project copy is promoted into that same
    structure by formatProjectPanel(); --case-accent and --case-bar preserve a
    small amount of each project's own identity without changing the layout. */
 .win-app.is-case-study{
@@ -1532,11 +1540,6 @@ html,body{
 }
 .win-app.is-case-study .win-body .case-actions a:hover{background:#d4d0c8;color:var(--case-accent,#000080)}
 .win-app.is-case-study .win-body .case-actions a:active{border-color:#000 #fff #fff #000;box-shadow:inset 1px 1px #808080}
-.case-footer{
-  display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;
-  margin-top:12px;padding:6px;color:#333;border:1px solid;
-  border-color:#808080 #fff #fff #808080;font-size:10px;
-}
 .win-app.is-case-study .win-body a{color:var(--case-accent,#000080);text-underline-offset:2px}
 .win-app.is-case-study .win-body a:hover{color:color-mix(in srgb,var(--case-accent,#000080) 75%,#000)}
 .win-app.is-case-study button:focus-visible,.win-app.is-case-study a:focus-visible{outline:1px dotted #000;outline-offset:2px}
@@ -2094,6 +2097,18 @@ const isLiq=m=>m===WATER||m===OIL||m===ACID;
 // slick is what carries fire across open water.
 const LDEN=new Uint8Array(256);
 LDEN[OIL]=1;LDEN[ACID]=2;LDEN[WATER]=3;
+/* LAVA's variant. The low three bits stay the colour jitter every material
+   has; above them sit how far the melt has cooled (0 molten .. 15 set) and
+   which way it was last flowing. Both travel with the cell through moveSwap,
+   so a tongue of lava keeps its heading and its crust as it goes. A plain
+   setMat hands out 0..7, which reads as fresh and flowing right. */
+const LAVA_COOL=0x78, LAVA_LEFT=0x80;
+/* STONE's variant flag for obsidian: what lava quenched by water sets into,
+   as opposed to the plain rock a flow cools to on its own. Bit 7 with the
+   dressed (0x20) and sprite (0x40) bits clear — dressed stone uses bit 7 for
+   its tone, so the test is always (v&0xE0)===STONE_OBSIDIAN. Still STONE, so
+   everything that stands on, digs or collides with rock treats it as rock. */
+const STONE_OBSIDIAN=0x80;
 // what acid dissolves, and that plus whatever else it reacts with at all
 const ACID_EATS=new Uint8Array(256),ACID_HIT=new Uint8Array(256),ACID_NB=new Uint8Array(4);
 for(const m of [STONE,SAND,PLANT,ASH,MOSS,SEED,DIRT,GRASS,WOOD,LEAF,THATCH,BERRY,BRICK,GLASS])ACID_EATS[m]=ACID_HIT[m]=1;
@@ -2614,6 +2629,25 @@ function scanGrowth(){
   }
   meadowPlants=plants;meadowFruit=fruit;
 }
+/* Growth is a skin, not a takeover. Moss used to convert any dirt or stone
+   beside it, and every new cell was another front, so a mossy stone in the
+   turf ate down through the hill a cell at a time until the soil was solid
+   green. Plants did the same by greening dirt and then growing into it.
+   Now a cell can only turn green if it is near open air or water: touching
+   it, or a few cells under it, where each cell's own reach (from a fixed
+   hash) is 1, 2 or 3 deep. The same hash keeps a third of cells bare at any
+   depth, so the green is two thirds of the top row, half the next and a
+   sixth of the one below that: a layer that speckles out into the dirt
+   instead of painting every pixel. */
+const isOpen=t=>t===EMPTY||t===WATER||t===STEAM;
+function greenSkin(x,y){
+  const h=hash2i(x,y);
+  if(h%3===0)return false;                       // bare soil stays bare
+  for(let k=0;k<4;k++)if(isOpen(mat(x+NX_URLD[k],y+NY_URLD[k])))return true;
+  const r=(h>>>4)&3, reach=r===0?3:r===2?1:2;    // 25% / 50% / 25%
+  for(let d=2;d<=reach;d++)if(isOpen(mat(x,y-d)))return true;
+  return false;
+}
 // Fruit wants leaf around it. A cell whose neighbours are already ripe does
 // not ripen: it is what keeps a thicket from turning red all at once, and it
 // is an art rule before it is a simulation one — a berry only reads as a
@@ -2876,16 +2910,40 @@ function step(x,y){
     // molten rock. It is the heat source the rest of the palette answers to:
     // it lights anything flammable, fuses sand to glass, and freezes into
     // stone the instant water reaches it — so water is the only real brake.
-    for(let k=0;k<4;k++){
+    //
+    // It used to skip half its ticks and creep one cell at a time in whatever
+    // direction the frame scanned, then turn to stone at random wherever it
+    // stalled. That read as wet sand: a heap that jittered in place and went
+    // grey in speckles. Now it carries heat. Hot melt pours and runs, the
+    // surface it shows the sky loses heat fastest, and every step it cools it
+    // gets stiffer — so a flow levels out, its toe crusts, it slows and finally
+    // sets from the top down, the way a lobe of lava actually stops.
+    const v=variant[i];
+    let cool=(v&LAVA_COOL)>>3, air=0;
+    // Lava on all four sides: nothing to react with, nowhere to go. Most of a
+    // resting pool is this, so it skips straight to the heat bookkeeping.
+    const buried=y>0&&y+1<H&&x>0&&x+1<W&&grid[i-W]===LAVA&&grid[i+W]===LAVA&&
+                 grid[i-1]===LAVA&&grid[i+1]===LAVA;
+    if(!buried)for(let k=0;k<4;k++){
       const ax=NX_URLD[k],ay=NY_URLD[k];
       const nx=x+ax,ny=y+ay,t=mat(nx,ny);
-      if(t===BOUND)continue;
+      if(t===EMPTY){if(ay<=0)air++;continue;}   // sky above or air beside: radiating
+      if(t===BOUND||t===LAVA)continue;
       if(t===WATER){
-        // quench: flash to steam, and the lava mostly crusts over into rock
+        // quench: flash to steam, and the lava mostly freezes too fast to
+        // crystallise — glassy obsidian, not the dull rock it cools to alone
+        // Only a body of water does that, though. A lone drop — rain, or the
+        // pond's own steam condensing back out over the flow — just flashes
+        // off and chills the skin; turning each drop into a pixel of obsidian
+        // salted the whole pool with black grains.
+        const body=mat(nx+ax,ny+ay)===WATER||mat(nx,ny+1)===WATER;
         setMat(nx,ny,STEAM);
-        if(Math.random()<0.6){setMat(x,y,STONE);return;}
+        if(body&&Math.random()<0.6){setMat(x,y,STONE,STONE_OBSIDIAN|(Math.random()*4|0));return;}
+        cool=cool+(body?5:2)>15?15:cool+(body?5:2);
+        continue;
       }
-      else if(t===SAND&&Math.random()<0.12){
+      if(cool>10)continue;  // a set crust is only warm; it lights nothing
+      if(t===SAND&&Math.random()<0.12){
         setMat(nx,ny,GLASS,Math.random()*4|0);frozen[idx(nx,ny)]=1;
       }
       else if((t===PLANT||t===MOSS||t===SEED||t===GRASS||t===POLLEN||t===OIL||
@@ -2894,18 +2952,85 @@ function step(x,y){
       }
       else if(t===ACID&&Math.random()<0.35){setMat(nx,ny,SMOKE);}
       else if(t===MASK&&Math.random()<0.16){burnMask(nx,ny,2);} // molten rock melts straight through a window
+      // Ash drifting down off its own flames melts back in. Left alone it
+      // settled on the flanks of a flow and shored it up like a sandbag
+      // wall, so a heap never levelled out.
+      else if(t===ASH&&Math.random()<0.2){setMat(nx,ny,EMPTY);}
     }
-    // flames and fumes lick off the surface
-    if(mat(x,y-1)===EMPTY&&Math.random()<0.05)setMat(x,y-1,Math.random()<0.55?FIRE:SMOKE);
-    // viscous: it only advances on some ticks, so it creeps rather than pours
-    if(Math.random()<0.55){updated[i]=frameId;cellChanged(x,y);return;}
-    if(eFree(x,y+1)){moveSwap(x,y,x,y+1);return;}
-    if(eFree(x+d,y+1)){moveSwap(x,y,x+d,y+1);return;}
-    if(eFree(x-d,y+1)){moveSwap(x,y,x-d,y+1);return;}
-    if(eFree(x+d,y)&&Math.random()<0.45){moveSwap(x,y,x+d,y);return;}
-    // gone nowhere for a while: the flow crusts over on its own
-    if(Math.random()<0.0018){setMat(x,y,STONE);return;}
-    updated[i]=frameId;cellChanged(x,y);return;
+    // Cooling. Buried melt holds its heat for half a minute or so; every face open
+    // to the air bleeds it several times faster. The leading edge of a flow
+    // has air above AND ahead, so it is always the first part to stiffen.
+    const cool0=cool;
+    if(cool<15&&Math.random()<0.005+air*0.015)cool++;
+    /* Heat spreads through the melt. Without it every cell cooled on its own
+       dice, and a pool rendered as salt-and-pepper — orange beside near-black
+       beside orange, exactly the look of a heap of grains. Trading a step of
+       heat with one lava neighbour a tick (below on odd frames, beside on
+       even) smooths that into one body: a darker skin over a glowing core,
+       shading gradually between them, and the skin draws on the core's heat
+       instead of setting alone. */
+    {
+      const ni=(frameId&1)?(y+1<H?i+W:-1):((x+d>=0&&x+d<W)?i+d:-1);
+      if(ni>=0&&grid[ni]===LAVA&&!frozen[ni]){
+        const nvb=variant[ni], c2=(nvb&LAVA_COOL)>>3;
+        if(c2>cool+1){cool++;variant[ni]=(nvb&~LAVA_COOL)|((c2-1)<<3);pixDirty(ni%W,(ni/W)|0);}
+        else if(cool>c2+1){cool--;variant[ni]=(nvb&~LAVA_COOL)|((c2+1)<<3);pixDirty(ni%W,(ni/W)|0);}
+      }
+    }
+    const supported=!eFree(x,y+1);
+    if(cool>=15&&supported){setMat(x,y,STONE);return;}
+    let nv=(v&~LAVA_COOL)|(cool<<3);
+    if(buried){
+      variant[i]=nv;updated[i]=frameId;wake3(x,y);
+      if(cool!==cool0||(frameId&3)===0)pixDirty(x,y);
+      return;
+    }
+    // Hot surface spits the odd flame and fumes. Sparse on purpose: a whole
+    // pool of it used to boil off a sheet of fire every second.
+    if(air&&y>0&&grid[i-W]===EMPTY){
+      const r=Math.random();
+      if(cool<6&&r<0.004)setMat(x,y-1,FIRE);
+      else if(r>0.996)setMat(x,y-1,SMOKE);
+    }
+    // Falling is not viscous — a stream off a ledge pours, and hot melt
+    // free-falls two cells at a time the way water does.
+    if(!supported){
+      variant[i]=nv;
+      if(cool<8&&eFree(x,y+2)){moveSwap(x,y,x,y+2);return;}
+      moveSwap(x,y,x,y+1);return;
+    }
+    // the heaviest thing in the palette: it sinks through oil and acid, and
+    // lights or boils them on the way past (the scan above)
+    if(lFree(x,y+1)&&Math.random()<0.5){variant[i]=nv;moveSwap(x,y,x,y+1);return;}
+    // It remembers which way it was running and keeps going, turning round
+    // only when it hits something. A shared heading is what makes neighbouring
+    // cells move as one sheet instead of trading places at random.
+    let s=(nv&LAVA_LEFT)?-1:1;
+    if(eFree(x+s,y+1)){variant[i]=nv;moveSwap(x,y,x+s,y+1);return;}
+    if(eFree(x-s,y+1)){variant[i]=nv^LAVA_LEFT;moveSwap(x,y,x-s,y+1);return;}
+    // Viscosity follows heat: fresh melt runs out up to four cells a tick and
+    // levels like water, a cooling one a cell now and then, and a near-set
+    // crust not at all.
+    if(Math.random()<0.9-cool*0.065){
+      const reach=cool<5?4:(cool<9?2:1);
+      let run=0;
+      for(let k=1;k<=reach;k++){
+        if(!eFree(x+k*s,y))break;
+        run=k;
+        if(eFree(x+k*s,y+1))break; // a drop: go there and pour over it next tick
+      }
+      if(run){variant[i]=nv;moveSwap(x,y,x+run*s,y);return;}
+      nv^=LAVA_LEFT; // walled in this way: try the other way next tick
+    }
+    variant[i]=nv;
+    /* Resting melt stays awake (it is still cooling) but only repaints when
+       its colour can have changed: a step of heat, or the vein field's
+       quarter-rate tick. Repainting every cell every frame — what this did
+       before — also dirtied the light buffers every frame, and a pool the
+       width of the meadow paid for a full light rebuild 60 times a second. */
+    updated[i]=frameId;wake3(x,y);
+    if(cool!==cool0||(frameId&3)===0)pixDirty(x,y);
+    return;
   }
 
   if(m===PLANT){
@@ -2941,7 +3066,7 @@ function step(x,y){
       // meadow eventually turns back into turf. It costs no vigour and no
       // quota: turf spreads no further on its own, so healing a scar cannot
       // run away the way a thicket can.
-      else if(t===DIRT&&Math.random()<0.35)setMat(x+ax,y+ay,GRASS);
+      else if(t===DIRT&&greenSkin(x+ax,y+ay)&&Math.random()<0.35)setMat(x+ax,y+ay,GRASS);
     }
     // a thicket dense enough to shade itself sets fruit, with leaf left
     // between one berry and the next; birds do the rest
@@ -2986,9 +3111,10 @@ function step(x,y){
       if(damp||Math.random()<0.2){
         const k=Math.random()*4|0, ax=NX_URLD[k], ay=NY_URLD[k];
         const t=mat(x+ax,y+ay);
-        if(t===STONE&&Math.random()<0.5)setMat(x+ax,y+ay,MOSS);
-        else if(t===DIRT&&Math.random()<(damp?0.45:0.08))setMat(x+ax,y+ay,MOSS);
-        else if(damp&&(t===ASH||t===SAND)&&Math.random()<0.10)setMat(x+ax,y+ay,MOSS);
+        const skin=t!==EMPTY&&greenSkin(x+ax,y+ay);
+        if(t===STONE&&skin&&Math.random()<0.5)setMat(x+ax,y+ay,MOSS);
+        else if(t===DIRT&&skin&&Math.random()<(damp?0.45:0.08))setMat(x+ax,y+ay,MOSS);
+        else if(damp&&skin&&(t===ASH||t===SAND)&&Math.random()<0.10)setMat(x+ax,y+ay,MOSS);
         else if(damp&&ay===-1&&t===EMPTY&&Math.random()<0.06)setMat(x,y-1,PLANT,(VIG_TUFT<<3)|(Math.random()*8|0));
       }
     }
@@ -3216,6 +3342,15 @@ function simulate(){
 // random water/grass cells stay close to their base palette. (Sand has its
 // own grain-tone table, just below.)
 const JITTER=[0,-3,0,3,0,0,0,0];
+// LAVA by cooling step (see LAVA_COOL): orange melt, a dull red as it
+// stiffens, then the near-black crust it sets into. Green sits low on
+// purpose: lava is lit by its own glow in the composite (tx * (amb + lit)),
+// which lifts every channel, and at a green of ~100 open melt came out
+// near-white yellow instead of orange.
+const LAVA_RAMP=[
+  [232,78,18],[230,75,18],[228,72,18],[224,68,18],[218,63,18],
+  [208,57,18],[194,50,19],[178,45,20],[160,40,22],[140,36,24],
+  [118,33,26],[98,32,28],[82,32,30],[72,32,32],[64,32,33],[58,32,34]];
 /* ═══ SAND GRAIN TONES ═══
    Sand's texture has to travel WITH the grain instead of sitting in world
    space. A position-hashed speckle makes a falling stream crawl and a settled
@@ -3298,6 +3433,9 @@ function surf(x,y,gi){
    least because a liquid's surface is the story and its body is not. */
 const RELIEF=new Float32Array(64);
 RELIEF[STONE]=17; RELIEF[SAND]=15; RELIEF[DIRT]=14; RELIEF[WATER]=22;
+// Lava takes the same lit skin and sunken body as water: the top row reads
+// as a surface, the rest as one mass under it.
+RELIEF[LAVA]=16;
 /* Water is the exception to "the surface is the story and the body is not",
    and it took the posterize being fixed to see it. At 8 luminance levels a
    36-unit step, the old 9 was invisible — a third of a level — so water
@@ -4521,7 +4659,21 @@ function buildLight(){
       if(!EMIT[m])continue;
       let r=0,g=0,b=0;
       if(m===FIRE){r=1.0;g=0.45;b=0.08;}
-      else if(m===LAVA){r=0.95;g=0.32;b=0.05;}
+      else if(m===LAVA){
+        /* Only the surface glows. Every cell used to emit, and the light
+           blocks sum their cells before clamping — so any pool more than a
+           cell deep pinned its whole neighbourhood at the clamp and washed
+           the meadow out to white-yellow. The buried melt is behind its own
+           skin anyway. A crust that has nearly set gives off far less. */
+        // The cave's frozen pool keeps its full glow: it is the light that
+        // room was lit and tuned by.
+        if(frozen[gi]){r=0.95;g=0.32;b=0.05;}
+        else{
+          if(y>0&&grid[gi-W]===LAVA)continue;
+          const k=0.4-((variant[gi]&LAVA_COOL)>>3)*0.024;
+          r=0.95*k;g=0.32*k;b=0.05*k;
+        }
+      }
       else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
       else if(m===BOMB&&(variant[gi]&0x80)){r=0.7;g=0.10;b=0.05;}
       else if(m===ACID){r=0.10;g=0.22;b=0.02;}
@@ -4688,6 +4840,14 @@ function matTexel(m,v,x,y,out,dst,s){
         r+=tn[0]; g+=tn[1]; b+=tn[2];
       } else if(v&0x40){
         const sh=STONE_SHADE[v&3]; r=86+sh[0]; g=84+sh[1]; b=88+sh[2];
+      } else if(v&STONE_OBSIDIAN){
+        // obsidian: glass-black with a violet cast, broken by the odd bright
+        // conchoidal facet catching the light. Facets hash on position — it
+        // is static, so nothing carries the pattern across the screen.
+        const h=hash2i(x,y)&15;
+        if(h===0){r=96;g=88;b=124;}
+        else if(h<3){r=52;g=44;b=70;}
+        else{r=26+(v&1)*4;g=22+(v&1)*3;b=36+(v&1)*5;}
       } else {
         if(art){r=art.rock[0];g=art.rock[1];b=art.rock[2];}
         else{r=66+j; g=64+j; b=70+j;}
@@ -4701,11 +4861,27 @@ function matTexel(m,v,x,y,out,dst,s){
     case SMOKE: r=60+j;  g=60+j;  b=68+j;  a=105; break;
     case STEAM: r=206+j; g=214+j; b=222+j; a=120; break;
     case LAVA: {
-      // same trick as fire but slower and heavier — a crust that glows through
-      const f=Math.random();
-      const rr=236+j+(f>0.8?16:0);
-      const gg=96+j+(f>0.85?34:-16);
-      r=rr>255?255:rr; g=gg>255?255:(gg<0?0:gg); b=26; a=255; break;
+      /* Colour from heat, brightness from a drifting vein field. The old
+         per-redraw coin flip lit each cell independently, which reads as
+         sparkle, not as a liquid. The veins are two warped sine bands that
+         slide with time, quantised to three steps so they stay pixel-crisp;
+         hot melt shows them strongly, crust only as the odd crack still
+         glowing through. */
+      // No per-cell jitter: like water, the body is one colour and only the
+      // heat field and the veins move across it.
+      const c=(v&LAVA_COOL)>>3, base=LAVA_RAMP[c], glow=c<11?1-c/11:0;
+      const t=frameNo;
+      const w=Math.sin(x*0.29+t*0.022+Math.sin(y*0.45-t*0.014)*1.8)
+             +Math.sin(y*0.61-x*0.17+t*0.017);
+      let hr=0,hg=0,hb=0;
+      if(w>1.3){hr=12;hg=36;hb=14;}
+      else if(w>0.55){hr=5;hg=14;hb=4;}
+      if(glow){r=base[0]+hr*glow;g=base[1]+hg*glow;b=base[2]+hb*glow;}
+      else{
+        r=base[0];g=base[1];b=base[2];
+        if(w>1.5&&(hash2i(x,y)&3)===0){r+=90;g+=26;b-=10;} // a crack still glowing
+      }
+      r=r>255?255:r; g=g>255?255:(g<0?0:g); b=b>255?255:(b<0?0:b); a=255; break;
     }
     case ASH:
       /* Bit 3 is soot: the near-black the wordmark draws its rim in. Plain
@@ -4814,10 +4990,10 @@ function matTexel(m,v,x,y,out,dst,s){
   if(a){
     let tj=0;
     if(m===STONE){
-      if(v&0x60){
-        // Dressed ashlar and hand-shaded sprite stone both already carry their
-        // own structure in the variant. A per-cell hash on top of either reads
-        // as grime on the marble rather than as stone.
+      if(v&0xE0){
+        // Dressed ashlar, hand-shaded sprite stone and obsidian all already
+        // carry their own structure in the variant. A per-cell hash on top of
+        // any of them reads as grime on the marble rather than as stone.
         if(s&S_DEEP)tj-=6;
       } else {
         /* Raw rock, at two scales. The old single per-cell hash handed every
@@ -4866,10 +5042,6 @@ function matTexel(m,v,x,y,out,dst,s){
       if(y%3===0)tj=6;
     } else if(m===ACID){
       if(((x*3)+(y*5))%7===0)tj=10;
-    } else if(m===LAVA){
-      // dark crust flecks floating on the melt
-      const h=((x*5)^(y*3))%11;
-      if(h===0)tj=-46; else if(h===4)tj=-22;
     } else if(m===PLANT){
       if((y&1)===0)tj=8;
     } else if(m===WOOD){
@@ -5098,25 +5270,7 @@ function makeBody(x,y,hw,hh,tex){
 
 function buildBodies(){
   bodies.length=0;
-  return; // projects moved to DOM — no rigid-body panels
-  if(!WORK_REGION)return;
-  const r=WORK_REGION;
-  const projects=[
-    ['IMAGINE TOGETHER','multiplayer 3D',0],
-    ['TRANSLATION','live cross-lang',2],
-    ['AGENT CENTER','spatial agent UI',1],
-    ['AI PLAYGROUND','LLM + image gen',3],
-    ['AI MUSIC GEN','Lyria 3D UI',2],
-    ['RemoteServiceGW','GenAI library',1],
-  ];
-  const hw=Math.floor(r.colW*0.46), hh=Math.floor(r.rowH*0.46);
-  for(let i=0;i<projects.length;i++){
-    const col=i%2,row=(i/2)|0;
-    const cx=r.x+col*(r.colW+r.gap)+r.colW/2;
-    const cy=r.y+row*(r.rowH+r.gap)+r.rowH/2;
-    const b=makeBody(cx,cy,hw,hh,makePanelTexture(projects[i][0],projects[i][1],projects[i][2]));
-    bodies.push(b);
-  }
+  // projects moved to DOM — no rigid-body panels
 }
 
 const isTerrain=m=>m===STONE||m===DIRT||m===GRASS;
@@ -9709,58 +9863,61 @@ requestAnimationFrame(loop);
        yt:    poster pulled from the YouTube video already embedded
        none:  a marked empty slot until the art lands
   ═════════════════════════════════════════════════════ */
+  /* made: 'YYYY-MM', best guess from each project's own video upload or first
+     commit. Only the year shows (in the card's title bar); the month is there
+     for sorting, and because some of these are approximate. */
   const PROJECTS = [
-    { id:'imagine-together', name:'Imagine Together', cat:'snap', icon:'star',
+    { id:'imagine-together', name:'Imagine Together', made:'2024-09', cat:'snap', icon:'star',
       yt:'Od-_nZpmU9Q', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
       tag:'Make 3D together in one room. Demoed at Snap Partner Summit',
       blurb:'Co-located multiplayer 3D generation — people in the same room create and share spatial content together.' },
-    { id:'translation', name:'Translation', cat:'snap', icon:'globe',
+    { id:'translation', name:'Translation', made:'2025-06', cat:'snap', icon:'globe',
       yt:'hR4W_Qtzij4', meta:'Flagship · Spectacles',
       tag:'Live translation in AR, even with people not wearing Spectacles',
       blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.' },
-    { id:'agent-center', name:'Agent Center', cat:'snap', icon:'gear',
+    { id:'agent-center', name:'Agent Center', made:'2026-06', cat:'snap', icon:'gear',
       clip:'agent-center', badge:'OPEN SOURCE', meta:'Spectacles sample',
       tag:'Run coding agents in AR by voice, text or image. Open source',
       blurb:'Manage coding agents in AR with text, voice, image attachments, permission controls, and live status.' },
-    { id:'ai-playground', name:'AI Playground', cat:'snap', icon:'gear',
+    { id:'ai-playground', name:'AI Playground', made:'2025-06', cat:'snap', icon:'gear',
       clip:'ai-playground', badge:'OPEN SOURCE', meta:'Spectacles sample',
       tag:'Open-source starter kit for AI on Spectacles: voice, images, 3D',
       blurb:'The starter project for AI on Spectacles — live voice models, image generation and text-to-3D in one sample.' },
-    { id:'ai-music-gen', name:'AI Music Gen', cat:'snap', icon:'note',
+    { id:'ai-music-gen', name:'AI Music Gen', made:'2025-10', cat:'snap', icon:'note',
       clip:'ai-music-gen', badge:'OPEN SOURCE', meta:'Spectacles sample',
       tag:"Mix a song in 3D with Google's Lyria music model. Open source",
       blurb:"A 3D UI for Google's Lyria model — mix genres, vibes and instruments into a track that visualises around you." },
-    { id:'rsg', name:'RemoteServiceGateway', cat:'snap', icon:'gear',
+    { id:'rsg', name:'RemoteServiceGateway', made:'2025-06', cat:'snap', icon:'gear',
       still:'remote-service-gateway', badge:'OPEN SOURCE', meta:'Lens Studio package',
       tag:'One Lens Studio API for OpenAI, Gemini, Snap3D and more',
       blurb:'The generative-AI layer for Lens Studio — OpenAI, Gemini, Lyria, Snap3D and DeepSeek behind one interface.' },
 
-    { id:'snaptrap', name:'Snaptrap', cat:'awards', icon:'trap',
+    { id:'snaptrap', name:'Snaptrap', made:'2026-03', cat:'awards', icon:'trap',
       clip:'snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'GDC 2026',
       tag:"Room-sized Venus flytrap. Finalist at GDC's alt-controller show",
       blurb:'A room-sized Venus flytrap: you play the fly, it plays the trap.' },
-    { id:'catiator', name:'Catiator', cat:'awards', icon:'cat',
+    { id:'catiator', name:'Catiator', made:'2021-02', cat:'awards', icon:'cat',
       still:'catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021',
       tag:"Fingerspell ASL to fight cats in VR. Prize at Stanford's hackathon",
       blurb:'VR sign-language trainer: fingerspell the ASL alphabet to fend off chonky cat gladiators.' },
-    { id:'intarnet', name:'IntARnet', cat:'awards', icon:'globe',
+    { id:'intarnet', name:'IntARnet', made:'2021-03', cat:'awards', icon:'globe',
       still:'intarnet', badge:'GRAND PRIZE', meta:'CMU TartanHacks 2021',
       tag:"Social posts pinned to real places. Grand Prize at CMU's hackathon",
       blurb:'Social posts nailed to real-world coordinates — the timeline is the sidewalk.' },
-    { id:'larp', name:'lARp', cat:'awards', icon:'mushroom',
+    { id:'larp', name:'lARp', made:'2021-03', cat:'awards', icon:'mushroom',
       clip:'larp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021',
       tag:"A GPT-3 RPG where walking earns XP. Award at UVA's hackathon",
       blurb:'GPT-3 mushrooms you can fight or befriend; your step count is the XP bar.' },
 
-    { id:'retrovirus-vr', name:'RetroVirus VR', cat:'games', icon:'floppy',
+    { id:'retrovirus-vr', name:'RetroVirus VR', made:'2020-05', cat:'games', icon:'floppy',
       still:'retrovirus-vr', meta:'VR Jam 2020 · SteamVR',
       tag:'A telekinetic VR prison break, built for a 2020 VR game jam',
       blurb:"Telekinetic prison break: rip the guards' guns out of the air and grapple through the walls." },
-    { id:'songbird', name:'Songbird', cat:'games', icon:'bird',
+    { id:'songbird', name:'Songbird', made:'2020-07', cat:'games', icon:'bird',
       still:'songbird', meta:'GMTK Jam 2020 · PC / Mac',
       tag:'Bullet hell where every spell is a melody. Made for a game jam',
       blurb:'Bullet hell where every spell is a melody on the numpad; flub the notes and your saxophone takes the damage.' },
-    { id:'nira', name:'Nira', cat:'games', icon:'wand',
+    { id:'nira', name:'Nira', made:'2021-12', cat:'games', icon:'wand',
       still:'nira', meta:'EECS 494 · Michigan',
       tag:"A hoverstaff platformer from Michigan's game design course",
       blurb:'A girl, a hoverstaff named Kane, and a grandfather who left something at the observatory.' },
@@ -9798,7 +9955,7 @@ requestAnimationFrame(loop);
           ${p.clip?'<span class="gal-play" aria-hidden="true">▶<b>HOVER</b></span>':''}
           ${p.badge?`<span class="gal-badge">${p.badge}</span>`:''}
         </span>
-        <span class="gal-name">${p.name}</span>
+        <span class="gal-name"><span class="gal-title">${p.name}</span>${p.made?`<span class="gal-date">${p.made.slice(0,4)}</span>`:''}</span>
         <span class="gal-blurb">${p.blurb}</span>
         ${p.tag?`<span class="gal-tag">${p.tag}</span>`:''}
         ${p.meta?`<span class="gal-meta">${p.meta}</span>`:''}
@@ -9833,24 +9990,14 @@ requestAnimationFrame(loop);
       <div class="sub">Escape the antivirus prison</div>
       <div class="meta">VR Jam 2020</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2mGfEtkYbME?rel=0" title="RetroVirus VR demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
-      <p>You've been quarantined. Fight your way out of an antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
-      <h3>Features</h3>
-      <ul>
-        <li>Telekinetic combat — pull weapons and bullets out of the air</li>
-        <li>Movement via grappling onto level geometry</li>
-        <li>PSX-era low-poly aesthetic</li>
-      </ul>
+      <p>You've been quarantined. Fight your way out of a PSX-era, low-poly antivirus prison using your <b>H4CTOR B3AM</b> — a telekinetic tool that levitates guns, grabs enemy projectiles mid-air, and yanks you across the level.</p>
       <h3>Built With</h3>
       <ul>
         <li>Unity + SteamVR 2.0</li>
-        <li>HTC Vive · Valve Index · Oculus (via SteamVR) — Windows Mixed Reality is unreliable</li>
+        <li>HTC Vive · Valve Index · Oculus (via SteamVR)</li>
         <li>Custom assets — modeling, animation, FX (music excepted)</li>
       </ul>
-      <h3>Details</h3>
-      <ul>
-        <li>Windows · free · ~33 MB · built solo over the jam</li>
-        <li>Status: prototype — the jam build is what's up there</li>
-      </ul>
+      <div class="meta">Windows · free · built solo over the jam</div>
       <p><a href="https://trisol.itch.io/retrovirus-vr" target="_blank" rel="noopener">Play on itch.io →</a></p>
     `},
     songbird: { title:'Songbird', icon:'bird', theme:'project',
@@ -9859,18 +10006,7 @@ requestAnimationFrame(loop);
       <div class="sub">Top-down bullet hell where you cast spells with a saxophone</div>
       <div class="meta">GMTK Game Jam 2020 · Unity · Windows / macOS</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/c2cUoMuH6bY?rel=0" title="Songbird demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
-      <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit. Take too much damage and rage takes over: harder to aim, easier to break your own instrument.</p>
-      <h3>Controls</h3>
-      <ul>
-        <li><b>WASD</b> to move</li>
-        <li><b>Numpad 1–6</b> to play the saxophone — each spell is its own melody</li>
-        <li>Click a spell name to pull up its sheet music</li>
-      </ul>
-      <h3>Modes</h3>
-      <ul>
-        <li>Story mode</li>
-        <li>Endless mode</li>
-      </ul>
+      <p>Play as a magic bird with anger issues. Each spell is a short melody on numpad keys 1–6 — flub the notes under pressure and your sax takes the hit.</p>
       <h3>The Rage Mechanic</h3>
       <p>Damage builds rage. Rage takes away your control of the saxophone and knocks out one note of every spell — so the worse things get, the harder your own instrument is to play.</p>
       <h3>Credits</h3>
@@ -9887,30 +10023,18 @@ requestAnimationFrame(loop);
       <div class="meta">EECS 494 · University of Michigan · Unity · Windows / macOS</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/MCfxDnmBX3w?rel=0" title="Nira demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Your grandfather left something for you at the observatory. Guide Nira through an atmospheric low-poly world using <b>Kane</b>, a magical hoverstaff, and uncover the mystery of what he left behind.</p>
-      <h3>Highlights</h3>
-      <ul>
-        <li>Hoverstaff traversal — platforming built around a single signature verb</li>
-        <li>Atmospheric low-poly fantasy world</li>
-        <li>Short, narrative-driven loop</li>
-      </ul>
-      <h3>Controls</h3>
-      <ul>
-        <li><b>WASD</b> to move · <b>Space</b> to jump</li>
-        <li><b>Left click</b> or <b>Left Ctrl</b> to toggle the hoverstaff</li>
-      </ul>
       <h3>Team</h3>
       <ul>
         <li>Ahmad Faiyaz · Adris Jautakas · Mitchell Kuppersmith · Nikhil Ghosh</li>
         <li>With support from Dilan Huang, Kaavya Ramachandran, Lucas Tittle, Amber Renton</li>
       </ul>
-      <div class="meta">Free · last build v1.01, March 2022</div>
+      <div class="meta">Free</div>
       <p><a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">Play on itch.io →</a></p>
     `},
     snap: { title:'Snap Inc — Spectacles', icon:'briefcase', theme:'corporate', html:`
       <h2>SNAP INC. — SPECS / SnapLabs</h2>
       <div class="sub">Santa Monica, CA · May 2022 – Present</div>
       <p>I work on <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — designing and building immersive, AI-native lens experiences and helping shape how people navigate the device.</p>
-      <div class="marquee"><span>★ NOW SHIPPING ON SPECTACLES ★ AI-NATIVE LENS EXPERIENCES ★ GENERATIVE 3D ★ LIVE TRANSLATION ★ AGENT CENTER ★</span></div>
       <h3>Career Path</h3>
       <ul>
         <li><b>Senior Design Engineer</b> — Apr 2026 – Present</li>
@@ -9931,11 +10055,11 @@ requestAnimationFrame(loop);
       <h2>Imagine Together</h2>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/Od-_nZpmU9Q?rel=0&start=101" title="Imagine Together demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>Co-located multiplayer 3D generation for real-time creation and sharing — people in the same space generate and manipulate 3D content together.</p>
-      <blockquote>"Featured in a live on-stage demo at Snap Partner Summit."</blockquote>
+      <div class="meta">Demoed live on stage at Snap Partner Summit</div>
       <h3>What's Inside</h3>
       <ul>
         <li>Co-located multiplayer (shared spatial coordinates between Spectacles)</li>
-        <li>On-device 3D asset generation from text + voice</li>
+        <li>3D asset generation from text + voice</li>
         <li>Two-handed direct manipulation: grab, scale, throw</li>
         <li>Persistence between sessions</li>
       </ul>
@@ -9956,7 +10080,7 @@ requestAnimationFrame(loop);
           <div>
             <p class="ac-eyebrow">SPECTACLES / OPEN-SOURCE EXPERIMENT</p>
             <h2>Agent Center</h2>
-            <p class="ac-intro">An augmented-reality workspace for managing AI coding agents from Spectacles. Prompt agents by text or voice, attach images from your view, approve tool requests, and follow several tasks through animated avatars placed around you.</p>
+            <p class="ac-intro">An augmented-reality workspace for managing AI coding agents from Spectacles.</p>
             <div class="ac-actions"><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">View source on GitHub <span aria-hidden="true">↗</span></a></div>
           </div>
         </header>
@@ -9970,26 +10094,19 @@ requestAnimationFrame(loop);
         </section>
         <section class="ac-section">
           <div><h3>Built with</h3>
-            <dl class="ac-tools">
-              <div><dt>Lens Studio</dt><dd>Builds the Spectacles lens: the spatial interface, agent avatars, and in-room experience.</dd></div>
-              <div><dt>Spectacles Interaction Kit (SIK) + UIKit</dt><dd>Hand interaction and interface components for the lens.</dd></div>
-              <div><dt>Node.js</dt><dd>Runs the local bridge that manages agent CLI processes and relays messages between your computer and the lens.</dd></div>
-              <div><dt>Snap Cloud + Supabase</dt><dd>Provides authentication, realtime messaging, and backend edge functions.</dd></div>
-            </dl>
+            <p>Lens Studio · Spectacles Interaction Kit + UIKit · a Node.js bridge to the agent CLIs · Snap Cloud + Supabase</p>
             <p class="ac-integrations"><b>Agent integrations:</b> Claude, Codex, Cursor Cloud, and OpenClaw.</p>
           </div>
         </section>
         <section class="ac-section">
-          <div><h3>Dev talk</h3><p>A walkthrough of Agent Center's design and build.</p>
+          <div><h3>Dev talk</h3>
             <div class="shot-vid"><iframe src="https://www.youtube.com/embed/GtULAKBGod8?rel=0" title="Agent Center dev talk" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
           </div>
         </section>
-        <footer class="ac-footer"><a data-launch="ai-playground" role="button" tabindex="0">Next project: AI Playground →</a></footer>
       </article>
     `},
     'ai-playground': { title:'ai-playground // OSS', icon:'gear', theme:'terminal', html:`
       <h2>ai-playground</h2>
-      <div class="meta">Open source · Spectacles sample</div>
       <video class="shot-clip" src="images/projects/ai-playground.mp4" poster="images/projects/ai-playground-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Playground demo"></video>
       <p>Among the most-used Spectacles starter projects — introduces LLM and image-generation workflows for developers building on the platform.</p>
       <h3>what's inside</h3>
@@ -9998,40 +10115,27 @@ requestAnimationFrame(loop);
         <li>text &rarr; image, through both gemini image generation and dall&middot;e</li>
         <li>text &rarr; 3D via snap3d, generated straight into the room</li>
         <li>a hand-tracked orb UI, falling back to screen space when hands are out of view</li>
-        <li>connectivity notices — an AI lens that silently stops working is worse than one that says so</li>
       </ul>
-      <div class="meta">Lens Studio v5.15.4+ · Spectacles OS v5.64+ · needs a Remote Service Gateway token</div>
       <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Playground" target="_blank" rel="noopener">github.com/specs-devs/samples · AI Playground →</a></p>
     `},
     'ai-music-gen': { title:'ai-music-gen // OSS', icon:'note', theme:'terminal', html:`
       <h2>ai-music-gen</h2>
-      <div class="meta">Open source · Spectacles sample</div>
       <video class="shot-clip" src="images/projects/ai-music-gen.mp4" poster="images/projects/ai-music-gen-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Music Gen demo"></video>
       <p>A 3D UI for Google's Lyria music generation model, running on Spectacles. Combine genres, vibes and instruments into a custom track and watch it drive a 3D visualisation around you.</p>
-      <h3>what's inside</h3>
-      <ul>
-        <li>genre / vibe / instrument mixing as a spatial control surface</li>
-        <li>streaming generation — the track changes as you change the inputs</li>
-        <li>3D visualisers driven by the audio</li>
-      </ul>
-      <p>Ships in Snap's public sample collection (190&#8202;★ / 72 forks at last check).</p>
+      <p>Generation streams, so the track changes as you change the inputs.</p>
       <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Music%20Gen" target="_blank" rel="noopener">github.com/specs-devs/samples · AI Music Gen →</a></p>
     `},
     rsg: { title:'RemoteServiceGateway // OSS', icon:'gear', theme:'terminal', html:`
       <h2>RemoteServiceGateway</h2>
-      <div class="meta">Open source · Lens Studio package</div>
       <img class="shot" loading="lazy" src="images/projects/remote-service-gateway.webp" alt="RemoteServiceGateway">
       <p>The generative-AI layer for Lens Studio: one interface in front of every model a lens can call, so a developer doesn't stand up their own backend to ship an AI experience. Both the AI Playground and Music Gen samples run on it.</p>
       <p>It exists because these APIs are used <em>alongside user-sensitive data</em> — the camera frame, location, microphone. Routing them through a gateway is what makes that publishable.</p>
       <h3>integrations</h3>
       <ul>
-        <li><b>OpenAI</b> — chat completions (GPT-5, GPT-4o, GPT-4.1-nano), DALL&middot;E image generation and edit, text-to-speech, and the Realtime websocket</li>
-        <li><b>Google</b> — Gemini and Gemini Live, Imagen for images, Lyria for music</li>
-        <li><b>Snap-hosted</b> — DeepSeek with R1 reasoning, and Snap3D for text-to-3D in GLB</li>
+        <li><b>OpenAI</b> — GPT, DALL&middot;E, text-to-speech, Realtime</li>
+        <li><b>Google</b> — Gemini, Gemini Live, Imagen, Lyria</li>
+        <li><b>Snap-hosted</b> — DeepSeek, Snap3D</li>
       </ul>
-      <h3>how developers get it</h3>
-      <p>The package sits in the Lens Studio Asset Library under Spectacles. A Token Generator plugin issues per-account tokens for the Snap, OpenAI and Google services; they don't expire and carry across projects.</p>
-      <div class="meta">Lens Studio v5.10.1+ · Spectacles OS v5.062+ · these APIs run on device only</div>
       <p><a href="https://developers.snap.com/spectacles/about-spectacles-features/apis/remoteservice-gateway" target="_blank" rel="noopener">Developer documentation →</a> · <a href="https://github.com/specs-devs/packages" target="_blank" rel="noopener">github.com/specs-devs/packages →</a></p>
     `},
     catiator: { title:'★ CATIATOR ★', icon:'cat', theme:'vapor', html:`
@@ -10051,29 +10155,17 @@ requestAnimationFrame(loop);
         <li><b>Hand tracking</b> on Oculus Quest for direct, controller-free play.</li>
       </ul>
       <h3>★ BUILT WITH ★</h3>
-      <ul>
-        <li>Oculus Quest · Unity3D · C#</li>
-        <li>Autodesk Maya · Photoshop · Procreate</li>
-        <li>Figma · Unity2D/3D</li>
-      </ul>
+      <p>Unity3D · C# · Oculus Quest hand tracking</p>
       <h3>★ TEAM ★</h3>
       <ul>
         <li><b>Nancy Zuo</b> — UX, graphics, branding, 3D texturing, gesture mapping</li>
         <li><b>Ryan Davis</b> — character design, modelling, rigging, UV maps, animation</li>
         <li><b>Mitchell Kuppersmith</b> — gesture detection, Unity, environment and prop modelling, lighting, game design</li>
-        <li><b>Olivia</b> — UI element design</li>
       </ul>
       <h3>★ CHALLENGES ★</h3>
       <ul>
         <li>Crossed-finger signs (M vs N) hit the limits of Oculus' finger tracking.</li>
         <li>ASL uses facial expressions — no face tracking on Quest 1, so we focused on the manual alphabet.</li>
-        <li>Hardware diversity across the team (PC + Quest required to debug live in Unity).</li>
-      </ul>
-      <h3>★ WHAT'S NEXT ★</h3>
-      <ul>
-        <li>More lessons, and gesture definition without dropping into debug mode</li>
-        <li>Two-handed signs — the manual alphabet is only the entry point</li>
-        <li>Further mini-games for drilling ASL</li>
       </ul>
       <p><a href="https://devpost.com/software/catiator" target="_blank" rel="noopener">Devpost →</a> · <a href="https://trisol.itch.io/catiators" target="_blank" rel="noopener">itch.io →</a></p>
     `},
@@ -10082,9 +10174,7 @@ requestAnimationFrame(loop);
       <div class="sub">Scott Krulcik Grand Prize</div>
       <div class="meta">CMU TartanHacks 2021</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/2WW6OzM3Tsc?rel=0" title="IntARnet demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
-      <p>An AR social media app built around spatial anchors — drop persistent posts at real-world locations and discover what others have left behind.</p>
-      <h3>Concept</h3>
-      <p>Twitter, but the timeline is the city. Post drawings, text or 3D models and they stay pinned to the spot you left them — the only way to read a post is to walk to it. That constraint is the feature: it gets people outdoors and keeps what you see relevant to the block you're standing on.</p>
+      <p>An AR social media app built around spatial anchors: Twitter, but the timeline is the city. Post drawings, text or 3D models and they stay pinned to the spot you left them — the only way to read a post is to walk to it. That constraint is the feature: it gets people outdoors and keeps what you see relevant to the block you're standing on.</p>
       <h3>Built With</h3>
       <ul>
         <li>Unity3D · C# · ARFoundation, with ARKit and ARCore underneath</li>
@@ -10104,10 +10194,9 @@ requestAnimationFrame(loop);
     larp: { title:'lARp — mushroom AR', icon:'mushroom', theme:'forest', html:`
       <h2>lARp</h2>
       <div class="sub">Best Art and Gaming Hack</div>
+      <div class="meta">HooHacks 2021</div>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/wR7rJfNN0Ow?rel=0" title="lARp demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
       <p>A mushroom-themed AR fitness game that promotes physical activity through gamification — battle or befriend procedurally generated mushroom NPCs while GPT-3 powers open-ended dialogue.</p>
-      <blockquote>"The hardest part about exercise is to start doing it. Once you are doing exercise regularly, the hardest part is to stop it." — Erin Grey</blockquote>
-      <p><em>lARp</em> makes it easy to start. Use the outdoors (or a treadmill) as your gym and work toward becoming the buff mushroom of your dreams.</p>
       <h3>Features</h3>
       <ul>
         <li><b>Limitless narrative.</b> GPT-3 lets players say whatever they want. Combined with 9,702 procedural mushroom permutations, every playthrough tells a different story.</li>
@@ -10116,19 +10205,6 @@ requestAnimationFrame(loop);
       </ul>
       <h3>How We Built It</h3>
       <p>Unity + ARFoundation for mobile AR, C# for gameplay, OpenAI GPT-3 for NPC dialogue. The novel work was procedural character generation paired with prompt design so mushroom characters stayed in their whimsical lane while handling whatever players threw at them.</p>
-      <ul>
-        <li><b>AR:</b> Unity 3D · C# · ARFoundation</li>
-        <li><b>AI:</b> OpenAI GPT-3</li>
-        <li><b>3D &amp; animation:</b> Autodesk Maya · Photoshop</li>
-        <li><b>UI/UX:</b> Figma · Photoshop</li>
-      </ul>
-      <h3>Accomplishments</h3>
-      <ul>
-        <li>Shipped a fully functional mobile AR app in a weekend</li>
-        <li>Procedural mushroom characters with thousands of permutations</li>
-        <li>Got GPT-3 dialogue running in Unity in 2021 — and had some very questionable conversations</li>
-        <li>Pixel art in AR, plus an animated Devpost thumbnail</li>
-      </ul>
       <h3>Team</h3>
       <ul>
         <li><b>Ryan Davis</b> — character randomization, pixel art, 3D modelling, animation</li>
@@ -10278,13 +10354,6 @@ requestAnimationFrame(loop);
       if(node.tagName==='P' && node.querySelector('a')) node.classList.add('case-actions');
       section.appendChild(node);
     });
-
-    const current=PROJECTS.findIndex(item=>item.id===id);
-    const next=PROJECTS[(current+1)%PROJECTS.length];
-    const footer=document.createElement('footer');
-    footer.className='case-footer';
-    footer.innerHTML='<a data-launch="'+next.id+'" role="button" tabindex="0">Next project: '+next.name+' →</a>';
-    page.appendChild(footer);
     body.replaceChildren(page);
   }
 
@@ -10446,6 +10515,52 @@ requestAnimationFrame(loop);
     }, {passive:false});
     document.addEventListener('touchend', ()=>dragging=false);
     document.addEventListener('touchcancel', ()=>dragging=false);
+  }
+
+  /* Corner scaling. The opposite corner stays pinned, and every edge is held
+     inside the same reading area clampWinPos keeps windows in. Once a window
+     has been sized by hand its stylesheet caps (560px wide, 70% tall) no longer
+     apply, and a maximised one drops back to an ordinary window. */
+  const WIN_MIN_W=200, WIN_MIN_H=90;
+  function makeResizable(win){
+    for(const dir of ['nw','ne','sw','se']){
+      const g=document.createElement('div');
+      g.className='win-grip'; g.dataset.dir=dir;
+      win.appendChild(g);
+      g.addEventListener('pointerdown', e=>{
+        if(e.button) return;
+        e.preventDefault(); e.stopPropagation();
+        focusWindow(win);
+        g.setPointerCapture(e.pointerId);
+        const r=win.getBoundingClientRect();
+        const sx=e.clientX, sy=e.clientY;
+        const minX=0, maxX=vpW();
+        const minY=topDockBottom(), maxY=vpH()-windowBottomGap();
+        win.style.maxWidth='none'; win.style.maxHeight='none';
+        win.style.minWidth='0';
+        win.dataset.maxed=''; win.dataset.sized='1';
+        win.classList.add('is-resizing');
+        const move=ev=>{
+          const dx=ev.clientX-sx, dy=ev.clientY-sy;
+          let L=r.left, T=r.top, R=r.right, B=r.bottom;
+          if(dir[1]==='w') L=Math.min(R-WIN_MIN_W, Math.max(minX, L+dx));
+          else             R=Math.max(L+WIN_MIN_W, Math.min(maxX, R+dx));
+          if(dir[0]==='n') T=Math.min(B-WIN_MIN_H, Math.max(minY, T+dy));
+          else             B=Math.max(T+WIN_MIN_H, Math.min(maxY, B+dy));
+          win.style.left=L+'px'; win.style.top=T+'px';
+          win.style.width=(R-L)+'px'; win.style.height=(B-T)+'px';
+        };
+        const end=()=>{
+          g.removeEventListener('pointermove', move);
+          g.removeEventListener('pointerup', end);
+          g.removeEventListener('pointercancel', end);
+          win.classList.remove('is-resizing');
+        };
+        g.addEventListener('pointermove', move);
+        g.addEventListener('pointerup', end);
+        g.addEventListener('pointercancel', end);
+      });
+    }
   }
 
   function ensureTaskBtn(id, panel, win){
@@ -11453,6 +11568,7 @@ requestAnimationFrame(loop);
     }
     const titleBar = win.querySelector('.win-title');
     makeDraggable(win, titleBar);
+    makeResizable(win);
     win.addEventListener('mousedown', ()=>focusWindow(win));
     // touch raises focus immediately instead of waiting on the synthetic
     // mousedown that only arrives after the tap resolves
@@ -11499,14 +11615,19 @@ requestAnimationFrame(loop);
       e.stopPropagation();
       if(win.dataset.maxed==='1'){
         win.style.left=win.dataset.preL; win.style.top=win.dataset.preT;
-        win.style.width=win.dataset.preW; win.style.height='';
-        win.style.maxHeight='';   // fall back to the stylesheet's 70% of --app-h
-        if(vpW()<=600)win.style.maxHeight=`max(60px, calc(var(--app-h) - ${(parseFloat(win.style.top)||0)+windowBottomGap()+6}px))`;
-        win.style.maxWidth='';
+        win.style.width=win.dataset.preW; win.style.height=win.dataset.preH||'';
+        if(win.dataset.sized==='1'){
+          // a hand-sized window keeps the size it was given, not the caps
+          win.style.maxHeight='none'; win.style.maxWidth='none';
+        } else {
+          win.style.maxHeight='';   // fall back to the stylesheet's 70% of --app-h
+          if(vpW()<=600)win.style.maxHeight=`max(60px, calc(var(--app-h) - ${(parseFloat(win.style.top)||0)+windowBottomGap()+6}px))`;
+          win.style.maxWidth='';
+        }
         win.dataset.maxed='';
       } else {
         win.dataset.preL=win.style.left; win.dataset.preT=win.style.top;
-        win.dataset.preW=win.style.width;
+        win.dataset.preW=win.style.width; win.dataset.preH=win.style.height;
         // maxWidth has to go too, or the stylesheet's cap (560px / 100vw-16px)
         // quietly shrinks the "maximised" window back down
         win.style.maxWidth='none';
