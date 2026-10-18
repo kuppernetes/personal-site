@@ -10,7 +10,7 @@
      are resolved by some scrapers and dropped by others. The URLs are the
      custom domain in CNAME: the github.io address now only redirects, and a
      canonical that points at a redirect splits the page's search ranking. -->
-<meta name="description" content="Mitchell Kuppersmith designs and ships AI-native AR experiences for Spectacles, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.">
+<meta name="description" content="Mitchell Kuppersmith designs and ships AI-native AR experiences for SPECS, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.">
 <meta name="author" content="Mitchell Kuppersmith">
 <link rel="canonical" href="https://kuppersmith.dev/">
 <!-- The wordmark's first M, cell for cell: sand, turf on every top face, the
@@ -28,7 +28,7 @@
 <meta property="og:url" content="https://kuppersmith.dev/">
 <meta property="og:site_name" content="Mitchell Kuppersmith">
 <meta property="og:title" content="Mitchell Kuppersmith — Senior Design Engineer">
-<meta property="og:description" content="AI-native AR for Spectacles at Snap — flagship lens experiences, system UI, and open-source developer tooling. Plus award-winning hackathon builds and game jams.">
+<meta property="og:description" content="AI-native AR for SPECS at Snap — flagship lens experiences, system UI, and open-source developer tooling. Plus award-winning hackathon builds and game jams.">
 <!-- PNG, not WebP: LinkedIn and some chat apps drop a WebP card image
      silently and fall back to the bare link. -->
 <meta property="og:image" content="https://kuppersmith.dev/images/og-card.png">
@@ -37,7 +37,7 @@
 <meta property="og:image:alt" content="Mitchell Kuppersmith's name in pixel-art letters made of sand and turf, with “Senior Design Engineer” beneath, hanging over a pixel meadow.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Mitchell Kuppersmith — Senior Design Engineer">
-<meta name="twitter:description" content="AI-native AR for Spectacles at Snap — flagship lens experiences, system UI, and open-source developer tooling.">
+<meta name="twitter:description" content="AI-native AR for SPECS at Snap — flagship lens experiences, system UI, and open-source developer tooling.">
 <meta name="twitter:image" content="https://kuppersmith.dev/images/og-card.png">
 <!-- For search: who this page is about, in the form a results page can show
      without running the canvas. -->
@@ -46,7 +46,7 @@
  "url":"https://kuppersmith.dev/","jobTitle":"Senior Design Engineer",
  "worksFor":{"@type":"Organization","name":"Snap Inc.","url":"https://www.snap.com/"},
  "alumniOf":{"@type":"CollegeOrUniversity","name":"University of Michigan"},
- "knowsAbout":["Augmented reality","Spectacles","Lens Studio","Generative AI","Interaction design"],
+ "knowsAbout":["Augmented reality","SPECS","Lens Studio","Generative AI","Interaction design"],
  "sameAs":["https://www.linkedin.com/in/mitchell-kuppersmith"]}
 </script>
 <style>
@@ -263,11 +263,15 @@ html,body{
 /* Stacked (see sizeShelf): one card wide, the buttons a 2x2 block that
    takes whatever height the sentence leaves, so the panel is full top to
    bottom instead of centred in air. */
-#projectShelf.sa-stack .shelf-about{justify-content:flex-start}
+#projectShelf.sa-stack .shelf-about{justify-content:flex-start;padding-left:10px;padding-right:10px}
 #projectShelf.sa-stack .sa-lede{font-size:16.5px;text-wrap:balance}
 #projectShelf.sa-stack .sa-links{flex:1 1 auto;height:auto;padding-top:10px;
   display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
-@media(max-height:700px){#projectShelf .sa-ico .pxi{width:24px;height:24px}}
+/* Half a card is barely wider than "Current role" at 11px, so the stack
+   trims the sheet's sides and drops the labels a pixel to leave the
+   button some frame around its text. */
+#projectShelf.sa-stack .sa-links .sa-ico{font-size:10px;padding:4px 6px}
+#projectShelf.sa-stack .sa-links .sa-ico:active{padding:5px 5px 3px 7px}@media(max-height:700px){#projectShelf .sa-ico .pxi{width:24px;height:24px}}
 #projectShelf .win95-title{padding:3px 4px 3px 6px;cursor:default}
 #projectShelf .win95-title>span{font-size:12px}
 #projectShelf .tbtns{margin-left:auto;display:flex;gap:2px}
@@ -349,8 +353,7 @@ html,body{
 /* The year sits at the far end of the title bar and never gives ground: a long
    name ellipsises before the date does. */
 #projectShelf .gal-title{min-width:0;overflow:hidden;text-overflow:ellipsis}
-#projectShelf .gal-date{margin-left:auto;flex-shrink:0;opacity:.75}
-#projectShelf .gal-shot.is-tbd{background-color:#101c42;
+#projectShelf .gal-date{margin-left:auto;flex-shrink:0;opacity:.75}#projectShelf .gal-shot.is-tbd{background-color:#101c42;
   background-image:linear-gradient(#627db522 1px,transparent 1px),linear-gradient(90deg,#627db522 1px,transparent 1px),
     radial-gradient(ellipse at 50% 45%,#334c80,transparent 72%);background-size:20px 20px,20px 20px,100% 100%}
 #projectShelf .gal-shot.is-tbd .pxi{width:46px;height:46px;filter:drop-shadow(3px 4px 0 #0005)}
@@ -379,6 +382,34 @@ html,body{
      1.4 is the breathing room instead. */
   margin:4px 0 0;padding:4px 5px 0;overflow:hidden;flex-shrink:0;
   border:1px solid;border-color:#808080 #fff #fff #808080}
+/* The grid's last cell: a card-shaped admission that the shelf is the part
+   of the work that can be shown. Only in the grid -- on the strip it would be
+   a card that opens nothing -- and not a button, so it has no hover lift. */
+#projectShelf .shelf-secret{display:none;flex-direction:column;min-width:0;padding:3px;background:#c0c0c0;color:#000;
+  border:2px solid;border-color:#fff #242833 #242833 #fff;
+  box-shadow:inset -1px -1px #808080,inset 1px 1px #dfdfdf,3px 3px 0 #30374480}
+:is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-secret{display:flex}
+#projectShelf .shelf-secret .gal-shot{background:repeating-linear-gradient(45deg,#101034 0 7px,#181848 7px 14px)}
+#projectShelf .shelf-secret .gal-tbd{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;height:100%}
+/* A whole number of screen pixels per art pixel (4x, 3x on a phone), and a
+   shadow one art pixel deep, so the lock is drawn on the same grid it sits on. */
+#projectShelf .shelf-secret .pxi{width:64px;height:64px;--ink:#000;translate:var(--lock-dx,0) var(--lock-dy,0);filter:drop-shadow(4px 4px 0 #0005)}
+@media(max-width:600px){#projectShelf .shelf-secret .pxi{width:48px;height:48px;filter:drop-shadow(3px 3px 0 #0005)}}
+#projectShelf .shelf-secret{cursor:pointer}
+#projectShelf .shelf-secret:focus-visible{outline:2px dotted #000080;outline-offset:-2px}
+/* Tried the lock: the tile shakes its head. */
+@keyframes secret-no{0%,100%{transform:none}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}
+/* Left unlocked -- until someone comes near, when it snaps shut. On touch
+   there is no near, so the tap that tries it is what shuts it. */
+#projectShelf .shelf-secret .is-shut{display:none}
+#projectShelf .shelf-secret:is(.is-denied,:focus-visible) .is-shut{display:block}
+#projectShelf .shelf-secret:is(.is-denied,:focus-visible) .is-open{display:none}
+@media(hover:hover){
+  #projectShelf .shelf-secret:hover .is-shut{display:block}
+  #projectShelf .shelf-secret:hover .is-open{display:none}
+}
+#projectShelf .shelf-secret.is-denied{animation:secret-no .35s steps(4)}
+@media(prefers-reduced-motion:reduce){#projectShelf .shelf-secret.is-denied{animation:none}}
 #projectShelf :focus-visible{outline:2px dotted #000080;outline-offset:-2px}
 
 /* -- MATERIALS: the paint palette, docked above the taskbar --
@@ -861,30 +892,6 @@ html,body{
   color:#fff;background:var(--drop-bar,linear-gradient(90deg,#000080 0%,#1084d0 100%))}
 #projectShelf .drop-stamp{opacity:0;box-shadow:none;will-change:opacity}
 
-/* ── 90s-flair atoms reused across themes ── */
-@keyframes blink95{50%{opacity:0}}
-.blink{animation:blink95 1s steps(1) infinite}
-@keyframes rainbow95{
-  0%{color:#ff0040}20%{color:#ff8800}40%{color:#ffe600}
-  60%{color:#00cc44}80%{color:#0080ff}100%{color:#aa00ff}
-}
-.rainbow{animation:rainbow95 2s linear infinite;font-weight:700}
-.hit-counter{
-  display:inline-block;background:#000;color:#0f0;
-  font-family:'Courier New',monospace;font-size:14px;font-weight:700;
-  padding:2px 6px;border:1px solid #555;letter-spacing:3px;
-}
-.under-const{
-  display:inline-block;background:#ffd700;color:#000;
-  font-family:'Impact','Arial Black',sans-serif;font-size:10px;
-  padding:2px 6px;border:2px dashed #000;letter-spacing:1px;
-}
-.badge90s{
-  display:inline-block;font-size:9px;font-weight:700;
-  padding:2px 6px;border:1px solid #000;background:#fff;color:#000;
-  font-family:'Arial Black','Impact',sans-serif;letter-spacing:0.5px;
-  margin:0 3px 3px 0;
-}
 /* Height cap as well as width: maximised, a window is wide enough that a
    full-bleed hero pushes every word of the write-up below the fold — and the
    portrait clips (Snaptrap) are the worst offenders. */
@@ -1259,43 +1266,30 @@ html,body{
   border-color:#ffffff #b8b0a0 #b8b0a0 #ffffff;box-shadow:none;
 }
 
-/* ── THEME: personal (GeoCities homepage — About) ── */
-.win-app.theme-personal .win-body{
-  background:#000080;color:#ffff00;
-  font-family:'Comic Sans MS','Marker Felt',cursive;font-size:13px;
-  text-align:center;
-  background-image:
-    linear-gradient(135deg,rgba(255,255,255,0.05) 25%,transparent 25%,transparent 50%,rgba(255,255,255,0.05) 50%,rgba(255,255,255,0.05) 75%,transparent 75%);
-  background-size:18px 18px;
-}
-.win-app.theme-personal .win-title{
-  background:linear-gradient(90deg,#ff00ff 0%,#00ffff 100%) !important;
-}
-.win-app.theme-personal h2{
-  color:#ff00ff;text-shadow:2px 2px 0 #00ffff;
-  font-family:'Comic Sans MS',cursive;font-size:24px;
-}
-.win-app.theme-personal h3{color:#00ffff}
-.win-app.theme-personal p{margin:8px auto;max-width:90%}
-.win-app.theme-personal a{color:#00ffff;font-weight:700}
-.win-app.theme-personal .robot-stage{
-  position:relative;width:200px;height:200px;margin:0 auto 4px;
-}
-.win-app.theme-personal .robot-stage::before{
+/* ── About: the project pages' grammar (is-case-study), with the robot beside
+   the name in the hero where the GeoCities page had it stacked above a
+   blinking welcome. ── */
+.about-hero{display:flex;align-items:center;gap:12px}
+.about-hero>div{flex:1;min-width:0}
+/* First in the markup so a narrow window can float it and let the intro run
+   round it; ordered last while there is room for a column of its own. */
+.about-page .robot-stage{position:relative;order:1;flex:0 0 120px;height:120px;margin:-8px -6px -8px 0}
+.about-page .robot-stage::before{
   content:"";position:absolute;inset:6px;border-radius:50%;z-index:0;
-  background:radial-gradient(ellipse at 50% 42%,rgba(120,170,255,0.35),rgba(60,90,200,0.12) 55%,transparent 72%);
+  background:radial-gradient(ellipse at 50% 42%,rgba(120,170,255,0.3),rgba(60,90,200,0.08) 55%,transparent 72%);
   pointer-events:none;
 }
-.win-app.theme-personal .robot-canvas{
+.about-page .robot-canvas{
   position:relative;z-index:1;display:block;width:100%;height:100%;
-  filter:drop-shadow(0 4px 7px rgba(0,0,0,0.45));
+  filter:drop-shadow(0 3px 5px rgba(0,0,0,0.3));
 }
-.win-app.theme-personal .robot-stage::after{
-  content:"";position:absolute;left:50%;bottom:10px;width:58%;height:12px;
+.about-page .robot-stage::after{
+  content:"";position:absolute;left:50%;bottom:8px;width:54%;height:10px;
   transform:translateX(-50%);
-  background:radial-gradient(ellipse at center,rgba(0,0,0,0.45),transparent 72%);
+  background:radial-gradient(ellipse at center,rgba(0,0,0,0.3),transparent 72%);
   filter:blur(3px);pointer-events:none;z-index:0;
 }
+@container (max-width:400px){.about-hero{display:block}.about-page .robot-stage{float:right;width:84px;height:84px;margin:-6px -6px 0 6px}}
 
 /* ── THEME: desktop (Overview — My Computer feel, default Win95) ── */
 .win-app.theme-desktop .win-body{
@@ -1575,6 +1569,12 @@ html,body{
 #matPicker .mat-opt.active,#matPicker .mat-opt:active{background:#dfdfdf;
   box-shadow:inset 1px 1px 0 #000,inset 2px 2px 0 #808080,inset -1px -1px 0 #fff}
 #matPicker .mat-opt.active .mat-dot,#matPicker .mat-opt:active .mat-dot{transform:translate(1px,1px)}
+/* The rogue cursors' rings above lose to the ::after reset here, so a cursor
+   from the chest hovers and presses a swatch the way your own mouse does. */
+#matPicker .mat-opt.evil-pick{background:#cacaca}
+#matPicker .mat-opt.evil-click{background:#dfdfdf;
+  box-shadow:inset 1px 1px 0 #000,inset 2px 2px 0 #808080,inset -1px -1px 0 #fff}
+#matPicker .mat-opt.evil-click .mat-dot{transform:translate(1px,1px)}
 #matPicker .mat-opt:focus-visible{outline:1px dotted #000;outline-offset:-4px}
 #matPicker .mat-opt::before{bottom:calc(100% + 6px)}
 /* Mobile stays a desktop playground: adapt the chrome, keep the world. */
@@ -1609,7 +1609,7 @@ html,body{
   :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-body{gap:8px;padding:8px;grid-template-rows:var(--ah);
     grid-template-columns:repeat(auto-fill,minmax(var(--cw),1fr))}
   :is(#projectShelf.is-expanded,#projectShelf.is-closing) .shelf-about{width:auto;grid-column:1/-1;margin:0}
-  :is(#projectShelf.is-expanded,#projectShelf.is-closing) .gal-card{width:var(--cw);justify-self:center}
+  :is(#projectShelf.is-expanded,#projectShelf.is-closing) :is(.gal-card,.shelf-secret){width:var(--cw);justify-self:center}
   .taskbar-start,.taskbar-btn{height:44px;font-size:12px}
   .taskbar-clock{height:36px;font-size:10px;padding:2px 5px}
   #matPicker{left:0;right:0;gap:4px;padding:4px 6px}
@@ -1633,7 +1633,7 @@ html,body{
      thing in text, first in the document, and draws nothing. -->
 <header class="sr-only">
   <h1>Mitchell Kuppersmith — Senior Design Engineer at Snap</h1>
-  <p>I design and ship AI-native AR experiences for Spectacles, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling. The projects are in the shelf at the top of the screen and in the Start menu.</p>
+  <p>I design and ship AI-native AR experiences for SPECS, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling. The projects are in the shelf at the top of the screen and in the Start menu.</p>
 </header>
 <!-- Without JavaScript there is no world, no shelf and no Start menu — only the
      body's painted sky. One Win95 window on it, so the page still says who this
@@ -1643,7 +1643,7 @@ html,body{
     <div class="win95-title"><span>Mitchell Kuppersmith</span></div>
     <div class="win95-body">
       <p><b>Senior Design Engineer at Snap Inc.</b> — Santa Monica, CA</p>
-      <p>I design and ship AI-native AR experiences for <a href="https://www.spectacles.com/">Spectacles</a>, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.</p>
+      <p>I design and ship AI-native AR experiences for <a href="https://www.specs.com/">SPECS</a>, Snap's AR glasses — flagship lens experiences, system UI, and open-source developer tooling.</p>
       <p>This site is a falling-sand world and needs JavaScript to run. Meanwhile: <a href="https://www.linkedin.com/in/mitchell-kuppersmith">LinkedIn</a>.</p>
     </div>
   </div>
@@ -1671,6 +1671,22 @@ html,body{
     <path d="M1.5 4.5h13v9h-13z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
     <path d="M1.5 8.5h13" stroke="#808000"/>
     <path d="M6.5 6.5h3v4h-3z" fill="var(--face,#c0c0c0)" stroke="var(--ink,#000)"/>
+  </symbol>
+  <symbol id="ico-lock" viewBox="0 0 16 16">
+    <path d="M4.5 7.5v-4h1v-1h5v1h1v4" fill="none" stroke="var(--ink,#000)"/>
+    <path d="M5.5 7.5v-3h1v-1h3v1h1v3" fill="none" stroke="#808080"/>
+    <path d="M2.5 7.5h11v7h-11z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 13.5h10" stroke="#808000"/>
+    <path d="M7 9h2v2h-.5v2h-1v-2H7z" fill="var(--ink,#000)"/>
+  </symbol>
+  <!-- The same lock with its shackle sprung: lifted three pixels, the left leg
+       clear of the body. -->
+  <symbol id="ico-lock-open" viewBox="0 0 16 16">
+    <path d="M4.5 4.5v-3h1v-1h5v1h1v6" fill="none" stroke="var(--ink,#000)"/>
+    <path d="M5.5 4.5v-2h1v-1h3v1h1v5" fill="none" stroke="#808080"/>
+    <path d="M2.5 7.5h11v7h-11z" fill="var(--accent,#ffff00)" stroke="var(--ink,#000)"/>
+    <path d="M3.5 13.5h10" stroke="#808000"/>
+    <path d="M7 9h2v2h-.5v2h-1v-2H7z" fill="var(--ink,#000)"/>
   </symbol>
 
   <symbol id="ico-folder" viewBox="0 0 16 16">
@@ -3503,6 +3519,8 @@ const SHADE=[[0,0,0],[-22,-22,-18],[14,14,10],[-38,-36,-30]];
 const LEAF_RAMP=[[69,125,65],[42,91,57],[107,153,72],[29,65,48]];
 const PINE_RAMP=[[54,103,83],[34,73,66],[91,138,104],[25,51,51]];
 const GLAZE_RAMP=[[93,155,166],[58,111,131],[158,201,202],[44,79,105]];
+// glass that never lights itself after dusk — the role line's letters
+const GLASS_UNLIT=0x40;
 const GRASS_RAMP=[[71,126,59],[65,117,55],[79,132,63],[57,108,52]];
 /* Fruit was the one sprite material still shaded by SHADE's flat neutral
    offsets: ±22 on every channel at once. That is a brightness knob, not a
@@ -4692,7 +4710,7 @@ function buildLight(){
       else if(m===FUSE&&(variant[gi]&0x80)){r=0.8;g=0.35;b=0.05;}
       else if(m===BOMB&&(variant[gi]&0x80)){r=0.7;g=0.10;b=0.05;}
       else if(m===ACID){r=0.10;g=0.22;b=0.02;}
-      else if(m===GLASS&&frozen[gi]&&!(variant[gi]&0x10)){
+      else if(m===GLASS&&frozen[gi]&&!(variant[gi]&(0x10|GLASS_UNLIT))){
         const art=depthArt[y];
         if(art){r=art.light[0];g=art.light[1];b=art.light[2];}
         else if(night>0.25){
@@ -4978,6 +4996,9 @@ function matTexel(m,v,x,y,out,dst,s){
     case THATCH:{ const sh=SHADE[v&3]; r=210+sh[0]; g=168+sh[1]; b=86+sh[2]; a=255; break; }
     case BERRY: { const col=((v&0x10)?PLUM_RAMP:BERRY_RAMP)[v&3]; r=col[0]; g=col[1]; b=col[2]; a=255; break; }
     case GLASS: { const sh=SHADE[v&3];
+      // opaque and near white: night ambient is all it gets, and see-through
+      // glass let the dark sky into a one-cell stroke
+      if(v&GLASS_UNLIT){r=240;g=236;b=224;a=255;break;}
       if(v&0x10){const col=GLAZE_RAMP[v&3];r=col[0];g=col[1];b=col[2];a=225;break;}
       r=(art?art.glass[0]:178)+sh[0];g=(art?art.glass[1]:206)+sh[1];b=(art?art.glass[2]:222)+sh[2];a=210;break; }
     case FUSE:
@@ -6171,7 +6192,7 @@ function stampSprite(name,gx,gyBottom){
    on the same first screen as the meadow, so the sim's own rules apply to it.
    Sand for the letterface, turf on every top face, soot for the rim — and,
    because it is ground, a little of what ground carries: blades on the turf,
-   a bloom or two, roots out of the undersides, a tarn in the valley of the M.
+   a bloom or two, roots out of the undersides.
 
    Those two materials and not the prettier sprite set, because a frozen cell
    only reaches tryDecompose() if isDebris() claims it — and WOOD, BRICK and
@@ -6245,34 +6266,43 @@ function wmSubLineW(str){
   for(let i=0;i<str.length;i++){const g=WM_SUB_GLYPHS[str[i]];w+=(g?g[0].length:0)+(i?WM_SUB_TRACK:0);}
   return w;
 }
-// null if the line (and its echo) will not fit across the world at all
+// null if the line (and its outline) will not fit across the world at all
 function wmSubLayout(){
   const w=wmSubLineW(WM_SUB);
-  return w+1<=W-2?{w,h:WM_SUB_ROWS+1}:null;   // +1: the glass echo
+  return w+2<=W-2?{w,h:WM_SUB_ROWS+2}:null;   // +2: the soot ring each side
 }
-/* Soot alone vanishes at night — it is the same value as the night sky. So
-   every letter casts a one-cell echo down and to the right in GLASS: by day
-   it is a pale bevel a shade off the sky, and after dusk glass lights itself
-   (see buildLight) and the echo traces the line in the windows' amber. */
+/* Pale glass letters in a full soot keyline. A caption laid straight on the
+   sky has nothing to hold against: soot strokes vanished into the night, pale
+   ones into the day, and a one-cell echo only ever traced half of each letter.
+   A ring on every side carries its own contrast whatever is behind it — the
+   one-cell counters and the gaps between letters fill with soot, so the line
+   reads as pale strokes cut into a dark band.
+
+   The glass is flagged unlit (GLASS_UNLIT): a glowing caption bloomed through
+   its own one-cell counters after dusk and the letters ran together. Unlit, it
+   dims with the meadow and keeps its edges. */
 function stampWmSub(sub,cx,y0){
-  const bw=sub.w+1,bh=WM_SUB_ROWS+1,bm=new Uint8Array(bw*bh);
-  let x=0;
+  const bw=sub.w+2,bh=WM_SUB_ROWS+2,bm=new Uint8Array(bw*bh);
+  let x=1;
   for(const ch of WM_SUB){
     const g=WM_SUB_GLYPHS[ch];
     if(!g)continue;
     for(let ry=0;ry<WM_SUB_ROWS;ry++)for(let rx=0;rx<g[ry].length;rx++)
-      if(g[ry][rx]==='#')bm[ry*bw+x+rx]=1;
+      if(g[ry][rx]==='#')bm[(ry+1)*bw+x+rx]=1;
     x+=g[0].length+WM_SUB_TRACK;
   }
   const B=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:bm[y*bw+x];
-  const ox=cx-(sub.w>>1);
+  const ox=cx-(sub.w>>1)-1;
   for(let by=0;by<bh;by++)for(let bx=0;bx<bw;bx++){
     const wx=ox+bx, wy=y0+by;
     if(wx<0||wx>=W||wy<0||wy>=H)continue;
     const gi=idx(wx,wy);
     if(grid[gi]!==EMPTY)continue;
-    if(B(bx,by)){grid[gi]=ASH;variant[gi]=0x08|1;frozen[gi]=1;}
-    else if(B(bx-1,by-1)){grid[gi]=GLASS;variant[gi]=hash2i(wx,wy)&3;frozen[gi]=1;}
+    if(B(bx,by)){grid[gi]=GLASS;variant[gi]=GLASS_UNLIT;frozen[gi]=1;}
+    else if(B(bx-1,by-1)||B(bx,by-1)||B(bx+1,by-1)||B(bx-1,by)||B(bx+1,by)||
+            B(bx-1,by+1)||B(bx,by+1)||B(bx+1,by+1)){
+      grid[gi]=ASH;variant[gi]=0x08|1;frozen[gi]=1;
+    }
   }
 }
 /* The name hangs in the sky with nothing under it, so every probe that walks a
@@ -6349,13 +6379,8 @@ function wmLineW(str,track){
      · only on faces that look at open sky or open air (nothing of the
        letter within 3k cells): the inside of an E or a K carries nothing,
        or the counters filled with clutter and the word got harder to read.
-     · the valley of the first M is a basin — the V closes on the crown of
-       the middle stroke — and its faces are turf, so it holds a tarn: live
-       WATER from a brim's depth down. Live, not frozen, so it sloshes when
-       something lands in it and boils off if the M burns.
    The rim wraps the blades and blooms as if they were part of the letter
-   (they are its silhouette now), and stays off the water: a soot line along
-   a water surface reads as a stroke, not a shore. */
+   (they are its silhouette now). */
 const WM_CAP=k=>Math.max(2,k);
 /* ── THE DOCKED SHELF, AS THE REST OF THE PAGE SEES IT ──
    Two answers to "how tall is the top chrome", and both are needed.
@@ -6439,13 +6464,11 @@ function stampWordmark(){
   // and the footing are all neighbourhood tests, and they want the finished
   // shape of the whole lockup to read from rather than one glyph at a time
   const bm=new Uint8Array(bw*bh);
-  let mOrigin=null;                             // the first M's top-left, for the tarn
   function draw(str,track,oy){
     let cx=pad+(((blockW-wmLineW(str,track)*k)/2)|0);
     for(const ch of str){
       const g=WM_GLYPHS[ch];
       if(!g){cx+=track*k;continue;}
-      if(ch==='M'&&!mOrigin)mOrigin={x:cx,y:oy};
       for(let ry=0;ry<WM_ROWS;ry++){
         const row=g[ry];
         for(let rx=0;rx<row.length;rx++){
@@ -6465,22 +6488,12 @@ function stampWordmark(){
   const B=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:bm[y*bw+x];
   /* What grows on it (see WHAT GROWS ON IT): a second bitmap over the
      letters, so the rim can read the finished silhouette. 1 blade, 2 bloom,
-     3 tarn, 4 root. */
+     4 root. */
   const deco=new Uint8Array(bw*bh);
   const D=(x,y)=>(x<0||x>=bw||y<0||y>=bh)?0:deco[y*bw+x];
-  if(mOrigin){
-    // the V of the M: air from column 2 to 6 on its top row, a column
-    // narrower each row, closed by the crown of the middle stroke below
-    const brim=Math.max(1,Math.round(k*0.66));
-    for(let ry=0;ry<3;ry++)for(let sy=0;sy<k;sy++){
-      if(ry*k+sy<brim)continue;
-      const by=mOrigin.y+ry*k+sy;
-      for(let bx=mOrigin.x+(2+ry)*k;bx<mOrigin.x+(7-ry)*k;bx++)if(!B(bx,by))deco[by*bw+bx]=3;
-    }
-  }
   // open air: nothing of the letter within 3k cells — the counters of the E
-  // and the K stay clean, and only faces under the sky (or the tarn's shore)
-  // carry anything
+  // and the K stay clean, and only faces under the sky carry
+  // anything
   const openAbove=(x,y)=>{for(let d=1;d<=3*k;d++)if(B(x,y-d))return false;return true;};
   const openBelow=(x,y)=>{for(let d=1;d<=3*k;d++)if(B(x,y+d))return false;return true;};
   for(let y=1;y<bh;y++)for(let x=0;x<bw;x++){
@@ -6551,8 +6564,7 @@ function stampWordmark(){
     }
     const dv=D(x,y);
     if(dv){
-      if(dv===3){grid[gi]=WATER;variant[gi]=hash2i(x,y)&7;}                // the tarn, live
-      else if(dv===1){grid[gi]=PLANT;variant[gi]=hash2i(x,y)&7;frozen[gi]=1;}
+      if(dv===1){grid[gi]=PLANT;variant[gi]=hash2i(x,y)&7;frozen[gi]=1;}
       else if(dv===2){grid[gi]=BERRY;variant[gi]=(hash2i(x,y)&1)?2:0;frozen[gi]=1;}
       else{grid[gi]=DIRT;variant[gi]=0x08|(3<<4);frozen[gi]=1;}           // a root, in humus
       continue;
@@ -9883,26 +9895,33 @@ requestAnimationFrame(loop);
   ═════════════════════════════════════════════════════ */
   /* made: 'YYYY-MM', best guess from each project's own video upload or first
      commit. Only the year shows (in the card's title bar); the month is there
-     for sorting, and because some of these are approximate. */
+     for sorting, and because some of these are approximate.
+     Order is the hierarchy: the first four are the work the shelf leads with,
+     then the rest grouped Snap / awards / games. */
   const PROJECTS = [
+    { id:'agent-center', name:'Agent Center', made:'2026-06', cat:'snap', icon:'gear',
+      clip:'agent-center', badge:'OPEN SOURCE', meta:'SPECS sample',
+      tag:'Run coding agents in AR by voice, text or image. Open source',
+      blurb:'Manage coding agents in AR with text, voice, image attachments, permission controls, and live status.' },
     { id:'imagine-together', name:'Imagine Together', made:'2024-09', cat:'snap', icon:'star',
-      yt:'Od-_nZpmU9Q', badge:'PARTNER SUMMIT', meta:'Flagship · Spectacles',
+      yt:'Od-_nZpmU9Q', badge:'PARTNER SUMMIT', meta:'Flagship · SPECS',
       tag:'Make 3D together in one room. Demoed at Snap Partner Summit',
       blurb:'Co-located multiplayer 3D generation — people in the same room create and share spatial content together.' },
     { id:'translation', name:'Translation', made:'2025-06', cat:'snap', icon:'globe',
-      yt:'hR4W_Qtzij4', meta:'Flagship · Spectacles',
-      tag:'Live translation in AR, even with people not wearing Spectacles',
-      blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing Spectacles.' },
-    { id:'agent-center', name:'Agent Center', made:'2026-06', cat:'snap', icon:'gear',
-      clip:'agent-center', badge:'OPEN SOURCE', meta:'Spectacles sample',
-      tag:'Run coding agents in AR by voice, text or image. Open source',
-      blurb:'Manage coding agents in AR with text, voice, image attachments, permission controls, and live status.' },
+      yt:'hR4W_Qtzij4', meta:'Flagship · SPECS',
+      tag:'Live translation in AR, even with people not wearing SPECS',
+      blurb:'Multi-user cross-language conversation with live summarization, plus a mode for talking to people not wearing SPECS.' },
+    { id:'snaptrap', name:'Snaptrap', made:'2026-03', cat:'awards', icon:'trap',
+      clip:'snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'GDC 2026',
+      tag:"Room-sized Venus flytrap. Finalist at GDC's alt-controller show",
+      blurb:'A room-sized Venus flytrap: you play the fly, it plays the trap.' },
+
     { id:'ai-playground', name:'AI Playground', made:'2025-06', cat:'snap', icon:'gear',
-      clip:'ai-playground', badge:'OPEN SOURCE', meta:'Spectacles sample',
-      tag:'Open-source starter kit for AI on Spectacles: voice, images, 3D',
-      blurb:'The starter project for AI on Spectacles — live voice models, image generation and text-to-3D in one sample.' },
+      clip:'ai-playground', badge:'OPEN SOURCE', meta:'SPECS sample',
+      tag:'Open-source starter kit for AI on SPECS: voice, images, 3D',
+      blurb:'The starter project for AI on SPECS — live voice models, image generation and text-to-3D in one sample.' },
     { id:'ai-music-gen', name:'AI Music Gen', made:'2025-10', cat:'snap', icon:'note',
-      clip:'ai-music-gen', badge:'OPEN SOURCE', meta:'Spectacles sample',
+      clip:'ai-music-gen', badge:'OPEN SOURCE', meta:'SPECS sample',
       tag:"Mix a song in 3D with Google's Lyria music model. Open source",
       blurb:"A 3D UI for Google's Lyria model — mix genres, vibes and instruments into a track that visualises around you." },
     { id:'rsg', name:'RemoteServiceGateway', made:'2025-06', cat:'snap', icon:'gear',
@@ -9910,21 +9929,17 @@ requestAnimationFrame(loop);
       tag:'One Lens Studio API for OpenAI, Gemini, Snap3D and more',
       blurb:'The generative-AI layer for Lens Studio — OpenAI, Gemini, Lyria, Snap3D and DeepSeek behind one interface.' },
 
-    { id:'snaptrap', name:'Snaptrap', made:'2026-03', cat:'awards', icon:'trap',
-      clip:'snaptrap', badge:'ALT.CTRL.GDC FINALIST', meta:'GDC 2026',
-      tag:"Room-sized Venus flytrap. Finalist at GDC's alt-controller show",
-      blurb:'A room-sized Venus flytrap: you play the fly, it plays the trap.' },
     { id:'catiator', name:'Catiator', made:'2021-02', cat:'awards', icon:'cat',
       still:'catiator', badge:'MOONSHOT PRIZE', meta:'Stanford TreeHacks 2021',
-      tag:"Fingerspell ASL to fight cats in VR. Prize at Stanford's hackathon",
+      tag:"TreeHacks Moonshot Prize. Fingerspell ASL to fight cats in VR",
       blurb:'VR sign-language trainer: fingerspell the ASL alphabet to fend off chonky cat gladiators.' },
     { id:'intarnet', name:'IntARnet', made:'2021-03', cat:'awards', icon:'globe',
       still:'intarnet', badge:'GRAND PRIZE', meta:'CMU TartanHacks 2021',
-      tag:"Social posts pinned to real places. Grand Prize at CMU's hackathon",
+      tag:"TartanHacks Grand Prize. Social posts pinned to real places",
       blurb:'Social posts nailed to real-world coordinates — the timeline is the sidewalk.' },
     { id:'larp', name:'lARp', made:'2021-03', cat:'awards', icon:'mushroom',
       clip:'larp', badge:'BEST ART & GAMING HACK', meta:'HooHacks 2021',
-      tag:"A GPT-3 RPG where walking earns XP. Award at UVA's hackathon",
+      tag:"HooHacks Best Art & Gaming Hack. A GPT-3 RPG where walking earns XP",
       blurb:'GPT-3 mushrooms you can fight or befriend; your step count is the XP bar.' },
 
     { id:'retrovirus-vr', name:'RetroVirus VR', made:'2020-05', cat:'games', icon:'floppy',
@@ -9943,12 +9958,12 @@ requestAnimationFrame(loop);
 
   const GAL_TABS = [
     { cat:'all',    label:'All Work',
-      // NOT chronological — the list is grouped Snap / awards / games, and the
-      // awards run 2026 then three from 2021. It used to claim "newest work
-      // first", which was wrong on both counts.
-      intro:'Every project, grouped by where it came from. Select any tile for the full write-up.' },
+      // NOT chronological — the four featured projects lead, then the rest
+      // grouped Snap / awards / games. It used to claim "newest work first",
+      // which was wrong.
+      intro:'Featured work first, then everything else by where it came from. Select any tile for the full write-up.' },
     { cat:'snap',   label:'Snap',
-      intro:'Flagship lens experiences and developer tooling shipped on Spectacles.' },
+      intro:'Flagship lens experiences and developer tooling shipped on SPECS.' },
     { cat:'awards', label:'Awards',
       intro:'Three of these were built over a single weekend each, all in the spring of 2021. The fourth is a physical installation and took considerably longer.' },
     { cat:'games',  label:'Games',
@@ -10049,10 +10064,10 @@ requestAnimationFrame(loop);
       <div class="meta">Free</div>
       <p><a href="https://starvingdevs.itch.io/nira" target="_blank" rel="noopener">Play on itch.io →</a></p>
     `},
-    snap: { title:'Snap Inc — Spectacles', icon:'briefcase', theme:'corporate', html:`
+    snap: { title:'Snap Inc — SPECS', icon:'briefcase', theme:'corporate', html:`
       <h2>SNAP INC. — SPECS / SnapLabs</h2>
       <div class="sub">Santa Monica, CA · May 2022 – Present</div>
-      <p>I work on <a href="https://www.spectacles.com/" target="_blank" rel="noopener">Spectacles</a>, Snap's AR glasses — designing and building immersive, AI-native lens experiences and helping shape how people navigate the device.</p>
+      <p>I work on <a href="https://www.specs.com/" target="_blank" rel="noopener">SPECS</a>, Snap's AR glasses — designing and building immersive, AI-native lens experiences and helping shape how people navigate the device.</p>
       <h3>Career Path</h3>
       <ul>
         <li><b>Senior Design Engineer</b> — Apr 2026 – Present</li>
@@ -10061,10 +10076,10 @@ requestAnimationFrame(loop);
       </ul>
       <h3>What I Do</h3>
       <ul>
-        <li>Present designs and prototypes to the CEO roughly twice monthly, shaping product direction for Spectacles.</li>
+        <li>Present designs and prototypes to the CEO roughly twice monthly, shaping product direction for SPECS.</li>
         <li>Design and ship immersive AR lens experiences focused on AI-native interactions — generative UIs balancing model capability with real-time responsiveness on wearable hardware.</li>
         <li>Prototype system UI and core OS interfaces, helping shape how users navigate the device.</li>
-        <li>Build tailored demos for prospective partners, helping secure commitments to ship experiences on Spectacles.</li>
+        <li>Build tailored demos for prospective partners, helping secure commitments to ship experiences on SPECS.</li>
         <li>Support the developer community — leading tutorials and mentoring at hackathons (MIT Reality Hacks, HackJunction, Immerse the Bay) and speaking at Google Cloud Next.</li>
       </ul>
       <div class="tags"><span class="tag">Lens Studio</span><span class="tag">TypeScript</span><span class="tag">AR / XR</span><span class="tag">Generative AI</span></div>
@@ -10076,7 +10091,7 @@ requestAnimationFrame(loop);
       <div class="meta">Demoed live on stage at Snap Partner Summit</div>
       <h3>What's Inside</h3>
       <ul>
-        <li>Co-located multiplayer (shared spatial coordinates between Spectacles)</li>
+        <li>Co-located multiplayer (shared spatial coordinates between pairs of SPECS)</li>
         <li>3D asset generation from text + voice</li>
         <li>Two-handed direct manipulation: grab, scale, throw</li>
         <li>Persistence between sessions</li>
@@ -10085,25 +10100,25 @@ requestAnimationFrame(loop);
     translation: { title:'★ Translation ★', icon:'globe', theme:'spatial', html:`
       <h2>Translation</h2>
       <div class="shot-vid"><iframe src="https://www.youtube.com/embed/hR4W_Qtzij4?rel=0" title="Translation demo" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>
-      <p>Multi-user cross-language conversation with live summarization, plus a single-user mode for seamless interaction with people who aren't wearing Spectacles.</p>
+      <p>Multi-user cross-language conversation with live summarization, plus a single-user mode for seamless interaction with people who aren't wearing SPECS.</p>
       <h3>Modes</h3>
       <ul>
         <li><b>Multi-user.</b> Each wearer hears the conversation in their own language; live summary keeps thread visible.</li>
         <li><b>Single-user.</b> Subtitles for what the non-wearer is saying, narrated audio for what the wearer needs to say back.</li>
       </ul>
     `},
-    'agent-center': { title:'Agent Center — Spectacles', icon:'gear', theme:'agent', html:`
+    'agent-center': { title:'Agent Center — SPECS', icon:'gear', theme:'agent', html:`
       <article class="ac-page" aria-label="Agent Center project">
         <header class="ac-hero">
           <div>
-            <p class="ac-eyebrow">SPECTACLES / OPEN-SOURCE EXPERIMENT</p>
+            <p class="ac-eyebrow">SPECS / OPEN-SOURCE EXPERIMENT</p>
             <h2>Agent Center</h2>
-            <p class="ac-intro">An augmented-reality workspace for managing AI coding agents from Spectacles.</p>
+            <p class="ac-intro">An augmented-reality workspace for managing AI coding agents from SPECS.</p>
             <div class="ac-actions"><a href="https://github.com/specs-devs/samples/tree/main/Agent%20Manager" target="_blank" rel="noopener">View source on GitHub <span aria-hidden="true">↗</span></a></div>
           </div>
         </header>
         <figure class="ac-figure">
-          <video src="images/projects/agent-center.mp4" poster="images/projects/agent-center-poster.webp" controls muted loop playsinline preload="metadata" aria-label="Agent Center running on Spectacles"></video>
+          <video src="images/projects/agent-center.mp4" poster="images/projects/agent-center-poster.webp" controls muted loop playsinline preload="metadata" aria-label="Agent Center running on SPECS"></video>
         </figure>
         <section class="ac-section">
           <div><h3>Manage agents without leaving the glasses.</h3><p>Each agent maps to a coding session and appears as an avatar you can place in the room. Live states show whether it is listening, working, waiting for permission, offline, or finished, while conversations retain their topic and message history.</p>
@@ -10126,7 +10141,7 @@ requestAnimationFrame(loop);
     'ai-playground': { title:'ai-playground // OSS', icon:'gear', theme:'terminal', html:`
       <h2>ai-playground</h2>
       <video class="shot-clip" src="images/projects/ai-playground.mp4" poster="images/projects/ai-playground-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Playground demo"></video>
-      <p>Among the most-used Spectacles starter projects — introduces LLM and image-generation workflows for developers building on the platform.</p>
+      <p>Among the most-used SPECS starter projects — introduces LLM and image-generation workflows for developers building on the platform.</p>
       <h3>what's inside</h3>
       <ul>
         <li>live voice conversation — gemini live and openai realtime, streaming audio and video to the model</li>
@@ -10139,7 +10154,7 @@ requestAnimationFrame(loop);
     'ai-music-gen': { title:'ai-music-gen // OSS', icon:'note', theme:'terminal', html:`
       <h2>ai-music-gen</h2>
       <video class="shot-clip" src="images/projects/ai-music-gen.mp4" poster="images/projects/ai-music-gen-poster.webp" autoplay muted loop playsinline preload="metadata" disablepictureinpicture aria-label="AI Music Gen demo"></video>
-      <p>A 3D UI for Google's Lyria music generation model, running on Spectacles. Combine genres, vibes and instruments into a custom track and watch it drive a 3D visualisation around you.</p>
+      <p>A 3D UI for Google's Lyria music generation model, running on SPECS. Combine genres, vibes and instruments into a custom track and watch it drive a 3D visualisation around you.</p>
       <p>Generation streams, so the track changes as you change the inputs.</p>
       <p><a href="https://github.com/specs-devs/samples/tree/main/AI%20Music%20Gen" target="_blank" rel="noopener">github.com/specs-devs/samples · AI Music Gen →</a></p>
     `},
@@ -10275,18 +10290,41 @@ requestAnimationFrame(loop);
       </ul>
       <div class="tags"><span class="tag">HCI</span><span class="tag">Unity3D</span><span class="tag">Unreal Engine 5</span><span class="tag">XR</span></div>
     `},
-    about: { title:'~ About Me ~', icon:'user', theme:'personal', html:`
-      <div class="robot-stage" aria-hidden="true" title="Hi!">
-        <canvas id="robot-canvas" class="robot-canvas"></canvas>
-      </div>
-      <h2>Hi! I'm Mitchell ~</h2>
-      <p class="blink">★ Welcome to my homepage! ★</p>
-      <p>I'm a <b>Senior Design Engineer at Snap</b> working on Spectacles AR glasses.</p>
-      <p>I sit at the intersection of design and engineering — prototyping new interaction models, building AI-native AR experiences, and shipping developer tooling that helps others create on the platform.</p>
-      <p>Before Snap I studied Computer Science and Cognitive Science at the <b>University of Michigan</b>, where I led an AR/VR club and TA'd a new XR course.</p>
-      <p style="margin-top:14px">★ ☆ ★ ☆ ★ ☆ ★ ☆ ★ ☆ ★</p>
-      <p class="rainbow">THANKS FOR VISITING ~ COME BACK SOON!</p>
-      <p style="margin-top:8px"><span class="under-const">⚠ UNDER CONSTRUCTION ⚠</span></p>
+    /* Facts only from elsewhere on the site -- the Snap and Michigan pages and
+       the project write-ups -- so About never says something they do not. */
+    about: { title:'About Me', icon:'user', theme:'about', caseStudy:true, html:`
+      <article class="case-page about-page" aria-label="About Mitchell">
+        <header class="case-hero about-hero">
+          <div class="robot-stage" aria-hidden="true" title="Hi!">
+            <canvas id="robot-canvas" class="robot-canvas"></canvas>
+          </div>
+          <div>
+            <p class="case-eyebrow">About · Santa Monica, CA</p>
+            <h2>Hi, I'm Mitchell.</h2>
+            <p class="case-intro">I'm a Senior Design Engineer at Snap, working on <a href="https://www.specs.com/" target="_blank" rel="noopener">SPECS</a>, Snap's AR glasses. I sit between design and engineering: prototyping new ways to interact, building AI-native AR experiences, and shipping the tools other developers build on.</p>
+          </div>
+        </header>
+        <section class="case-section">
+          <h3>How I work</h3>
+          <p>Most of what I make starts as a prototype on the glasses themselves. Roughly twice a month I bring designs and prototypes to Snap's CEO, and those sessions help set where SPECS goes next.</p>
+          <p>The work ships three ways: as flagship lens experiences like <a data-launch="imagine-together" role="button" tabindex="0">Imagine Together</a> and <a data-launch="translation" role="button" tabindex="0">Translation</a>, as system UI, and as open-source samples like <a data-launch="agent-center" role="button" tabindex="0">Agent Center</a> and <a data-launch="ai-playground" role="button" tabindex="0">AI Playground</a>.</p>
+        </section>
+        <section class="case-section">
+          <h3>Before Snap</h3>
+          <p>I studied Computer Science and Cognitive Science at the University of Michigan. I co-led the Alternate Reality Initiative, an 81-member AR/VR club that ran a 312-person national conference, and helped launch a new XR course as a TA.</p>
+          <p>When everything went remote in 2021, some friends and I spent our weekends building for online hackathons. Three of those projects won:</p>
+          <ul>
+            <li><b>Scott Krulcik Grand Prize</b>, CMU TartanHacks, for <a data-launch="intarnet" role="button" tabindex="0">IntARnet</a></li>
+            <li><b>Moonshot Prize</b>, Stanford TreeHacks, for <a data-launch="catiator" role="button" tabindex="0">Catiator</a></li>
+            <li><b>Best Art and Gaming Hack</b>, HooHacks, for <a data-launch="larp" role="button" tabindex="0">lARp</a></li>
+          </ul>
+        </section>
+        <section class="case-section">
+          <h3>Elsewhere</h3>
+          <p>I mentor and run tutorials at hackathons, including MIT Reality Hacks, HackJunction and Immerse the Bay, and I've spoken at Google Cloud Next.</p>
+          <p class="case-actions"><a href="https://www.linkedin.com/in/mitchell-kuppersmith" target="_blank" rel="noopener">LinkedIn ↗</a><a data-launch="snap" role="button" tabindex="0">Current role</a><a data-launch="education" role="button" tabindex="0">School</a></p>
+        </section>
+      </article>
     `},
   };
 
@@ -10762,6 +10800,38 @@ requestAnimationFrame(loop);
       track.appendChild(copy);
       return copy;
     });
+    /* Last in the grid, after the copies (which the grid hides). It takes its
+       turn in the snake like a card, but pressing it only rattles the lock. */
+    track.insertAdjacentHTML('beforeend',`
+      <div class="shelf-secret" role="button" tabindex="0" aria-label="Classified: plus lots I can't talk about">
+        <span class="gal-shot"><span class="gal-tbd">${ico('lock-open','is-open')}${ico('lock','is-shut')}</span></span>
+        <span class="gal-name"><span class="gal-title">Classified</span><span class="gal-date">????</span></span>
+        <span class="gal-tag">Plus lots I can't talk about.</span>
+      </div>`);
+    const secret=track.querySelector('.shelf-secret');
+    const tiles=[...cards,secret];
+    {
+      let reset;
+      const deny=()=>{
+        secret.classList.remove('is-denied');void secret.offsetWidth;secret.classList.add('is-denied');
+        clearTimeout(reset);
+        reset=setTimeout(()=>secret.classList.remove('is-denied'),1600);
+      };
+      secret.addEventListener('click',deny);
+      /* The grid's columns are fractional, so the centred lock usually is
+         too, and a 4x pixel drawing off the device grid renders some of its
+         pixels a pixel wider than others. Nudge it onto the grid. Measured
+         with nothing animating -- a WAAPI transform would skew the reading. */
+      var snapLock=()=>{
+        const box=secret.querySelector('.gal-tbd').getBoundingClientRect();
+        if(!box.width)return;
+        const icon=getComputedStyle(secret.querySelector('.pxi'));
+        const d=devicePixelRatio||1, snap=v=>Math.round(v*d)/d-v;
+        secret.style.setProperty('--lock-dx',snap(box.left+(box.width-parseFloat(icon.width))/2)+'px');
+        secret.style.setProperty('--lock-dy',snap(box.top+(box.height-parseFloat(icon.height))/2)+'px');
+      };
+      secret.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();deny();}});
+    }
     initGallery(shelf);
     /* One card size for the strip and the grid alike, so opening the grid
        never stretches a card: on a desktop the width is whatever makes a
@@ -10789,7 +10859,7 @@ requestAnimationFrame(loop);
       shelf.style.setProperty('--shelf-aw',span*cw+(span-1)*gap+'px');
     }
     sizeShelf();
-    window.addEventListener('resize',sizeShelf);
+    window.addEventListener('resize',()=>{sizeShelf();snapLock();});
     /* The tab under the shelf pulls it down into a grid of every card, and
        back up. Instant on the way up when a card is being opened: the new
        window is placed against the shelf's bottom edge, and mid-transition
@@ -10818,13 +10888,14 @@ requestAnimationFrame(loop);
       flights.forEach(a=>a.cancel());flights=[];
       shelf.classList.remove('is-closing','is-opening');
       shelf.style.transition='';shelf.style.transitionDuration='';shelf.style.transitionTimingFunction='';
+      snapLock();
     }
     function later(ms,fn){timers.push(setTimeout(fn,ms));}
     // Card indices in serpentine order over the grid as it is laid out now.
     function path(){
-      const cells=cards.map(c=>c.getBoundingClientRect());
+      const cells=tiles.map(c=>c.getBoundingClientRect());
       const rows=[];
-      cards.forEach((c,i)=>{
+      tiles.forEach((c,i)=>{
         const r=rows.find(r=>Math.abs(r.top-cells[i].top)<4);
         r?r.ids.push(i):rows.push({top:cells[i].top,ids:[i]});
       });
@@ -10891,7 +10962,7 @@ requestAnimationFrame(loop);
       if(vpW()<=600)return snakeOutFrom(onScreen(copy0)>onScreen(orig0)?copy0:orig0);
       const {cells,seq}=path();
       const {last,row,H}=rowsNow(cells);
-      const n=cards.length, W=innerWidth, gap=12;
+      const n=tiles.length, W=innerWidth, gap=12;
       const x0=cells[0].left, pitch=cells[0].width+gap;
       // Slide whichever way is shorter: back to the originals, or on to the
       // loop copies, which are the same cards one cycle along.
@@ -10900,7 +10971,7 @@ requestAnimationFrame(loop);
       const first=seq.filter(i=>row(i)===0).length;
       let total=A;
       seq.forEach((i,k)=>{
-        const card=cards[i], to=cells[i];
+        const card=tiles[i], to=cells[i];
         const stripX=x0+i*pitch;                         // this card at the strip's start
         const from=t(stripX-shift-to.left,cells[0].top-to.top);
         if(k<first){                                     // a first-row card: the strip carries it home
@@ -10947,7 +11018,7 @@ requestAnimationFrame(loop);
         // The first card comes from the strip; if it was off screen there, it
         // slides in from the right edge, which hides it on the way.
         if(!k&&src.left>=innerWidth)src={left:innerWidth+16,top:cells[i].top};
-        total=Math.max(total,emerge(cards[i],src,cells[i],k*SNAKE.step,SNAKE.move,cards.length-k,k>0));
+        total=Math.max(total,emerge(tiles[i],src,cells[i],k*SNAKE.step,SNAKE.move,tiles.length-k,k>0));
       });
       shelf.classList.add('is-opening');
       later(Math.max(total,420)+60,land);
@@ -10960,7 +11031,7 @@ requestAnimationFrame(loop);
        into place, and any extra on-screen ones slide in from the right.) */
     function rollUp(){
       shelfBody.scrollTop=0;
-      const cells=cards.map(c=>c.getBoundingClientRect());
+      const cells=tiles.map(c=>c.getBoundingClientRect());
       const {last,row,H}=rowsNow(cells);
       const desk=vpW()>600;
       shelf.classList.add('is-closing');
@@ -11010,9 +11081,10 @@ requestAnimationFrame(loop);
           // The grid is laid out the instant the class lands, whatever the
           // shelf's height is doing, so its true height can be read now.
           const top=shelfBody.getBoundingClientRect().top;
-          const low=Math.max(aboutEl.getBoundingClientRect().bottom,...cards.map(c=>c.getBoundingClientRect().bottom));
+          const low=Math.max(aboutEl.getBoundingClientRect().bottom,...tiles.map(c=>c.getBoundingClientRect().bottom));
           shelf.style.setProperty('--exp-h',Math.ceil(low-top+parseFloat(getComputedStyle(shelfBody).paddingBottom)+2)+'px');
           if(animate)snakeOut(r1,r2);
+          else snapLock();
         }else if(was){
           if(animate)rollUp();
           else{
@@ -11573,6 +11645,8 @@ requestAnimationFrame(loop);
       <div class="win-body">${panel.html}</div>
     `;
     formatProjectPanel(win,id);
+    // pages written in the case-study markup directly rather than promoted into it
+    if(panel.caseStudy) win.classList.add('is-case-study');
     winLayer.appendChild(win);
     /* Measured after append so every read below sees the real, CSS-capped size.
        The height cap is the one the window would get at the top of the reading
@@ -12293,6 +12367,7 @@ function updateEvilCursors(){
 
       case 'pick':                       // hover the row, click it, take the material
         if(c.t===14&&c.row)c.row.classList.add('evil-click');
+        if(c.t===20&&c.row)c.row.classList.remove('evil-click');  // button pops back up with the jab
         c.press=(c.t>=14&&c.t<20)?2:0;   // the little downward jab of a click
         if(c.t>=24){
           evilTakeMaterial(c,c.row||c.pending);
